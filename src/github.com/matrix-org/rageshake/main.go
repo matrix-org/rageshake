@@ -51,12 +51,6 @@ func respond(code int, w http.ResponseWriter) {
 }
 
 func gzipAndSave(data []byte, dirname, fpath string) error {
-	_ = os.MkdirAll(filepath.Join("bugs", dirname), os.ModePerm)
-	fpath = filepath.Join("bugs", dirname, fpath)
-
-	if _, err := os.Stat(fpath); err == nil {
-		return fmt.Errorf("file already exists") // the user can just retry
-	}
 	var b bytes.Buffer
 	gz := gzip.NewWriter(&b)
 	if _, err := gz.Write(data); err != nil {
@@ -68,11 +62,30 @@ func gzipAndSave(data []byte, dirname, fpath string) error {
 	if err := gz.Close(); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(fpath, b.Bytes(), 0644); err != nil {
+
+	if err := checkFileAndSave(b.Bytes(), dirname, fpath); err != nil {
 		return err
 	}
+
 	return nil
 }
+
+// checkFileAndSave checks that the file doesn't exist, and saves the data to it if so
+func checkFileAndSave(data []byte, dirname, fpath string) error {
+	_ = os.MkdirAll(filepath.Join("bugs", dirname), os.ModePerm)
+	fpath = filepath.Join("bugs", dirname, fpath)
+
+	if _, err := os.Stat(fpath); err == nil {
+		return fmt.Errorf("file already exists") // the user can just retry
+	}
+
+	if err := ioutil.WriteFile(fpath, data, 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +136,7 @@ func main() {
 		summary := fmt.Sprintf(
 			"%s\n\nNumber of logs: %d\nVersion: %s\nUser-Agent: %s\n", p.Text, len(p.Logs), p.Version, p.UserAgent,
 		)
-		if err := gzipAndSave([]byte(summary), prefix, "details.log.gz"); err != nil {
+		if err := checkFileAndSave([]byte(summary), prefix, "details.txt"); err != nil {
 			respond(500, w)
 			return
 		}
