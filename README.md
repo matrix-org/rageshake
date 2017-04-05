@@ -5,14 +5,13 @@ Web service which collects and serves bug reports.
 To run it, do:
 
 ```
-BUGS_USER=<user> BUGS_PASS=<password> go run src/github.com/matrix-org/rageshake/main.go PORT
+go get github.com/constabulary/gb/...
+gb build
+BUGS_USER=<user> BUGS_PASS=<password> ./bin/rageshake PORT
+# example:
+# BUGS_USER=alice BUGS_PASS=secret ./bin/rageshake 8080
 ```
 
-Example:
-
-```
-BUGS_USER=alice BUGS_PASS=secret go run src/github.com/matrix-org/rageshake/main.go 8080
-```
 
 ## HTTP endpoints
 
