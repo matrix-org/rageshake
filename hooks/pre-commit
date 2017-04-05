@@ -4,7 +4,7 @@ set -eu
 
 # make the GIT_DIR and GIT_INDEX_FILE absolute, before we change dir
 export GIT_DIR=$(readlink -f `git rev-parse --git-dir`)
-if [ -n ${GIT_INDEX_FILE+x} ]; then
+if [ -n "${GIT_INDEX_FILE:+x}" ]; then
     export GIT_INDEX_FILE=$(readlink -f "$GIT_INDEX_FILE")
 fi
 
