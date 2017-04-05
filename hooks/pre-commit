@@ -1,9 +1,41 @@
-#! /bin/bash
+#!/bin/bash
 
 set -eu
 
+# make the GIT_DIR and GIT_INDEX_FILE absolute, before we change dir
+export GIT_DIR=$(realpath `git rev-parse --git-dir`)
+export GIT_INDEX_FILE=$(realpath `git rev-parse --git-path index`)
+
+wd=`pwd`
+
+# create a temp dir
+tmpdir=`mktemp -d`
+trap 'rm -rf "$tmpdir"' EXIT
+cd "$tmpdir"
+
+# get a copy of the index
+git checkout-index -a
+
+# run our checks
 golint src/...
 go fmt ./src/...
 go tool vet --shadow ./src
 gocyclo -over 12 src/
 gb test
+
+# if there are no changes from the index, we are done
+git diff --quiet && exit 0
+
+# we now need to apply any changes made to both the index and the working copy.
+# so, first get a patch
+git diff > "$GIT_DIR/pre-commit.patch"
+
+# add the changes to the index
+git add -u
+
+# attempt to apply the changes to the wc (but don't fail the commit for it if
+# there are conflicts).
+cd "$wd"
+git apply "$GIT_DIR/pre-commit.patch" 2>/dev/null &&
+    rm "$GIT_DIR/pre-commit.patch" ||
+    echo "warning: unable to apply changes from commit hook to working copy; patch is in $GIT_DIR/pre-commit.patch" >&2
