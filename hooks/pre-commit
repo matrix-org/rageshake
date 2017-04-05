@@ -8,13 +8,15 @@ export GIT_INDEX_FILE=$(readlink -f `git rev-parse --git-path index`)
 
 wd=`pwd`
 
-# create a temp dir. The `trap` incantaion will ensure that it is removed again
-# when this script completes.
+# create a temp dir. The `trap` incantation will ensure that it is removed
+# again when this script completes.
 tmpdir=`mktemp -d`
 trap 'rm -rf "$tmpdir"' EXIT
 cd "$tmpdir"
 
-# get a copy of the index
+# get a clean copy of the index (ie, what has been `git add`ed), so that we can
+# run the checks against what we are about to commit, rather than what is in
+# the working copy.
 git checkout-index -a
 
 # run our checks
