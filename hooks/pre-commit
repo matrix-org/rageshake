@@ -3,8 +3,8 @@
 set -eu
 
 # make the GIT_DIR and GIT_INDEX_FILE absolute, before we change dir
-export GIT_DIR=$(realpath `git rev-parse --git-dir`)
-export GIT_INDEX_FILE=$(realpath `git rev-parse --git-path index`)
+export GIT_DIR=$(readlink -f `git rev-parse --git-dir`)
+export GIT_INDEX_FILE=$(readlink -f `git rev-parse --git-path index`)
 
 wd=`pwd`
 
