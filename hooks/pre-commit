@@ -8,7 +8,8 @@ export GIT_INDEX_FILE=$(readlink -f `git rev-parse --git-path index`)
 
 wd=`pwd`
 
-# create a temp dir
+# create a temp dir. The `trap` incantaion will ensure that it is removed again
+# when this script completes.
 tmpdir=`mktemp -d`
 trap 'rm -rf "$tmpdir"' EXIT
 cd "$tmpdir"
