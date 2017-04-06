@@ -140,8 +140,8 @@ func main() {
 	_ = os.Mkdir("bugs", os.ModePerm)
 
 	// serve files under "bugs"
-	fs := http.FileServer(http.Dir("bugs"))
-	fs = http.StripPrefix("/api/listing/", fs)
+	ls := &logServer{"bugs"}
+	fs := http.StripPrefix("/api/listing/", ls)
 
 	// set auth if env vars exist
 	usr := os.Getenv("BUGS_USER")
@@ -154,5 +154,7 @@ func main() {
 	http.Handle("/api/listing/", fs)
 
 	port := os.Args[1]
+	log.Println("Listening on port", port)
+
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
