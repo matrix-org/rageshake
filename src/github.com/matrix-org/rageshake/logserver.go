@@ -46,7 +46,11 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// eliminate ., .., //, etc
 	upath = path.Clean(upath)
 
-	// reject some dodgy paths
+	// reject some dodgy paths. This is based on the code for http.Dir.Open (see https://golang.org/src/net/http/fs.go#L37).
+	//
+	// the check for '..' is a sanity-check because my understanding of `path.Clean` is that it should never return
+	// a value including '..' for input starting with '/'. It's taken from the code for http.ServeFile
+	// (https://golang.org/src/net/http/fs.go#L637).
 	if containsDotDot(upath) || strings.Contains(upath, "\x00") || (filepath.Separator != '/' && strings.IndexRune(upath, filepath.Separator) >= 0) {
 		http.Error(w, "invalid URL path", http.StatusBadRequest)
 		return
