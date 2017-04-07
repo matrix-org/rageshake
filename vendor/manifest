@@ -1,0 +1,142 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "cloud.google.com/go/compute/metadata",
+			"repository": "https://code.googlesource.com/gocloud",
+			"revision": "675fad27ef35e552d3708858ff337d54b3b6f4d3",
+			"branch": "master",
+			"path": "/compute/metadata"
+		},
+		{
+			"importpath": "cloud.google.com/go/internal",
+			"repository": "https://code.googlesource.com/gocloud",
+			"revision": "675fad27ef35e552d3708858ff337d54b3b6f4d3",
+			"branch": "master",
+			"path": "/internal"
+		},
+		{
+			"importpath": "github.com/golang/protobuf/proto",
+			"repository": "https://github.com/golang/protobuf",
+			"revision": "2bba0603135d7d7f5cb73b2125beeda19c09f4ef",
+			"branch": "master",
+			"path": "/proto"
+		},
+		{
+			"importpath": "github.com/golang/protobuf/ptypes/any",
+			"repository": "https://github.com/golang/protobuf",
+			"revision": "2bba0603135d7d7f5cb73b2125beeda19c09f4ef",
+			"branch": "master",
+			"path": "/ptypes/any"
+		},
+		{
+			"importpath": "github.com/google/go-genproto/googleapis/rpc/status",
+			"repository": "https://github.com/google/go-genproto",
+			"revision": "411e09b969b1170a9f0c467558eb4c4c110d9c77",
+			"branch": "master",
+			"path": "/googleapis/rpc/status"
+		},
+		{
+			"importpath": "github.com/google/go-github/github",
+			"repository": "https://github.com/google/go-github",
+			"revision": "12363ffc10018c93407ebf303040586d55957271",
+			"branch": "master",
+			"path": "/github"
+		},
+		{
+			"importpath": "github.com/google/go-querystring/query",
+			"repository": "https://github.com/google/go-querystring",
+			"revision": "53e6ce116135b80d037921a7fdd5138cf32d7a8a",
+			"branch": "master",
+			"path": "/query"
+		},
+		{
+			"importpath": "github.com/googleapis/gax-go",
+			"repository": "https://github.com/googleapis/gax-go",
+			"revision": "9af46dd5a1713e8b5cd71106287eba3cefdde50b",
+			"branch": "master"
+		},
+		{
+			"importpath": "golang.org/x/net/context",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d",
+			"branch": "master",
+			"path": "/context"
+		},
+		{
+			"importpath": "golang.org/x/net/http2",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d",
+			"branch": "master",
+			"path": "/http2"
+		},
+		{
+			"importpath": "golang.org/x/net/idna",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d",
+			"branch": "master",
+			"path": "/idna"
+		},
+		{
+			"importpath": "golang.org/x/net/internal/timeseries",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d",
+			"branch": "master",
+			"path": "/internal/timeseries"
+		},
+		{
+			"importpath": "golang.org/x/net/lex/httplex",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d",
+			"branch": "master",
+			"path": "/lex/httplex"
+		},
+		{
+			"importpath": "golang.org/x/net/trace",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d",
+			"branch": "master",
+			"path": "/trace"
+		},
+		{
+			"importpath": "golang.org/x/oauth2",
+			"repository": "https://go.googlesource.com/oauth2",
+			"revision": "7fdf09982454086d5570c7db3e11f360194830ca",
+			"branch": "master"
+		},
+		{
+			"importpath": "golang.org/x/text/secure/bidirule",
+			"repository": "https://go.googlesource.com/text",
+			"revision": "f4b4367115ec2de254587813edaa901bc1c723a8",
+			"branch": "master",
+			"path": "/secure/bidirule"
+		},
+		{
+			"importpath": "golang.org/x/text/transform",
+			"repository": "https://go.googlesource.com/text",
+			"revision": "f4b4367115ec2de254587813edaa901bc1c723a8",
+			"branch": "master",
+			"path": "/transform"
+		},
+		{
+			"importpath": "golang.org/x/text/unicode/bidi",
+			"repository": "https://go.googlesource.com/text",
+			"revision": "f4b4367115ec2de254587813edaa901bc1c723a8",
+			"branch": "master",
+			"path": "/unicode/bidi"
+		},
+		{
+			"importpath": "golang.org/x/text/unicode/norm",
+			"repository": "https://go.googlesource.com/text",
+			"revision": "f4b4367115ec2de254587813edaa901bc1c723a8",
+			"branch": "master",
+			"path": "/unicode/norm"
+		},
+		{
+			"importpath": "google.golang.org/grpc",
+			"repository": "https://github.com/grpc/grpc-go",
+			"revision": "b5071124392bfd416c713e6595ac149b387f7186",
+			"branch": "master"
+		}
+	]
+}
