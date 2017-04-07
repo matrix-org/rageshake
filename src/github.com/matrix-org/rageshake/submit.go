@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -38,6 +39,8 @@ type submitServer struct {
 	// github client for reporting bugs. may be nil, in which case,
 	// reporting is disabled.
 	ghClient *github.Client
+
+	APIPrefix string
 }
 
 type payload struct {
@@ -95,12 +98,17 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 	//  "bugreport-20170115-112233-N.log.gz" => oldest log
 	t := time.Now().UTC()
 	prefix := t.Format("2006-01-02/150405")
+	listingURL := s.APIPrefix + "/listing/" + prefix
+
+	log.Println("Handling report submission; listing URI will be %s", listingURL)
+
+	userText := strings.TrimSpace(p.Text)
 
 	var summaryBuf bytes.Buffer
 	fmt.Fprintf(
 		&summaryBuf,
 		"%s\n\nNumber of logs: %d\nApplication: %s\nVersion: %s\nUser-Agent: %s\n",
-		p.Text, len(p.Logs), p.AppName, p.Version, p.UserAgent,
+		userText, len(p.Logs), p.AppName, p.Version, p.UserAgent,
 	)
 	for k, v := range p.Data {
 		fmt.Fprintf(&summaryBuf, "%s: %s\n", k, v)
@@ -121,11 +129,32 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 	}
 
 	// submit a github issue
+
+	var title string
+	if userText == "" {
+		title = "Untitled report"
+	} else {
+		// set the title to the first line of the user's report
+		if i := strings.IndexAny(userText, "\r\n"); i < 0 {
+			title = userText
+		} else {
+			title = userText[0:i]
+		}
+	}
+
 	owner := "richvdh"
 	repo := "test"
-	title := "Automated bug report"
+	body := fmt.Sprintf(
+		"User message:\n```\n%s\n```\nVersion: %s\n[Details](%s) / [Logs](%s)",
+		userText,
+		p.Version,
+		listingURL+"/details.log.gz",
+		listingURL,
+	)
+
 	issueReq := github.IssueRequest{
 		Title: &title,
+		Body:  &body,
 	}
 
 	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
