@@ -19,9 +19,12 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/go-github/github"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,6 +35,9 @@ import (
 var maxPayloadSize = 1024 * 1024 * 55 // 55 MB
 
 type submitServer struct {
+	// github client for reporting bugs. may be nil, in which case,
+	// reporting is disabled.
+	ghClient *github.Client
 }
 
 type payload struct {
@@ -51,6 +57,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		respond(405, w)
 		return
 	}
+
 	// Set CORS
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -69,15 +76,16 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := saveReport(p); err != nil {
-		respond(500, w)
+	if err := s.saveReport(req.Context(), p); err != nil {
+		log.Println("Error handling report", err)
+		http.Error(w, "Internal error", 500)
 		return
 	}
 
 	respond(200, w)
 }
 
-func saveReport(p payload) error {
+func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 	// Dump bug report to disk as form:
 	//  "bugreport-20170115-112233.log.gz" => user text, version, user agent, # logs
 	//  "bugreport-20170115-112233-0.log.gz" => most recent log
@@ -96,6 +104,27 @@ func saveReport(p payload) error {
 			return err // TODO: Rollback?
 		}
 	}
+
+	if s.ghClient == nil {
+		// we're done here
+		return nil
+	}
+
+	// submit a github issue
+	owner := "richvdh"
+	repo := "test"
+	title := "Automated bug report"
+	issueReq := github.IssueRequest{
+		Title: &title,
+	}
+
+	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
+	if err != nil {
+		return err
+	}
+
+	log.Println("Created issue:", *issue.HTMLURL)
+
 	return nil
 }
 

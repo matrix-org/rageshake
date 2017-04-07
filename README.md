@@ -2,16 +2,26 @@
 
 Web service which collects and serves bug reports.
 
+rageshake requires Go version 1.7 or later.
+
 To run it, do:
 
 ```
 go get github.com/constabulary/gb/...
 gb build
-BUGS_USER=<user> BUGS_PASS=<password> ./bin/rageshake PORT
-# example:
-# BUGS_USER=alice BUGS_PASS=secret ./bin/rageshake 8080
+GITHUB_TOKEN=<token> BUGS_USER=<user> BUGS_PASS=<password> ./bin/rageshake <port>
 ```
 
+where:
+
+ * `token` is a GitHub personal access token
+   (https://github.com/settings/tokens), which will be used to create a GitHub
+   issue for each report. It requires `public_repo` scope. If omitted, no
+   issues will be created.
+ * `user` and `password` are a username/password pair which will be required to
+   access the bug report listings at `/api/listing`, via HTTP basic auth.
+   If omitted, there will be *no* authentication on this access!
+ * `port` is the TCP port to listen on.
 
 ## HTTP endpoints
 
