@@ -17,8 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/subtle"
 	"fmt"
+	"github.com/google/go-github/github"
+	"golang.org/x/oauth2"
 	"log"
 	"net/http"
 	"os"
@@ -41,7 +44,22 @@ func basicAuth(handler http.Handler, username, password, realm string) http.Hand
 }
 
 func main() {
-	http.Handle("/api/submit", &submitServer{})
+	ghToken := os.Getenv("GITHUB_TOKEN")
+
+	var ghClient *github.Client
+
+	if ghToken == "" {
+		fmt.Println("No GITHUB_TOKEN env var set. Reporting bugs to github is disabled.")
+	} else {
+		ctx := context.Background()
+		ts := oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: ghToken},
+		)
+		tc := oauth2.NewClient(ctx, ts)
+		ghClient = github.NewClient(tc)
+	}
+
+	http.Handle("/api/submit", &submitServer{ghClient})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)
