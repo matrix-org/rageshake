@@ -41,10 +41,12 @@ type submitServer struct {
 }
 
 type payload struct {
-	Text      string     `json:"text"`
-	Version   string     `json:"version"`
-	UserAgent string     `json:"user_agent"`
-	Logs      []logEntry `json:"logs"`
+	Text      string            `json:"text"`
+	AppName   string            `json:"app"`
+	Version   string            `json:"version"`
+	UserAgent string            `json:"user_agent"`
+	Logs      []logEntry        `json:"logs"`
+	Data      map[string]string `json:"data"`
 }
 
 type logEntry struct {
@@ -72,7 +74,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	var p payload
 	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
-		respond(400, w)
+		http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
 		return
 	}
 
@@ -93,12 +95,20 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 	//  "bugreport-20170115-112233-N.log.gz" => oldest log
 	t := time.Now().UTC()
 	prefix := t.Format("2006-01-02/150405")
-	summary := fmt.Sprintf(
-		"%s\n\nNumber of logs: %d\nVersion: %s\nUser-Agent: %s\n", p.Text, len(p.Logs), p.Version, p.UserAgent,
+
+	var summaryBuf bytes.Buffer
+	fmt.Fprintf(
+		&summaryBuf,
+		"%s\n\nNumber of logs: %d\nApplication: %s\nVersion: %s\nUser-Agent: %s\n",
+		p.Text, len(p.Logs), p.AppName, p.Version, p.UserAgent,
 	)
-	if err := gzipAndSave([]byte(summary), prefix, "details.log.gz"); err != nil {
+	for k, v := range p.Data {
+		fmt.Fprintf(&summaryBuf, "%s: %s\n", k, v)
+	}
+	if err := gzipAndSave(summaryBuf.Bytes(), prefix, "details.log.gz"); err != nil {
 		return err
 	}
+
 	for i, log := range p.Logs {
 		if err := gzipAndSave([]byte(log.Lines), prefix, fmt.Sprintf("logs-%d.log.gz", i)); err != nil {
 			return err // TODO: Rollback?
