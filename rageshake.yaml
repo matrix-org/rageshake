@@ -12,3 +12,7 @@ listings_auth_pass: secret
 # will be used to create a GitHub issue for each report. It requires
 # `public_repo` scope. If omitted, no issues will be created.
 github_token: secrettoken
+
+# mappings from app name (as submitted in the API) to github repo for issue reporting.
+github_project_mappings:
+   my-app: octocat/HelloWorld

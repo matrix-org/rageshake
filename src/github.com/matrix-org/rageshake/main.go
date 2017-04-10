@@ -46,6 +46,8 @@ type config struct {
 
 	// A GitHub personal access token, to create a GitHub issue for each report.
 	GithubToken string `yaml:"github_token"`
+
+	GithubProjectMappings map[string]string `yaml:"github_project_mappings"`
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -98,7 +100,7 @@ func main() {
 	}
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
-	http.Handle("/api/submit", &submitServer{ghClient, apiPrefix})
+	http.Handle("/api/submit", &submitServer{ghClient, apiPrefix, cfg.GithubProjectMappings})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)

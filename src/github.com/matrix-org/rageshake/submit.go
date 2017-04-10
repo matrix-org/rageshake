@@ -41,6 +41,9 @@ type submitServer struct {
 	ghClient *github.Client
 
 	APIPrefix string
+
+	// mappings from application to github owner/project
+	GithubProjectMappings map[string]string
 }
 
 type payload struct {
@@ -125,10 +128,22 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 
 	if s.ghClient == nil {
 		// we're done here
+		log.Println("GH issue submission disabled")
 		return nil
 	}
 
 	// submit a github issue
+
+	ghProj := s.GithubProjectMappings[p.AppName]
+	if ghProj == "" {
+		log.Println("Not creating GH issue for unknown app", p.AppName)
+		return nil
+	}
+	splits := strings.SplitN(ghProj, "/", 2)
+	if len(splits) < 2 {
+		log.Println("Can't create GH issue for invalid repo", ghProj)
+	}
+	owner, repo := splits[0], splits[1]
 
 	var title string
 	if userText == "" {
@@ -142,8 +157,6 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 		}
 	}
 
-	owner := "richvdh"
-	repo := "test"
 	body := fmt.Sprintf(
 		"User message:\n```\n%s\n```\nVersion: %s\n[Details](%s) / [Logs](%s)",
 		userText,
