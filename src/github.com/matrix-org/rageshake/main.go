@@ -19,13 +19,29 @@ package main
 import (
 	"context"
 	"crypto/subtle"
+	"flag"
 	"fmt"
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+
+	yaml "gopkg.in/yaml.v2"
 )
+
+var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
+var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
+
+type config struct {
+	// Username and password required to access the bug report listings
+	BugsUser string `yaml:"listings_auth_user"`
+	BugsPass string `yaml:"listings_auth_pass"`
+
+	// A GitHub personal access token, to create a GitHub issue for each report.
+	GithubToken string `yaml:"github_token"`
+}
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,16 +60,21 @@ func basicAuth(handler http.Handler, username, password, realm string) http.Hand
 }
 
 func main() {
-	ghToken := os.Getenv("GITHUB_TOKEN")
+	flag.Parse()
+
+	cfg, err := loadConfig(*configPath)
+	if err != nil {
+		log.Fatalf("Invalid config file: %s", err)
+	}
 
 	var ghClient *github.Client
 
-	if ghToken == "" {
-		fmt.Println("No GITHUB_TOKEN env var set. Reporting bugs to github is disabled.")
+	if cfg.GithubToken == "" {
+		fmt.Println("No github_token configured. Reporting bugs to github is disabled.")
 	} else {
 		ctx := context.Background()
 		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: ghToken},
+			&oauth2.Token{AccessToken: cfg.GithubToken},
 		)
 		tc := oauth2.NewClient(ctx, ts)
 		ghClient = github.NewClient(tc)
@@ -69,17 +90,29 @@ func main() {
 	fs := http.StripPrefix("/api/listing/", ls)
 
 	// set auth if env vars exist
-	usr := os.Getenv("BUGS_USER")
-	pass := os.Getenv("BUGS_PASS")
+	usr := cfg.BugsUser
+	pass := cfg.BugsPass
 	if usr == "" || pass == "" {
-		fmt.Println("BUGS_USER and BUGS_PASS env vars not found. No authentication is running for /api/listing")
+		fmt.Println("No listings_auth_user/pass configured. No authentication is running for /api/listing")
 	} else {
 		fs = basicAuth(fs, usr, pass, "Riot bug reports")
 	}
 	http.Handle("/api/listing/", fs)
 
-	port := os.Args[1]
-	log.Println("Listening on port", port)
+	log.Println("Listening on", *bindAddr)
 
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe(*bindAddr, nil))
+}
+
+func loadConfig(configPath string) (*config, error) {
+	contents, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var cfg config
+	if err = yaml.Unmarshal(contents, &cfg); err != nil {
+		return nil, err
+	}
+	// check required fields
+	return &cfg, nil
 }

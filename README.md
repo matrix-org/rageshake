@@ -9,19 +9,15 @@ To run it, do:
 ```
 go get github.com/constabulary/gb/...
 gb build
-GITHUB_TOKEN=<token> BUGS_USER=<user> BUGS_PASS=<password> ./bin/rageshake <port>
+./bin/rageshake
 ```
 
-where:
+Optional parameters:
 
- * `token` is a GitHub personal access token
-   (https://github.com/settings/tokens), which will be used to create a GitHub
-   issue for each report. It requires `public_repo` scope. If omitted, no
-   issues will be created.
- * `user` and `password` are a username/password pair which will be required to
-   access the bug report listings at `/api/listing`, via HTTP basic auth.
-   If omitted, there will be *no* authentication on this access!
- * `port` is the TCP port to listen on.
+ * `-config <path>`: The path to a YAML config file; see [./rageshake.yaml] for
+   more information.
+ * `-listen <address>`: TCP network address to listen for HTTP requests
+   on. Example: `:9110`.
 
 ## HTTP endpoints
 
