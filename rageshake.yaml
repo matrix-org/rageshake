@@ -1,0 +1,10 @@
+# username/password pair which will be required to access the bug report
+# listings at `/api/listing`, via HTTP basic auth.  If omitted, there will be
+# *no* authentication on this access!
+listings_auth_user: alice
+listings_auth_pass: secret
+
+# a GitHub personal access token (https://github.com/settings/tokens), which
+# will be used to create a GitHub issue for each report. It requires
+# `public_repo` scope. If omitted, no issues will be created.
+github_token: secrettoken
