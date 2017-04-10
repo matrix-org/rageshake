@@ -137,6 +137,12 @@
 			"repository": "https://github.com/grpc/grpc-go",
 			"revision": "b5071124392bfd416c713e6595ac149b387f7186",
 			"branch": "master"
+		},
+		{
+			"importpath": "gopkg.in/yaml.v2",
+			"repository": "https://gopkg.in/yaml.v2",
+			"revision": "cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b",
+			"branch": "v2"
 		}
 	]
 }
