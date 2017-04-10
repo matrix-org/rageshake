@@ -113,6 +113,5 @@ func loadConfig(configPath string) (*config, error) {
 	if err = yaml.Unmarshal(contents, &cfg); err != nil {
 		return nil, err
 	}
-	// check required fields
 	return &cfg, nil
 }
