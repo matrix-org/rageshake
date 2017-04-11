@@ -51,5 +51,6 @@ The body of the request should be a JSON object with the following fields:
   * `lines`: log data. Lines should be separated by newline characters (encoded
     as `\n`, as normal in JSON).
 
-* `data`: a set of arbitrary name/value pairs to include in the `details.log.gz`
-  file.
+* `data`: a set of arbitrary name/value strings to include in the
+  `details.log.gz` file. (Note that the values must be strings; numbers,
+  objects and arrays will be rejected).
