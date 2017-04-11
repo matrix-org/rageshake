@@ -40,6 +40,8 @@ The body of the request should be a JSON object with the following fields:
 
 * `user_agent`: Application user-agent.  Included in the `details.log.gz` file.
 
+* `app`: Identifier for the application (eg 'riot-web').
+
 * `version`: Application version. Included in the `details.log.gz` file.
 
 * `logs`: an of log files. Each entry in the list should be an object with the
@@ -48,3 +50,7 @@ The body of the request should be a JSON object with the following fields:
   * `id`: textual identifier for the logs. Currently ignored.
   * `lines`: log data. Lines should be separated by newline characters (encoded
     as `\n`, as normal in JSON).
+
+* `data`: a set of arbitrary name/value strings to include in the
+  `details.log.gz` file. (Note that the values must be strings; numbers,
+  objects and arrays will be rejected).
