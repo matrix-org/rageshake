@@ -85,6 +85,12 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// backwards-compatibility hack: current versions of riot-android
+	// don't set 'app', so we don't correctly file github issues.
+	if p.AppName == "" && p.UserAgent == "Android" {
+		p.AppName = "riot-android"
+	}
+
 	if err := s.saveReport(req.Context(), p); err != nil {
 		log.Println("Error handling report", err)
 		http.Error(w, "Internal error", 500)
@@ -104,7 +110,7 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 	prefix := t.Format("2006-01-02/150405")
 	listingURL := s.apiPrefix + "/listing/" + prefix
 
-	log.Println("Handling report submission; listing URI will be %s", listingURL)
+	log.Println("Handling report submission; listing URI will be", listingURL)
 
 	userText := strings.TrimSpace(p.Text)
 
