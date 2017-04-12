@@ -14,8 +14,8 @@ gb build
 
 Optional parameters:
 
- * `-config <path>`: The path to a YAML config file; see [./rageshake.yaml] for
-   more information.
+ * `-config <path>`: The path to a YAML config file; see
+   [rageshake.sample.yaml](rageshake.sample.yaml) for more information.
  * `-listen <address>`: TCP network address to listen for HTTP requests
    on. Example: `:9110`.
 
