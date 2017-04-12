@@ -40,7 +40,9 @@ The body of the request should be a JSON object with the following fields:
 
 * `user_agent`: Application user-agent.  Included in the `details.log.gz` file.
 
-* `app`: Identifier for the application (eg 'riot-web').
+* `app`: Identifier for the application (eg 'riot-web'). Should correspond to a
+  mapping configured in the configuration file for github issue reporting to
+  work.
 
 * `version`: Application version. Included in the `details.log.gz` file.
 

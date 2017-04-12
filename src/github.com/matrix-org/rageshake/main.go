@@ -25,8 +25,11 @@ import (
 	"golang.org/x/oauth2"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -39,8 +42,13 @@ type config struct {
 	BugsUser string `yaml:"listings_auth_user"`
 	BugsPass string `yaml:"listings_auth_pass"`
 
+	// External URI to /api
+	APIPrefix string `yaml:"api_prefix"`
+
 	// A GitHub personal access token, to create a GitHub issue for each report.
 	GithubToken string `yaml:"github_token"`
+
+	GithubProjectMappings map[string]string `yaml:"github_project_mappings"`
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -77,10 +85,24 @@ func main() {
 			&oauth2.Token{AccessToken: cfg.GithubToken},
 		)
 		tc := oauth2.NewClient(ctx, ts)
+		tc.Timeout = time.Duration(5) * time.Minute
 		ghClient = github.NewClient(tc)
 	}
 
-	http.Handle("/api/submit", &submitServer{ghClient})
+	apiPrefix := cfg.APIPrefix
+	if apiPrefix == "" {
+		_, port, err := net.SplitHostPort(*bindAddr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		apiPrefix = fmt.Sprintf("http://localhost:%s/api", port)
+	} else {
+		// remove trailing /
+		apiPrefix = strings.TrimRight(apiPrefix, "/")
+	}
+	log.Printf("Using %s/listing as public URI", apiPrefix)
+
+	http.Handle("/api/submit", &submitServer{ghClient, apiPrefix, cfg.GithubProjectMappings})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)
