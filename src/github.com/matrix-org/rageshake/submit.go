@@ -40,10 +40,11 @@ type submitServer struct {
 	// reporting is disabled.
 	ghClient *github.Client
 
-	APIPrefix string
+	// External URI to /api
+	apiPrefix string
 
 	// mappings from application to github owner/project
-	GithubProjectMappings map[string]string
+	githubProjectMappings map[string]string
 }
 
 type payload struct {
@@ -101,7 +102,7 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 	//  "bugreport-20170115-112233-N.log.gz" => oldest log
 	t := time.Now().UTC()
 	prefix := t.Format("2006-01-02/150405")
-	listingURL := s.APIPrefix + "/listing/" + prefix
+	listingURL := s.apiPrefix + "/listing/" + prefix
 
 	log.Println("Handling report submission; listing URI will be %s", listingURL)
 
@@ -134,7 +135,7 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 
 	// submit a github issue
 
-	ghProj := s.GithubProjectMappings[p.AppName]
+	ghProj := s.githubProjectMappings[p.AppName]
 	if ghProj == "" {
 		log.Println("Not creating GH issue for unknown app", p.AppName)
 		return nil
