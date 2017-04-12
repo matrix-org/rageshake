@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -84,6 +85,7 @@ func main() {
 			&oauth2.Token{AccessToken: cfg.GithubToken},
 		)
 		tc := oauth2.NewClient(ctx, ts)
+		tc.Timeout = time.Duration(5) * time.Minute
 		ghClient = github.NewClient(tc)
 	}
 
