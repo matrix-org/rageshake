@@ -33,7 +33,10 @@ report submission date and time.
 
 Submission endpoint: this is where applications should send their reports.
 
-The body of the request should be a JSON object with the following fields:
+The body of the request should be a multipart form-data submission, with the
+following form field names. (For backwards compatibility, it can also be a JSON
+object, but multipart is preferred as it allows more efficient transfer of the
+logs.)
 
 * `text`: A textual description of the problem. Included in the
   `details.log.gz` file.
@@ -46,12 +49,22 @@ The body of the request should be a JSON object with the following fields:
 
 * `version`: Application version. Included in the `details.log.gz` file.
 
-* `logs`: an of log files. Each entry in the list should be an object with the
-  following fields:
+* `log`: a log file, with lines separated by newline characters. Multiple log
+  files can be included by including several `log` parts.
 
-  * `id`: textual identifier for the logs. Currently ignored.
-  * `lines`: log data. Lines should be separated by newline characters (encoded
-    as `\n`, as normal in JSON).
+  If using the JSON upload encoding, the request object should instead include
+  a single `logs` field, which is an array of objects with the following
+  fields:
+
+    * `id`: textual identifier for the logs. Currently ignored.
+    * `lines`: log data. Newlines should be  encoded as `\n`, as normal in JSON).
+
+* Any other form field names are interpreted as arbitrary name/value strings to
+  include in the `details.log.gz` file.
+
+  If using the JSON upload encoding, this additional metadata should insted be
+  encoded as a `data` field, whose value should be a JSON map. (Note that the
+  values must be strings; numbers, objects and arrays will be rejected.)
 
 The response (if successful) will be a JSON object with the following fields:
 

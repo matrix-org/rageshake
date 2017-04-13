@@ -23,8 +23,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/go-github/github"
+	"io"
 	"io/ioutil"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -112,11 +114,34 @@ func parseRequest(w http.ResponseWriter, req *http.Request) *payload {
 		http.Error(w, fmt.Sprintf("Content too large (max %i)", maxPayloadSize), 413)
 		return nil
 	}
-	var p payload
-	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
-		log.Println("Couldn't decode request body", err)
+
+	contentType := req.Header.Get("Content-Type")
+	if contentType != "" {
+		d, _, _ := mime.ParseMediaType(contentType)
+		if d == "multipart/form-data" {
+			p, err1 := parseMultipartRequest(w, req)
+			if err1 != nil {
+				log.Println("Error parsing multipart data", err1)
+				http.Error(w, "Bad multipart data", 400)
+				return nil
+			}
+			return p
+		}
+	}
+
+	p, err := parseJSONRequest(w, req)
+	if err != nil {
+		log.Println("Error parsing JSON body", err)
 		http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
 		return nil
+	}
+	return p
+}
+
+func parseJSONRequest(w http.ResponseWriter, req *http.Request) (*payload, error) {
+	var p payload
+	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
+		return nil, err
 	}
 
 	p.Text = strings.TrimSpace(p.Text)
@@ -148,7 +173,53 @@ func parseRequest(w http.ResponseWriter, req *http.Request) *payload {
 		p.Version = ""
 	}
 
-	return &p
+	return &p, nil
+}
+
+func parseMultipartRequest(w http.ResponseWriter, req *http.Request) (*payload, error) {
+	rdr, err := req.MultipartReader()
+	if err != nil {
+		return nil, err
+	}
+
+	p := payload{
+		Logs: make([]logEntry, 0),
+		Data: make(map[string]string),
+	}
+
+	for true {
+		part, err := rdr.NextPart()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+
+		b, err := ioutil.ReadAll(part)
+		if err != nil {
+			return nil, err
+		}
+		data := string(b)
+
+		field := part.FormName()
+		if field == "text" {
+			p.Text = data
+		} else if field == "app" {
+			p.AppName = data
+		} else if field == "version" {
+			p.Version = data
+		} else if field == "user_agent" {
+			p.UserAgent = data
+		} else if field == "log" {
+			p.Logs = append(p.Logs, logEntry{
+				ID:    part.FileName(),
+				Lines: data,
+			})
+		} else {
+			p.Data[field] = data
+		}
+	}
+	return &p, nil
 }
 
 func (s *submitServer) saveReport(ctx context.Context, p payload) (*submitResponse, error) {
