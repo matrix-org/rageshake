@@ -75,29 +75,73 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		respond(200, w)
 		return
 	}
-	if length, err := strconv.Atoi(req.Header.Get("Content-Length")); err != nil || length > maxPayloadSize {
-		respond(413, w)
-		return
-	}
-	var p payload
-	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
-		http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
+
+	p := parseRequest(w, req)
+	if p == nil {
+		// parseRequest already wrote an error
 		return
 	}
 
-	// backwards-compatibility hack: current versions of riot-android
-	// don't set 'app', so we don't correctly file github issues.
-	if p.AppName == "" && p.UserAgent == "Android" {
-		p.AppName = "riot-android"
-	}
-
-	if err := s.saveReport(req.Context(), p); err != nil {
+	if err := s.saveReport(req.Context(), *p); err != nil {
 		log.Println("Error handling report", err)
 		http.Error(w, "Internal error", 500)
 		return
 	}
 
 	respond(200, w)
+}
+
+// parseRequest attempts to parse a received request as a bug report. If
+// the request cannot be parsed, it responds with an error and returns nil.
+func parseRequest(w http.ResponseWriter, req *http.Request) *payload {
+	length, err := strconv.Atoi(req.Header.Get("Content-Length"))
+	if err != nil {
+		log.Println("Couldn't parse content-length", err)
+		http.Error(w, "Bad content-length", 400)
+		return nil
+	}
+	if length > maxPayloadSize {
+		log.Println("Content-length", length, "too large")
+		http.Error(w, fmt.Sprintf("Content too large (max %i)", maxPayloadSize), 413)
+		return nil
+	}
+	var p payload
+	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
+		log.Println("Couldn't decode request body", err)
+		http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
+		return nil
+	}
+
+	p.Text = strings.TrimSpace(p.Text)
+
+	if p.Data == nil {
+		p.Data = make(map[string]string)
+	}
+
+	// backwards-compatibility hack: current versions of riot-android
+	// don't set 'app', so we don't correctly file github issues.
+	if p.AppName == "" && p.UserAgent == "Android" {
+		p.AppName = "riot-android"
+
+		// they also shove lots of stuff into 'Version' which we don't really
+		// want in the github report
+		for _, line := range strings.Split(p.Version, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			parts := strings.SplitN(line, ":", 2)
+			key := strings.TrimSpace(parts[0])
+			val := ""
+			if len(parts) > 1 {
+				val = strings.TrimSpace(parts[1])
+			}
+			p.Data[key] = val
+		}
+		p.Version = ""
+	}
+
+	return &p
 }
 
 func (s *submitServer) saveReport(ctx context.Context, p payload) error {
@@ -112,13 +156,11 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 
 	log.Println("Handling report submission; listing URI will be", listingURL)
 
-	userText := strings.TrimSpace(p.Text)
-
 	var summaryBuf bytes.Buffer
 	fmt.Fprintf(
 		&summaryBuf,
 		"%s\n\nNumber of logs: %d\nApplication: %s\nVersion: %s\nUser-Agent: %s\n",
-		userText, len(p.Logs), p.AppName, p.Version, p.UserAgent,
+		p.Text, len(p.Logs), p.AppName, p.Version, p.UserAgent,
 	)
 	for k, v := range p.Data {
 		fmt.Fprintf(&summaryBuf, "%s: %s\n", k, v)
@@ -140,7 +182,6 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 	}
 
 	// submit a github issue
-
 	ghProj := s.githubProjectMappings[p.AppName]
 	if ghProj == "" {
 		log.Println("Not creating GH issue for unknown app", p.AppName)
@@ -152,30 +193,7 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 	}
 	owner, repo := splits[0], splits[1]
 
-	var title string
-	if userText == "" {
-		title = "Untitled report"
-	} else {
-		// set the title to the first line of the user's report
-		if i := strings.IndexAny(userText, "\r\n"); i < 0 {
-			title = userText
-		} else {
-			title = userText[0:i]
-		}
-	}
-
-	body := fmt.Sprintf(
-		"User message:\n```\n%s\n```\nVersion: %s\n[Details](%s) / [Logs](%s)",
-		userText,
-		p.Version,
-		listingURL+"/details.log.gz",
-		listingURL,
-	)
-
-	issueReq := github.IssueRequest{
-		Title: &title,
-		Body:  &body,
-	}
+	issueReq := buildGithubIssueRequest(p, listingURL)
 
 	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
 	if err != nil {
@@ -185,6 +203,33 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 	log.Println("Created issue:", *issue.HTMLURL)
 
 	return nil
+}
+
+func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
+	var title string
+	if p.Text == "" {
+		title = "Untitled report"
+	} else {
+		// set the title to the first line of the user's report
+		if i := strings.IndexAny(p.Text, "\r\n"); i < 0 {
+			title = p.Text
+		} else {
+			title = p.Text[0:i]
+		}
+	}
+
+	body := fmt.Sprintf(
+		"User message:\n```\n%s\n```\nVersion: %s\n[Details](%s) / [Logs](%s)",
+		p.Text,
+		p.Version,
+		listingURL+"/details.log.gz",
+		listingURL,
+	)
+
+	return github.IssueRequest{
+		Title: &title,
+		Body:  &body,
+	}
 }
 
 func respond(code int, w http.ResponseWriter) {
