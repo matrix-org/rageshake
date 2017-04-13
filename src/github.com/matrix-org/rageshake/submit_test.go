@@ -59,21 +59,21 @@ func TestUnpickAndroidMangling(t *testing.T) {
 }`
 	p := testParsePayload(t, body, "")
 	if p.Text != "test ylc 001" {
-		t.Error("unexpected user text", p.Text)
+		t.Errorf("user text: got %s, want %s", p.Text, "test ylc 001")
 	}
 	if p.AppName != "riot-android" {
-		t.Error("unexpected appname", p.AppName)
+		t.Errorf("appname: got %s, want %s", p.AppName, "riot-android")
 	}
 	if p.Version != "" {
-		t.Error("unexpected version", p.Version)
+		t.Errorf("version: got %s, want ''", p.Version)
 	}
 	if p.Data["User"] != "@ylc8001:matrix.org" {
-		t.Error("unexpected data.user", p.Data["User"])
+		t.Errorf("data.user: got %s, want %s", p.Data["User"], "@ylc8001:matrix.org")
 	}
 	if p.Data["Phone"] != "Lenovo P2a42" {
-		t.Error("unexpected data.phone", p.Data["Phone"])
+		t.Errorf("data.phone: got %s, want %s", p.Data["Phone"], "Lenovo P2a42")
 	}
 	if p.Data["Vector version"] != "0:6:9" {
-		t.Error("unexpected data.version", p.Data["Version"])
+		t.Errorf("data.version: got %s, want %s", p.Data["Version"], "0:6:9")
 	}
 }
