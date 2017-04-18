@@ -61,6 +61,10 @@ type logEntry struct {
 	Lines string `json:"lines"`
 }
 
+type submitResponse struct {
+	ReportURL string `json:"report_url,omitempty"`
+}
+
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" && req.Method != "OPTIONS" {
 		respond(405, w)
@@ -82,13 +86,16 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := s.saveReport(req.Context(), *p); err != nil {
+	resp, err := s.saveReport(req.Context(), *p)
+	if err != nil {
 		log.Println("Error handling report", err)
 		http.Error(w, "Internal error", 500)
 		return
 	}
 
-	respond(200, w)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(resp)
 }
 
 // parseRequest attempts to parse a received request as a bug report. If
@@ -144,7 +151,9 @@ func parseRequest(w http.ResponseWriter, req *http.Request) *payload {
 	return &p
 }
 
-func (s *submitServer) saveReport(ctx context.Context, p payload) error {
+func (s *submitServer) saveReport(ctx context.Context, p payload) (*submitResponse, error) {
+	resp := submitResponse{}
+
 	// Dump bug report to disk as form:
 	//  "bugreport-20170115-112233.log.gz" => user text, version, user agent, # logs
 	//  "bugreport-20170115-112233-0.log.gz" => most recent log
@@ -166,26 +175,26 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 		fmt.Fprintf(&summaryBuf, "%s: %s\n", k, v)
 	}
 	if err := gzipAndSave(summaryBuf.Bytes(), prefix, "details.log.gz"); err != nil {
-		return err
+		return nil, err
 	}
 
 	for i, log := range p.Logs {
 		if err := gzipAndSave([]byte(log.Lines), prefix, fmt.Sprintf("logs-%d.log.gz", i)); err != nil {
-			return err // TODO: Rollback?
+			return nil, err // TODO: Rollback?
 		}
 	}
 
 	if s.ghClient == nil {
 		// we're done here
 		log.Println("GH issue submission disabled")
-		return nil
+		return &resp, nil
 	}
 
 	// submit a github issue
 	ghProj := s.githubProjectMappings[p.AppName]
 	if ghProj == "" {
 		log.Println("Not creating GH issue for unknown app", p.AppName)
-		return nil
+		return &resp, nil
 	}
 	splits := strings.SplitN(ghProj, "/", 2)
 	if len(splits) < 2 {
@@ -197,12 +206,14 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) error {
 
 	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	log.Println("Created issue:", *issue.HTMLURL)
 
-	return nil
+	resp.ReportURL = *issue.HTMLURL
+
+	return &resp, nil
 }
 
 func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
