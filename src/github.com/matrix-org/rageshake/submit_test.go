@@ -111,15 +111,26 @@ Content-Disposition: form-data; name="log"; filename="instance-0.067644760733513
 Content-Type: text/plain
 
 log
-------WebKitFormBoundarySsdgl8Nq9voFyhdO--
 `
+
+	body += `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="compressed-log"; filename="instance-0.0109372050779190651492004373866"
+Content-Type: application/octet-stream
+
+`
+	body += string([]byte{
+		0x1f, 0x8b, 0x08, 0x00, 0xbf, 0xd8, 0xf5, 0x58, 0x00, 0x03,
+		0x2b, 0x49, 0x2d, 0x2e, 0xe1, 0x02, 0x00,
+		0xc6, 0x35, 0xb9, 0x3b, 0x05, 0x00, 0x00, 0x00})
+	body += "\n------WebKitFormBoundarySsdgl8Nq9voFyhdO--\n"
+
 	p := testParsePayload(t, body, "multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO")
 	wanted := "test words."
 	if p.Text != wanted {
 		t.Errorf("User text: got %s, want %s", p.Text, wanted)
 	}
-	if len(p.Logs) != 2 {
-		t.Errorf("Log length: got %d, want 2", len(p.Logs))
+	if len(p.Logs) != 3 {
+		t.Errorf("Log length: got %d, want 3", len(p.Logs))
 	}
 	if len(p.Data) != 1 {
 		t.Errorf("Data length: got %d, want 1", len(p.Data))
@@ -143,5 +154,9 @@ log
 	wanted = "instance-0.067644760733513781492004890379"
 	if p.Logs[1].ID != wanted {
 		t.Errorf("Log 1 ID: got %s, want %s", p.Logs[1].ID, wanted)
+	}
+	wanted = "test\n"
+	if p.Logs[2].Lines != wanted {
+		t.Errorf("Log 2: got %s, want %s", p.Logs[2].Lines, wanted)
 	}
 }

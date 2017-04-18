@@ -207,7 +207,20 @@ func parseFormPart(part *multipart.Part, p *payload) error {
 	defer part.Close()
 	field := part.FormName()
 
-	b, err := ioutil.ReadAll(part)
+	var partReader io.Reader
+	if field == "compressed-log" {
+		// decompress logs as we read them
+		zrdr, err := gzip.NewReader(part)
+		if err != nil {
+			return err
+		}
+		defer zrdr.Close()
+		partReader = zrdr
+	} else {
+		// read the field data directly from the multipart part
+		partReader = part
+	}
+	b, err := ioutil.ReadAll(partReader)
 	if err != nil {
 		return err
 	}
@@ -221,7 +234,7 @@ func parseFormPart(part *multipart.Part, p *payload) error {
 		p.Version = data
 	} else if field == "user_agent" {
 		p.UserAgent = data
-	} else if field == "log" {
+	} else if field == "log" || field == "compressed-log" {
 		p.Logs = append(p.Logs, logEntry{
 			ID:    part.FileName(),
 			Lines: data,
