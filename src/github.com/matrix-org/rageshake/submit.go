@@ -204,6 +204,7 @@ func parseMultipartRequest(w http.ResponseWriter, req *http.Request) (*payload, 
 }
 
 func parseFormPart(part *multipart.Part, p *payload) error {
+	defer part.Close()
 	field := part.FormName()
 
 	b, err := ioutil.ReadAll(part)
