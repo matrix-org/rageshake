@@ -77,3 +77,71 @@ func TestUnpickAndroidMangling(t *testing.T) {
 		t.Errorf("data.version: got %s, want %s", p.Data["Version"], "0:6:9")
 	}
 }
+
+func TestMultipartUpload(t *testing.T) {
+	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="text"
+
+test words.
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="app"
+
+riot-web
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="version"
+
+UNKNOWN
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="user_agent"
+
+Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="test-field"
+
+Test data
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="log"; filename="instance-0.215954445471346461492087122412"
+Content-Type: text/plain
+
+log
+log
+log
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="log"; filename="instance-0.067644760733513781492004890379"
+Content-Type: text/plain
+
+log
+------WebKitFormBoundarySsdgl8Nq9voFyhdO--
+`
+	p := testParsePayload(t, body, "multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO")
+	wanted := "test words."
+	if p.Text != wanted {
+		t.Errorf("User text: got %s, want %s", p.Text, wanted)
+	}
+	if len(p.Logs) != 2 {
+		t.Errorf("Log length: got %d, want 2", len(p.Logs))
+	}
+	if len(p.Data) != 1 {
+		t.Errorf("Data length: got %d, want 1", len(p.Data))
+	}
+	wanted = "Test data"
+	if p.Data["test-field"] != wanted {
+		t.Errorf("test-field: got %s, want %s", p.Data["test-field"], wanted)
+	}
+	wanted = "log\nlog\nlog"
+	if p.Logs[0].Lines != wanted {
+		t.Errorf("Log 0: got %s, want %s", p.Logs[0].Lines, wanted)
+	}
+	wanted = "instance-0.215954445471346461492087122412"
+	if p.Logs[0].ID != wanted {
+		t.Errorf("Log 0 ID: got %s, want %s", p.Logs[0].ID, wanted)
+	}
+	wanted = "log"
+	if p.Logs[1].Lines != wanted {
+		t.Errorf("Log 1: got %s, want %s", p.Logs[1].Lines, wanted)
+	}
+	wanted = "instance-0.067644760733513781492004890379"
+	if p.Logs[1].ID != wanted {
+		t.Errorf("Log 1 ID: got %s, want %s", p.Logs[1].ID, wanted)
+	}
+}
