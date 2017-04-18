@@ -179,7 +179,7 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) (*submitRespon
 	}
 
 	for i, log := range p.Logs {
-		if err := gzipAndSave([]byte(log.Lines), prefix, fmt.Sprintf("logs-%d.log.gz", i)); err != nil {
+		if err := gzipAndSave([]byte(log.Lines), prefix, fmt.Sprintf("logs-%04d.log.gz", i)); err != nil {
 			return nil, err // TODO: Rollback?
 		}
 	}
