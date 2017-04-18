@@ -59,6 +59,11 @@ logs.)
     * `id`: textual identifier for the logs. Currently ignored.
     * `lines`: log data. Newlines should be  encoded as `\n`, as normal in JSON).
 
+* `compressed-log`: a gzipped logfile. Decompressed and then treated the same as
+  `log`.
+
+  Compressed logs are not supported for the JSON upload encoding.
+
 * Any other form field names are interpreted as arbitrary name/value strings to
   include in the `details.log.gz` file.
 
