@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"log"
 	"mime"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -195,31 +196,39 @@ func parseMultipartRequest(w http.ResponseWriter, req *http.Request) (*payload, 
 			return nil, err
 		}
 
-		b, err := ioutil.ReadAll(part)
-		if err != nil {
+		if err = parseFormPart(part, &p); err != nil {
 			return nil, err
-		}
-		data := string(b)
-
-		field := part.FormName()
-		if field == "text" {
-			p.Text = data
-		} else if field == "app" {
-			p.AppName = data
-		} else if field == "version" {
-			p.Version = data
-		} else if field == "user_agent" {
-			p.UserAgent = data
-		} else if field == "log" {
-			p.Logs = append(p.Logs, logEntry{
-				ID:    part.FileName(),
-				Lines: data,
-			})
-		} else {
-			p.Data[field] = data
 		}
 	}
 	return &p, nil
+}
+
+func parseFormPart(part *multipart.Part, p *payload) error {
+	field := part.FormName()
+
+	b, err := ioutil.ReadAll(part)
+	if err != nil {
+		return err
+	}
+	data := string(b)
+
+	if field == "text" {
+		p.Text = data
+	} else if field == "app" {
+		p.AppName = data
+	} else if field == "version" {
+		p.Version = data
+	} else if field == "user_agent" {
+		p.UserAgent = data
+	} else if field == "log" {
+		p.Logs = append(p.Logs, logEntry{
+			ID:    part.FileName(),
+			Lines: data,
+		})
+	} else {
+		p.Data[field] = data
+	}
+	return nil
 }
 
 func (s *submitServer) saveReport(ctx context.Context, p payload) (*submitResponse, error) {
