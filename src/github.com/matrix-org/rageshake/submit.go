@@ -57,6 +57,7 @@ type payload struct {
 	UserAgent string            `json:"user_agent"`
 	Logs      []logEntry        `json:"logs"`
 	Data      map[string]string `json:"data"`
+	Files     []string
 }
 
 type logEntry struct {
@@ -97,7 +98,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	listingURL := s.apiPrefix + "/listing/" + prefix
 	log.Println("Handling report submission; listing URI will be", listingURL)
 
-	p := parseRequest(w, req)
+	p := parseRequest(w, req, reportDir)
 	if p == nil {
 		// parseRequest already wrote an error, but now let's delete the
 		// useless report dir
@@ -122,7 +123,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // parseRequest attempts to parse a received request as a bug report. If
 // the request cannot be parsed, it responds with an error and returns nil.
-func parseRequest(w http.ResponseWriter, req *http.Request) *payload {
+func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *payload {
 	length, err := strconv.Atoi(req.Header.Get("Content-Length"))
 	if err != nil {
 		log.Println("Couldn't parse content-length", err)
@@ -139,7 +140,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request) *payload {
 	if contentType != "" {
 		d, _, _ := mime.ParseMediaType(contentType)
 		if d == "multipart/form-data" {
-			p, err1 := parseMultipartRequest(w, req)
+			p, err1 := parseMultipartRequest(w, req, reportDir)
 			if err1 != nil {
 				log.Println("Error parsing multipart data", err1)
 				http.Error(w, "Bad multipart data", 400)
@@ -196,7 +197,7 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request) (*payload, error
 	return &p, nil
 }
 
-func parseMultipartRequest(w http.ResponseWriter, req *http.Request) (*payload, error) {
+func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
 	rdr, err := req.MultipartReader()
 	if err != nil {
 		return nil, err
@@ -215,14 +216,14 @@ func parseMultipartRequest(w http.ResponseWriter, req *http.Request) (*payload, 
 			return nil, err
 		}
 
-		if err = parseFormPart(part, &p); err != nil {
+		if err = parseFormPart(part, &p, reportDir); err != nil {
 			return nil, err
 		}
 	}
 	return &p, nil
 }
 
-func parseFormPart(part *multipart.Part, p *payload) error {
+func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 	defer part.Close()
 	field := part.FormName()
 
@@ -239,6 +240,16 @@ func parseFormPart(part *multipart.Part, p *payload) error {
 		// read the field data directly from the multipart part
 		partReader = part
 	}
+
+	if field == "file" {
+		leafName, err := saveFormPart(part.FileName(), partReader, reportDir)
+		if err != nil {
+			return err
+		}
+		p.Files = append(p.Files, leafName)
+		return nil
+	}
+
 	b, err := ioutil.ReadAll(partReader)
 	if err != nil {
 		return err
@@ -254,6 +265,8 @@ func parseFormPart(part *multipart.Part, p *payload) error {
 	} else if field == "user_agent" {
 		p.UserAgent = data
 	} else if field == "log" || field == "compressed-log" {
+		// todo: we could save the log directly rather than pointlessly
+		// unzipping and re-zipping.
 		p.Logs = append(p.Logs, logEntry{
 			ID:    part.FileName(),
 			Lines: data,
@@ -262,6 +275,37 @@ func parseFormPart(part *multipart.Part, p *payload) error {
 		p.Data[field] = data
 	}
 	return nil
+}
+
+// saveFormPart saves a file upload to the report directory.
+//
+// Returns the leafname of the saved file.
+func saveFormPart(originalFileName string, reader io.Reader, reportDir string) (string, error) {
+	// figure out a safe name. Replace slashes, other path separators, and
+	// leading dots with underscores.
+	leafName := strings.Replace(originalFileName, "/", "_", -1)
+	leafName = strings.Replace(leafName, string(filepath.Separator), "_", -1)
+	if leafName == "" {
+		leafName = "unnamed-file"
+	} else if leafName[0] == '.' {
+		leafName = "_" + leafName[1:]
+	}
+	fullName := filepath.Join(reportDir, leafName)
+
+	log.Println("Saving uploaded file", originalFileName, "to", fullName)
+
+	f, err := os.Create(fullName)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, reader)
+	if err != nil {
+		return "", err
+	}
+
+	return leafName, nil
 }
 
 func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, listingURL string) (*submitResponse, error) {
@@ -331,7 +375,9 @@ func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
 		}
 	}
 
-	body := fmt.Sprintf(
+	var bodyBuf bytes.Buffer
+	fmt.Fprintf(
+		&bodyBuf,
 		"User message:\n```\n%s\n```\nVersion: %s\n[Details](%s) / [Logs](%s)",
 		p.Text,
 		p.Version,
@@ -339,6 +385,16 @@ func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
 		listingURL,
 	)
 
+	for _, file := range p.Files {
+		fmt.Fprintf(
+			&bodyBuf,
+			" / [%s](%s)",
+			file,
+			listingURL+"/"+file,
+		)
+	}
+
+	var body = bodyBuf.String()
 	return github.IssueRequest{
 		Title: &title,
 		Body:  &body,

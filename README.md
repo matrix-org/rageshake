@@ -64,6 +64,11 @@ logs.)
 
   Compressed logs are not supported for the JSON upload encoding.
 
+* `file`: an arbitrary file to attach to the report. Saved as-is to disk, and
+  a link is added to the github issue.
+
+  Not supported for the JSON upload encoding.
+
 * Any other form field names are interpreted as arbitrary name/value strings to
   include in the `details.log.gz` file.
 
