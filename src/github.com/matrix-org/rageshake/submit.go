@@ -83,13 +83,32 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	p := parseRequest(w, req)
-	if p == nil {
-		// parseRequest already wrote an error
+	// create the report dir before parsing the request, so that we can dump
+	// files straight in
+	t := time.Now().UTC()
+	prefix := t.Format("2006-01-02/150405")
+	reportDir := filepath.Join("bugs", prefix)
+	if err := os.MkdirAll(reportDir, os.ModePerm); err != nil {
+		log.Println("Unable to create report directory", err)
+		http.Error(w, "Internal error", 500)
 		return
 	}
 
-	resp, err := s.saveReport(req.Context(), *p)
+	listingURL := s.apiPrefix + "/listing/" + prefix
+	log.Println("Handling report submission; listing URI will be", listingURL)
+
+	p := parseRequest(w, req)
+	if p == nil {
+		// parseRequest already wrote an error, but now let's delete the
+		// useless report dir
+		if err := os.RemoveAll(reportDir); err != nil {
+			log.Printf("Unable to remove report dir %s after invalid upload: %v\n",
+				reportDir, err)
+		}
+		return
+	}
+
+	resp, err := s.saveReport(req.Context(), *p, reportDir, listingURL)
 	if err != nil {
 		log.Println("Error handling report", err)
 		http.Error(w, "Internal error", 500)
@@ -245,19 +264,8 @@ func parseFormPart(part *multipart.Part, p *payload) error {
 	return nil
 }
 
-func (s *submitServer) saveReport(ctx context.Context, p payload) (*submitResponse, error) {
+func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, listingURL string) (*submitResponse, error) {
 	resp := submitResponse{}
-
-	// Dump bug report to disk as form:
-	//  "bugreport-20170115-112233.log.gz" => user text, version, user agent, # logs
-	//  "bugreport-20170115-112233-0.log.gz" => most recent log
-	//  "bugreport-20170115-112233-1.log.gz" => ...
-	//  "bugreport-20170115-112233-N.log.gz" => oldest log
-	t := time.Now().UTC()
-	prefix := t.Format("2006-01-02/150405")
-	listingURL := s.apiPrefix + "/listing/" + prefix
-
-	log.Println("Handling report submission; listing URI will be", listingURL)
 
 	var summaryBuf bytes.Buffer
 	fmt.Fprintf(
@@ -268,12 +276,12 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) (*submitRespon
 	for k, v := range p.Data {
 		fmt.Fprintf(&summaryBuf, "%s: %s\n", k, v)
 	}
-	if err := gzipAndSave(summaryBuf.Bytes(), prefix, "details.log.gz"); err != nil {
+	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
 		return nil, err
 	}
 
 	for i, log := range p.Logs {
-		if err := gzipAndSave([]byte(log.Lines), prefix, fmt.Sprintf("logs-%04d.log.gz", i)); err != nil {
+		if err := gzipAndSave([]byte(log.Lines), reportDir, fmt.Sprintf("logs-%04d.log.gz", i)); err != nil {
 			return nil, err // TODO: Rollback?
 		}
 	}
@@ -343,8 +351,7 @@ func respond(code int, w http.ResponseWriter) {
 }
 
 func gzipAndSave(data []byte, dirname, fpath string) error {
-	_ = os.MkdirAll(filepath.Join("bugs", dirname), os.ModePerm)
-	fpath = filepath.Join("bugs", dirname, fpath)
+	fpath = filepath.Join(dirname, fpath)
 
 	if _, err := os.Stat(fpath); err == nil {
 		return fmt.Errorf("file already exists") // the user can just retry
