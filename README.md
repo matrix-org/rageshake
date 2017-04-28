@@ -65,7 +65,9 @@ logs.)
   Compressed logs are not supported for the JSON upload encoding.
 
 * `file`: an arbitrary file to attach to the report. Saved as-is to disk, and
-  a link is added to the github issue.
+  a link is added to the github issue. The filename must be in the format
+  `name.ext`, where `name` contains only alphanumerics, `-` or `_`, and `ext`
+  is one of `jpg`, `png`, or `txt`.
 
   Not supported for the JSON upload encoding.
 

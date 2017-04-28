@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -277,22 +278,26 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 	return nil
 }
 
+// we use a quite restrictive regexp for the filenames; in particular:
+//
+// * a limited set of extensions: we pick the mime-type when serving the file
+//   based on the extension, so allowing .js would be disasterous
+// * no silly characters (/, ctrl chars, etc)
+// * nothing starting with '.'
+var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|txt)$`)
+
 // saveFormPart saves a file upload to the report directory.
 //
 // Returns the leafname of the saved file.
-func saveFormPart(originalFileName string, reader io.Reader, reportDir string) (string, error) {
-	// figure out a safe name. Replace slashes, other path separators, and
-	// leading dots with underscores.
-	leafName := strings.Replace(originalFileName, "/", "_", -1)
-	leafName = strings.Replace(leafName, string(filepath.Separator), "_", -1)
-	if leafName == "" {
-		leafName = "unnamed-file"
-	} else if leafName[0] == '.' {
-		leafName = "_" + leafName[1:]
+func saveFormPart(leafName string, reader io.Reader, reportDir string) (string, error) {
+
+	if !filenameRegexp.MatchString(leafName) {
+		return "", fmt.Errorf("Invalid upload filename")
 	}
+
 	fullName := filepath.Join(reportDir, leafName)
 
-	log.Println("Saving uploaded file", originalFileName, "to", fullName)
+	log.Println("Saving uploaded file", leafName, "to", fullName)
 
 	f, err := os.Create(fullName)
 	if err != nil {
