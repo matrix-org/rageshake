@@ -280,9 +280,13 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 
 // we use a quite restrictive regexp for the filenames; in particular:
 //
-// * a limited set of extensions: we pick the mime-type when serving the file
-//   based on the extension, so allowing .js would be disasterous
+// * a limited set of extensions. We are careful to limit the content-types
+//   we will serve the files with, but somebody might accidentally point an
+//   Apache or nginx at the upload directory, which would serve js files as
+//   application/javascript and open XSS vulnerabilities.
+//
 // * no silly characters (/, ctrl chars, etc)
+//
 // * nothing starting with '.'
 var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|txt)$`)
 
