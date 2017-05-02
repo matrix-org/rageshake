@@ -197,17 +197,9 @@ func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	if len(p.Data) != 1 {
 		t.Errorf("Data length: got %d, want 1", len(p.Data))
 	}
-	if len(p.Labels) != 2 {
-		t.Errorf("Number of labels: got %v, want 2", len(p.Labels))
-	} else {
-		wanted = "label1"
-		if p.Labels[0] != wanted {
-			t.Errorf("Label 0: got %v, want %v", p.Labels[0], wanted)
-		}
-		wanted = "label2"
-		if p.Labels[1] != wanted {
-			t.Errorf("Label 1: got %v, want %v", p.Labels[1], wanted)
-		}
+	wantedLabels := []string{"label1", "label2"}
+	if !stringSlicesEqual(p.Labels, wantedLabels) {
+		t.Errorf("Labels: got %v, want %v", p.Labels, wantedLabels)
 	}
 	wanted = "Test data"
 	if p.Data["test-field"] != wanted {
@@ -233,6 +225,23 @@ func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	if p.Logs[2].Lines != wanted {
 		t.Errorf("Log 2: got %s, want %s", p.Logs[2].Lines, wanted)
 	}
+}
+
+func stringSlicesEqual(got, want []string) bool {
+	if (got == nil) != (want == nil) {
+		return false
+	}
+
+	if len(got) != len(want) {
+		return false
+	}
+
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestEmptyFilename(t *testing.T) {

@@ -258,6 +258,22 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 	}
 	data := string(b)
 
+	if field == "log" || field == "compressed-log" {
+		// todo: we could save the log directly rather than pointlessly
+		// unzipping and re-zipping.
+		p.Logs = append(p.Logs, logEntry{
+			ID:    part.FileName(),
+			Lines: data,
+		})
+	} else {
+		formPartToPayload(field, data, p)
+	}
+	return nil
+}
+
+// formPartToPayload updates the relevant part of *p from a name/value pair
+// read from the form data.
+func formPartToPayload(field, data string, p *payload) {
 	if field == "text" {
 		p.Text = data
 	} else if field == "app" {
@@ -268,17 +284,9 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 		p.UserAgent = data
 	} else if field == "label" {
 		p.Labels = append(p.Labels, data)
-	} else if field == "log" || field == "compressed-log" {
-		// todo: we could save the log directly rather than pointlessly
-		// unzipping and re-zipping.
-		p.Logs = append(p.Logs, logEntry{
-			ID:    part.FileName(),
-			Lines: data,
-		})
 	} else {
 		p.Data[field] = data
 	}
-	return nil
 }
 
 // we use a quite restrictive regexp for the filenames; in particular:
