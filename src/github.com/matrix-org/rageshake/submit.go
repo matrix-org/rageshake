@@ -385,14 +385,14 @@ func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
 	}
 
 	var bodyBuf bytes.Buffer
-	fmt.Fprintf(
-		&bodyBuf,
-		"User message:\n```\n%s\n```\nVersion: %s\n[Details](%s) / [Logs](%s)",
-		p.Text,
-		p.Version,
-		listingURL+"/details.log.gz",
-		listingURL,
-	)
+	fmt.Fprintf(&bodyBuf, "User message:\n```\n%s\n```\n", p.Text)
+	for k, v := range p.Data {
+		fmt.Fprintf(&bodyBuf, "%s: `%s`\n", k, v)
+	}
+	if p.Version != "" {
+		fmt.Fprintf(&bodyBuf, "Version: `%s`\n", p.Version)
+	}
+	fmt.Fprintf(&bodyBuf, "[Logs](%s)", listingURL)
 
 	for _, file := range p.Files {
 		fmt.Fprintf(
@@ -403,7 +403,7 @@ func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
 		)
 	}
 
-	var body = bodyBuf.String()
+	body := bodyBuf.String()
 	return github.IssueRequest{
 		Title: &title,
 		Body:  &body,
