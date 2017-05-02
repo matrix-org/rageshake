@@ -57,6 +57,7 @@ type payload struct {
 	UserAgent string            `json:"user_agent"`
 	Logs      []logEntry        `json:"logs"`
 	Data      map[string]string `json:"data"`
+	Labels    []string          `json:"labels"`
 }
 
 type logEntry struct {
@@ -234,6 +235,8 @@ func parseFormPart(part *multipart.Part, p *payload) error {
 		p.Version = data
 	} else if field == "user_agent" {
 		p.UserAgent = data
+	} else if field == "label" {
+		p.Labels = append(p.Labels, data)
 	} else if field == "log" || field == "compressed-log" {
 		p.Logs = append(p.Logs, logEntry{
 			ID:    part.FileName(),
@@ -265,6 +268,7 @@ func (s *submitServer) saveReport(ctx context.Context, p payload) (*submitRespon
 		"%s\n\nNumber of logs: %d\nApplication: %s\nVersion: %s\nUser-Agent: %s\n",
 		p.Text, len(p.Logs), p.AppName, p.Version, p.UserAgent,
 	)
+	fmt.Fprintf(&summaryBuf, "Labels: %s\n", strings.Join(p.Labels, ", "))
 	for k, v := range p.Data {
 		fmt.Fprintf(&summaryBuf, "%s: %s\n", k, v)
 	}
@@ -332,8 +336,9 @@ func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
 	)
 
 	return github.IssueRequest{
-		Title: &title,
-		Body:  &body,
+		Title:  &title,
+		Body:   &body,
+		Labels: &p.Labels,
 	}
 }
 

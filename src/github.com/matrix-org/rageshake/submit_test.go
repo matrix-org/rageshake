@@ -96,6 +96,14 @@ Content-Disposition: form-data; name="user_agent"
 
 Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36
 ------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="label"
+
+label1
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="label"
+
+label2
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
 Content-Disposition: form-data; name="test-field"
 
 Test data
@@ -134,6 +142,18 @@ Content-Type: application/octet-stream
 	}
 	if len(p.Data) != 1 {
 		t.Errorf("Data length: got %d, want 1", len(p.Data))
+	}
+	if len(p.Labels) != 2 {
+		t.Errorf("Number of labels: got %v, want 2", len(p.Labels))
+	} else {
+		wanted = "label1"
+		if p.Labels[0] != wanted {
+			t.Errorf("Label 0: got %v, want %v", p.Labels[0], wanted)
+		}
+		wanted = "label2"
+		if p.Labels[1] != wanted {
+			t.Errorf("Label 1: got %v, want %v", p.Labels[1], wanted)
+		}
 	}
 	wanted = "Test data"
 	if p.Data["test-field"] != wanted {
