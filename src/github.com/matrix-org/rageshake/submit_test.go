@@ -17,8 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -26,7 +29,10 @@ import (
 
 // testParsePayload builds a /submit request with the given body, and calls
 // parseRequest with it.
-func testParsePayload(t *testing.T, body, contentType string) (p *payload) {
+//
+// if tempDir is empty, a new temp dir is created, and deleted when the test
+// completes.
+func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*payload, *http.Response) {
 	req, err := http.NewRequest("POST", "/api/submit", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -35,20 +41,26 @@ func testParsePayload(t *testing.T, body, contentType string) (p *payload) {
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	rr := httptest.NewRecorder()
-	p = parseRequest(rr, req)
 
-	if p == nil {
-		t.Error("parseRequest returned nil")
+	// temporary dir for the uploaded files
+	if tempDir == "" {
+		tempDir = mkTempDir(t)
+		defer os.RemoveAll(tempDir)
 	}
-	return
+
+	rr := httptest.NewRecorder()
+	p := parseRequest(rr, req, tempDir)
+	return p, rr.Result()
 }
 
 func TestEmptyJson(t *testing.T) {
 	body := "{}"
 
 	// we just test it is parsed without errors for now
-	testParsePayload(t, body, "application/json")
+	p, _ := testParsePayload(t, body, "application/json", "")
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
 }
 
 // check that we can unpick the json submitted by the android clients
@@ -57,7 +69,10 @@ func TestUnpickAndroidMangling(t *testing.T) {
 "version": "User : @ylc8001:matrix.org\nPhone : Lenovo P2a42\nVector version: 0:6:9\n",
 "user_agent": "Android"
 }`
-	p := testParsePayload(t, body, "")
+	p, _ := testParsePayload(t, body, "", "")
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
 	if p.Text != "test ylc 001" {
 		t.Errorf("user text: got %s, want %s", p.Text, "test ylc 001")
 	}
@@ -79,7 +94,35 @@ func TestUnpickAndroidMangling(t *testing.T) {
 }
 
 func TestMultipartUpload(t *testing.T) {
-	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+	reportDir := mkTempDir(t)
+	defer os.RemoveAll(reportDir)
+
+	p, _ := testParsePayload(t, multipartBody(),
+		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
+		reportDir,
+	)
+
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
+
+	checkParsedMultipartUpload(t, p)
+
+	// check file uploaded correctly
+	dat, err := ioutil.ReadFile(filepath.Join(reportDir, "passwd.txt"))
+	if err != nil {
+		t.Error("unable to read uploaded file", err)
+	} else {
+		datstr := string(dat)
+		wanted := "bibblybobbly"
+		if datstr != wanted {
+			t.Errorf("File contents: got %s, want %s", datstr, wanted)
+		}
+	}
+}
+
+func multipartBody() (body string) {
+	body = `------WebKitFormBoundarySsdgl8Nq9voFyhdO
 Content-Disposition: form-data; name="text"
 
 test words.
@@ -121,10 +164,21 @@ Content-Type: application/octet-stream
 	body += string([]byte{
 		0x1f, 0x8b, 0x08, 0x00, 0xbf, 0xd8, 0xf5, 0x58, 0x00, 0x03,
 		0x2b, 0x49, 0x2d, 0x2e, 0xe1, 0x02, 0x00,
-		0xc6, 0x35, 0xb9, 0x3b, 0x05, 0x00, 0x00, 0x00})
-	body += "\n------WebKitFormBoundarySsdgl8Nq9voFyhdO--\n"
+		0xc6, 0x35, 0xb9, 0x3b, 0x05, 0x00, 0x00, 0x00,
+		0x0a,
+	})
 
-	p := testParsePayload(t, body, "multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO")
+	body += `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="file"; filename="passwd.txt"
+Content-Type: application/octet-stream
+
+bibblybobbly
+`
+	body += "------WebKitFormBoundarySsdgl8Nq9voFyhdO--\n"
+	return
+}
+
+func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	wanted := "test words."
 	if p.Text != wanted {
 		t.Errorf("User text: got %s, want %s", p.Text, wanted)
@@ -159,4 +213,46 @@ Content-Type: application/octet-stream
 	if p.Logs[2].Lines != wanted {
 		t.Errorf("Log 2: got %s, want %s", p.Logs[2].Lines, wanted)
 	}
+}
+
+func TestEmptyFilename(t *testing.T) {
+	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="file"
+
+file
+------WebKitFormBoundarySsdgl8Nq9voFyhdO--
+`
+	p, resp := testParsePayload(t, body, "multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO", "")
+	if p != nil {
+		t.Error("parsePayload accepted upload with no filename")
+	}
+
+	if resp.StatusCode != 400 {
+		t.Errorf("response code: got %v, want %v", resp.StatusCode, 400)
+	}
+}
+
+func TestBadFilename(t *testing.T) {
+	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="file"; filename="etc/passwd"
+
+file
+------WebKitFormBoundarySsdgl8Nq9voFyhdO--
+`
+	p, resp := testParsePayload(t, body, "multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO", "")
+	if p != nil {
+		t.Error("parsePayload accepted upload with bad filename")
+	}
+
+	if resp.StatusCode != 400 {
+		t.Errorf("response code: got %v, want %v", resp.StatusCode, 400)
+	}
+}
+
+func mkTempDir(t *testing.T) string {
+	td, err := ioutil.TempDir("", "rageshake_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return td
 }

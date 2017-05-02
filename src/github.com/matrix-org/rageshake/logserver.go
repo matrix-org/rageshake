@@ -76,13 +76,53 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 		return
 	}
 
-	// if it's a directory, or doesn't look like a gzip, serve as normal
-	if d.IsDir() || !strings.HasSuffix(path, ".gz") {
+	// for anti-XSS belt-and-braces, set a very restrictive CSP
+	w.Header().Set("Content-Security-Policy", "default-src: none")
+
+	// if it's a directory, serve a listing
+	if d.IsDir() {
 		log.Println("Serving", path)
 		http.ServeFile(w, r, path)
 		return
 	}
 
+	// if it's a gzipped log file, serve it as text
+	if strings.HasSuffix(path, ".gz") {
+		serveGzippedFile(w, r, path, d.Size())
+		return
+	}
+
+	// otherwise, limit ourselves to a number of known-safe content-types, to
+	// guard against XSS vulnerabilities.
+	// http.serveFile preserves the content-type header if one is already set.
+	w.Header().Set("Content-Type", extensionToMimeType(path))
+
+	http.ServeFile(w, r, path)
+}
+
+// extensionToMimeType returns a suitable mime type for the given filename
+//
+// Unlike mime.TypeByExtension, the results are limited to a set of types which
+// should be safe to serve to a browser without introducing XSS vulnerabilities.
+func extensionToMimeType(path string) string {
+	if strings.HasSuffix(path, ".txt") {
+		// anyone uploading text in anything other than utf-8 needs to be
+		// re-educated.
+		return "text/plain; charset=utf-8"
+	}
+
+	if strings.HasSuffix(path, ".png") {
+		return "image/png"
+	}
+
+	if strings.HasSuffix(path, ".jpg") {
+		return "image/jpeg"
+	}
+
+	return "application/octet-stream"
+}
+
+func serveGzippedFile(w http.ResponseWriter, r *http.Request, path string, size int64) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	acceptsGzip := false
@@ -97,7 +137,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 	}
 
 	if acceptsGzip {
-		serveGzip(w, r, path, d.Size())
+		serveGzip(w, r, path, size)
 	} else {
 		serveUngzipped(w, r, path)
 	}
