@@ -228,10 +228,6 @@ func checkParsedMultipartUpload(t *testing.T, p *payload) {
 }
 
 func stringSlicesEqual(got, want []string) bool {
-	if (got == nil) != (want == nil) {
-		return false
-	}
-
 	if len(got) != len(want) {
 		return false
 	}
