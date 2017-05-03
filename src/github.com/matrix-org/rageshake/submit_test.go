@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"compress/gzip"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -32,7 +34,7 @@ import (
 //
 // if tempDir is empty, a new temp dir is created, and deleted when the test
 // completes.
-func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*payload, *http.Response) {
+func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*parsedPayload, *http.Response) {
 	req, err := http.NewRequest("POST", "/api/submit", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -73,14 +75,14 @@ func TestUnpickAndroidMangling(t *testing.T) {
 	if p == nil {
 		t.Fatal("parseRequest returned nil")
 	}
-	if p.Text != "test ylc 001" {
-		t.Errorf("user text: got %s, want %s", p.Text, "test ylc 001")
+	if p.UserText != "test ylc 001" {
+		t.Errorf("user text: got %s, want %s", p.UserText, "test ylc 001")
 	}
 	if p.AppName != "riot-android" {
 		t.Errorf("appname: got %s, want %s", p.AppName, "riot-android")
 	}
-	if p.Version != "" {
-		t.Errorf("version: got %s, want ''", p.Version)
+	if p.Data["Version"] != "" {
+		t.Errorf("version: got %s, want ''", p.Data["Version"])
 	}
 	if p.Data["User"] != "@ylc8001:matrix.org" {
 		t.Errorf("data.user: got %s, want %s", p.Data["User"], "@ylc8001:matrix.org")
@@ -108,17 +110,13 @@ func TestMultipartUpload(t *testing.T) {
 
 	checkParsedMultipartUpload(t, p)
 
+	// check logs uploaded correctly
+	checkUploadedFile(t, reportDir, "logs-0000.log.gz", true, "log\nlog\nlog")
+	checkUploadedFile(t, reportDir, "logs-0001.log.gz", true, "log")
+	checkUploadedFile(t, reportDir, "logs-0002.log.gz", true, "test\n")
+
 	// check file uploaded correctly
-	dat, err := ioutil.ReadFile(filepath.Join(reportDir, "passwd.txt"))
-	if err != nil {
-		t.Error("unable to read uploaded file", err)
-	} else {
-		datstr := string(dat)
-		wanted := "bibblybobbly"
-		if datstr != wanted {
-			t.Errorf("File contents: got %s, want %s", datstr, wanted)
-		}
-	}
+	checkUploadedFile(t, reportDir, "passwd.txt", false, "bibblybobbly")
 }
 
 func multipartBody() (body string) {
@@ -186,16 +184,16 @@ bibblybobbly
 	return
 }
 
-func checkParsedMultipartUpload(t *testing.T, p *payload) {
+func checkParsedMultipartUpload(t *testing.T, p *parsedPayload) {
 	wanted := "test words."
-	if p.Text != wanted {
-		t.Errorf("User text: got %s, want %s", p.Text, wanted)
+	if p.UserText != wanted {
+		t.Errorf("User text: got %s, want %s", p.UserText, wanted)
 	}
 	if len(p.Logs) != 3 {
 		t.Errorf("Log length: got %d, want 3", len(p.Logs))
 	}
-	if len(p.Data) != 1 {
-		t.Errorf("Data length: got %d, want 1", len(p.Data))
+	if len(p.Data) != 3 {
+		t.Errorf("Data length: got %d, want 3", len(p.Data))
 	}
 	wantedLabels := []string{"label1", "label2"}
 	if !stringSlicesEqual(p.Labels, wantedLabels) {
@@ -205,25 +203,17 @@ func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	if p.Data["test-field"] != wanted {
 		t.Errorf("test-field: got %s, want %s", p.Data["test-field"], wanted)
 	}
-	wanted = "log\nlog\nlog"
-	if p.Logs[0].Lines != wanted {
-		t.Errorf("Log 0: got %s, want %s", p.Logs[0].Lines, wanted)
+	wanted = "logs-0000.log.gz"
+	if p.Logs[0] != wanted {
+		t.Errorf("Log 0: got %s, want %s", p.Logs[0], wanted)
 	}
-	wanted = "instance-0.215954445471346461492087122412"
-	if p.Logs[0].ID != wanted {
-		t.Errorf("Log 0 ID: got %s, want %s", p.Logs[0].ID, wanted)
+	wanted = "logs-0001.log.gz"
+	if p.Logs[1] != wanted {
+		t.Errorf("Log 1: got %s, want %s", p.Logs[1], wanted)
 	}
-	wanted = "log"
-	if p.Logs[1].Lines != wanted {
-		t.Errorf("Log 1: got %s, want %s", p.Logs[1].Lines, wanted)
-	}
-	wanted = "instance-0.067644760733513781492004890379"
-	if p.Logs[1].ID != wanted {
-		t.Errorf("Log 1 ID: got %s, want %s", p.Logs[1].ID, wanted)
-	}
-	wanted = "test\n"
-	if p.Logs[2].Lines != wanted {
-		t.Errorf("Log 2: got %s, want %s", p.Logs[2].Lines, wanted)
+	wanted = "logs-0002.log.gz"
+	if p.Logs[2] != wanted {
+		t.Errorf("Log 2: got %s, want %s", p.Logs[2], wanted)
 	}
 }
 
@@ -271,6 +261,37 @@ file
 
 	if resp.StatusCode != 400 {
 		t.Errorf("response code: got %v, want %v", resp.StatusCode, 400)
+	}
+}
+
+func checkUploadedFile(t *testing.T, reportDir, leafName string, gzipped bool, wanted string) {
+	fi, err := os.Open(filepath.Join(reportDir, leafName))
+	if err != nil {
+		t.Errorf("unable to open uploaded file %s: %v", leafName, err)
+		return
+	}
+	defer fi.Close()
+	var rdr io.Reader
+	if !gzipped {
+		rdr = fi
+	} else {
+		gz, err2 := gzip.NewReader(fi)
+		if err2 != nil {
+			t.Errorf("unable to ungzip uploaded file %s: %v", leafName, err2)
+			return
+		}
+		defer gz.Close()
+		rdr = gz
+	}
+	dat, err := ioutil.ReadAll(rdr)
+	if err != nil {
+		t.Errorf("unable to read uploaded file %s: %v", leafName, err)
+		return
+	}
+
+	datstr := string(dat)
+	if datstr != wanted {
+		t.Errorf("File %s: got %s, want %s", leafName, datstr, wanted)
 	}
 }
 

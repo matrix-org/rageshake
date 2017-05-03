@@ -51,20 +51,30 @@ type submitServer struct {
 	githubProjectMappings map[string]string
 }
 
-type payload struct {
+// the type of payload which can be uploaded as JSON to the submit endpoint
+type jsonPayload struct {
 	Text      string            `json:"text"`
 	AppName   string            `json:"app"`
 	Version   string            `json:"version"`
 	UserAgent string            `json:"user_agent"`
-	Logs      []logEntry        `json:"logs"`
+	Logs      []jsonLogEntry    `json:"logs"`
 	Data      map[string]string `json:"data"`
 	Labels    []string          `json:"labels"`
-	Files     []string
 }
 
-type logEntry struct {
+type jsonLogEntry struct {
 	ID    string `json:"id"`
 	Lines string `json:"lines"`
+}
+
+// the payload after parsing
+type parsedPayload struct {
+	UserText string
+	AppName  string
+	Data     map[string]string
+	Labels   []string
+	Logs     []string
+	Files    []string
 }
 
 type submitResponse struct {
@@ -125,7 +135,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // parseRequest attempts to parse a received request as a bug report. If
 // the request cannot be parsed, it responds with an error and returns nil.
-func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *payload {
+func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *parsedPayload {
 	length, err := strconv.Atoi(req.Header.Get("Content-Length"))
 	if err != nil {
 		log.Println("Couldn't parse content-length", err)
@@ -144,7 +154,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 		if d == "multipart/form-data" {
 			p, err1 := parseMultipartRequest(w, req, reportDir)
 			if err1 != nil {
-				log.Println("Error parsing multipart data", err1)
+				log.Println("Error parsing multipart data:", err1)
 				http.Error(w, "Bad multipart data", 400)
 				return nil
 			}
@@ -152,7 +162,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 		}
 	}
 
-	p, err := parseJSONRequest(w, req)
+	p, err := parseJSONRequest(w, req, reportDir)
 	if err != nil {
 		log.Println("Error parsing JSON body", err)
 		http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
@@ -161,22 +171,35 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 	return p
 }
 
-func parseJSONRequest(w http.ResponseWriter, req *http.Request) (*payload, error) {
-	var p payload
+func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*parsedPayload, error) {
+	var p jsonPayload
 	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
 		return nil, err
 	}
 
-	p.Text = strings.TrimSpace(p.Text)
+	parsed := parsedPayload{
+		UserText: strings.TrimSpace(p.Text),
+		Data:     make(map[string]string),
+		Labels:   p.Labels,
+	}
 
-	if p.Data == nil {
-		p.Data = make(map[string]string)
+	if p.Data != nil {
+		parsed.Data = p.Data
+	}
+
+	for i, log := range p.Logs {
+		buf := bytes.NewBufferString(log.Lines)
+		leafName, err := saveLogPart(i, buf, reportDir)
+		if err != nil {
+			return nil, err
+		}
+		parsed.Logs = append(parsed.Logs, leafName)
 	}
 
 	// backwards-compatibility hack: current versions of riot-android
 	// don't set 'app', so we don't correctly file github issues.
 	if p.AppName == "" && p.UserAgent == "Android" {
-		p.AppName = "riot-android"
+		parsed.AppName = "riot-android"
 
 		// they also shove lots of stuff into 'Version' which we don't really
 		// want in the github report
@@ -191,22 +214,28 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request) (*payload, error
 			if len(parts) > 1 {
 				val = strings.TrimSpace(parts[1])
 			}
-			p.Data[key] = val
+			parsed.Data[key] = val
 		}
-		p.Version = ""
+	} else {
+		if p.UserAgent != "" {
+			parsed.Data["User-Agent"] = p.UserAgent
+		}
+		if p.Version != "" {
+			parsed.Data["Version"] = p.Version
+		}
 	}
 
-	return &p, nil
+	return &parsed, nil
 }
 
-func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
+func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*parsedPayload, error) {
 	rdr, err := req.MultipartReader()
 	if err != nil {
 		return nil, err
 	}
 
-	p := payload{
-		Logs: make([]logEntry, 0),
+	p := parsedPayload{
+		Logs: make([]string, 0),
 		Data: make(map[string]string),
 	}
 
@@ -225,13 +254,17 @@ func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir s
 	return &p, nil
 }
 
-func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
+func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) error {
 	defer part.Close()
 	field := part.FormName()
 
 	var partReader io.Reader
 	if field == "compressed-log" {
-		// decompress logs as we read them
+		// decompress logs as we read them.
+		//
+		// we could save the log directly rather than unzipping and re-zipping,
+		// but doing so conveys the benefit of checking the validity of the
+		// gzip at upload time.
 		zrdr, err := gzip.NewReader(part)
 		if err != nil {
 			return err
@@ -252,36 +285,35 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 		return nil
 	}
 
+	if field == "log" || field == "compressed-log" {
+		leafName, err := saveLogPart(len(p.Logs), partReader, reportDir)
+		if err != nil {
+			return err
+		}
+		p.Logs = append(p.Logs, leafName)
+		return nil
+	}
+
 	b, err := ioutil.ReadAll(partReader)
 	if err != nil {
 		return err
 	}
 	data := string(b)
-
-	if field == "log" || field == "compressed-log" {
-		// todo: we could save the log directly rather than pointlessly
-		// unzipping and re-zipping.
-		p.Logs = append(p.Logs, logEntry{
-			ID:    part.FileName(),
-			Lines: data,
-		})
-	} else {
-		formPartToPayload(field, data, p)
-	}
+	formPartToPayload(field, data, p)
 	return nil
 }
 
 // formPartToPayload updates the relevant part of *p from a name/value pair
 // read from the form data.
-func formPartToPayload(field, data string, p *payload) {
+func formPartToPayload(field, data string, p *parsedPayload) {
 	if field == "text" {
-		p.Text = data
+		p.UserText = data
 	} else if field == "app" {
 		p.AppName = data
 	} else if field == "version" {
-		p.Version = data
+		p.Data["Version"] = data
 	} else if field == "user_agent" {
-		p.UserAgent = data
+		p.Data["User-Agent"] = data
 	} else if field == "label" {
 		p.Labels = append(p.Labels, data)
 	} else {
@@ -305,7 +337,6 @@ var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|txt)$`)
 //
 // Returns the leafname of the saved file.
 func saveFormPart(leafName string, reader io.Reader, reportDir string) (string, error) {
-
 	if !filenameRegexp.MatchString(leafName) {
 		return "", fmt.Errorf("Invalid upload filename")
 	}
@@ -328,14 +359,38 @@ func saveFormPart(leafName string, reader io.Reader, reportDir string) (string, 
 	return leafName, nil
 }
 
-func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, listingURL string) (*submitResponse, error) {
+// saveLogPart saves a log upload to the report directory.
+//
+// Returns the leafname of the saved file.
+func saveLogPart(logNum int, reader io.Reader, reportDir string) (string, error) {
+	leafName := fmt.Sprintf("logs-%04d.log.gz", logNum)
+	fullname := filepath.Join(reportDir, leafName)
+
+	f, err := os.Create(fullname)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	gz := gzip.NewWriter(f)
+	defer gz.Close()
+
+	_, err = io.Copy(gz, reader)
+	if err != nil {
+		return "", err
+	}
+
+	return leafName, nil
+}
+
+func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDir, listingURL string) (*submitResponse, error) {
 	resp := submitResponse{}
 
 	var summaryBuf bytes.Buffer
 	fmt.Fprintf(
 		&summaryBuf,
-		"%s\n\nNumber of logs: %d\nApplication: %s\nVersion: %s\nUser-Agent: %s\n",
-		p.Text, len(p.Logs), p.AppName, p.Version, p.UserAgent,
+		"%s\n\nNumber of logs: %d\nApplication: %s\n",
+		p.UserText, len(p.Logs), p.AppName,
 	)
 	fmt.Fprintf(&summaryBuf, "Labels: %s\n", strings.Join(p.Labels, ", "))
 	for k, v := range p.Data {
@@ -343,12 +398,6 @@ func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, lis
 	}
 	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
 		return nil, err
-	}
-
-	for i, log := range p.Logs {
-		if err := gzipAndSave([]byte(log.Lines), reportDir, fmt.Sprintf("logs-%04d.log.gz", i)); err != nil {
-			return nil, err // TODO: Rollback?
-		}
 	}
 
 	if s.ghClient == nil {
@@ -383,26 +432,23 @@ func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, lis
 	return &resp, nil
 }
 
-func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
+func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueRequest {
 	var title string
-	if p.Text == "" {
+	if p.UserText == "" {
 		title = "Untitled report"
 	} else {
 		// set the title to the first line of the user's report
-		if i := strings.IndexAny(p.Text, "\r\n"); i < 0 {
-			title = p.Text
+		if i := strings.IndexAny(p.UserText, "\r\n"); i < 0 {
+			title = p.UserText
 		} else {
-			title = p.Text[0:i]
+			title = p.UserText[0:i]
 		}
 	}
 
 	var bodyBuf bytes.Buffer
-	fmt.Fprintf(&bodyBuf, "User message:\n```\n%s\n```\n", p.Text)
+	fmt.Fprintf(&bodyBuf, "User message:\n```\n%s\n```\n", p.UserText)
 	for k, v := range p.Data {
 		fmt.Fprintf(&bodyBuf, "%s: `%s`\n", k, v)
-	}
-	if p.Version != "" {
-		fmt.Fprintf(&bodyBuf, "Version: `%s`\n", p.Version)
 	}
 	fmt.Fprintf(&bodyBuf, "[Logs](%s)", listingURL)
 
