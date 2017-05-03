@@ -139,6 +139,14 @@ Content-Disposition: form-data; name="user_agent"
 
 Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36
 ------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="label"
+
+label1
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="label"
+
+label2
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
 Content-Disposition: form-data; name="test-field"
 
 Test data
@@ -189,6 +197,10 @@ func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	if len(p.Data) != 1 {
 		t.Errorf("Data length: got %d, want 1", len(p.Data))
 	}
+	wantedLabels := []string{"label1", "label2"}
+	if !stringSlicesEqual(p.Labels, wantedLabels) {
+		t.Errorf("Labels: got %v, want %v", p.Labels, wantedLabels)
+	}
 	wanted = "Test data"
 	if p.Data["test-field"] != wanted {
 		t.Errorf("test-field: got %s, want %s", p.Data["test-field"], wanted)
@@ -213,6 +225,19 @@ func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	if p.Logs[2].Lines != wanted {
 		t.Errorf("Log 2: got %s, want %s", p.Logs[2].Lines, wanted)
 	}
+}
+
+func stringSlicesEqual(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestEmptyFilename(t *testing.T) {

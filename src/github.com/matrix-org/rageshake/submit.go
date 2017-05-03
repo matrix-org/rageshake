@@ -58,6 +58,7 @@ type payload struct {
 	UserAgent string            `json:"user_agent"`
 	Logs      []logEntry        `json:"logs"`
 	Data      map[string]string `json:"data"`
+	Labels    []string          `json:"labels"`
 	Files     []string
 }
 
@@ -257,6 +258,22 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 	}
 	data := string(b)
 
+	if field == "log" || field == "compressed-log" {
+		// todo: we could save the log directly rather than pointlessly
+		// unzipping and re-zipping.
+		p.Logs = append(p.Logs, logEntry{
+			ID:    part.FileName(),
+			Lines: data,
+		})
+	} else {
+		formPartToPayload(field, data, p)
+	}
+	return nil
+}
+
+// formPartToPayload updates the relevant part of *p from a name/value pair
+// read from the form data.
+func formPartToPayload(field, data string, p *payload) {
 	if field == "text" {
 		p.Text = data
 	} else if field == "app" {
@@ -265,17 +282,11 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 		p.Version = data
 	} else if field == "user_agent" {
 		p.UserAgent = data
-	} else if field == "log" || field == "compressed-log" {
-		// todo: we could save the log directly rather than pointlessly
-		// unzipping and re-zipping.
-		p.Logs = append(p.Logs, logEntry{
-			ID:    part.FileName(),
-			Lines: data,
-		})
+	} else if field == "label" {
+		p.Labels = append(p.Labels, data)
 	} else {
 		p.Data[field] = data
 	}
-	return nil
 }
 
 // we use a quite restrictive regexp for the filenames; in particular:
@@ -326,6 +337,7 @@ func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, lis
 		"%s\n\nNumber of logs: %d\nApplication: %s\nVersion: %s\nUser-Agent: %s\n",
 		p.Text, len(p.Logs), p.AppName, p.Version, p.UserAgent,
 	)
+	fmt.Fprintf(&summaryBuf, "Labels: %s\n", strings.Join(p.Labels, ", "))
 	for k, v := range p.Data {
 		fmt.Fprintf(&summaryBuf, "%s: %s\n", k, v)
 	}
@@ -405,8 +417,9 @@ func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
 
 	body := bodyBuf.String()
 	return github.IssueRequest{
-		Title: &title,
-		Body:  &body,
+		Title:  &title,
+		Body:   &body,
+		Labels: &p.Labels,
 	}
 }
 

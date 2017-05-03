@@ -49,6 +49,11 @@ logs.)
 
 * `version`: Application version. Included in the `details.log.gz` file.
 
+* `label`: Label to attach to the github issue, and include in the details file.
+
+  If using the JSON upload encoding, this should be encoded as a `labels` field,
+  whose value should be a list of strings.
+
 * `log`: a log file, with lines separated by newline characters. Multiple log
   files can be included by including several `log` parts.
 
