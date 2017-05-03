@@ -112,7 +112,7 @@ func TestMultipartUpload(t *testing.T) {
 
 	// check logs uploaded correctly
 	checkUploadedFile(t, reportDir, "logs-0000.log.gz", true, "log\nlog\nlog")
-	checkUploadedFile(t, reportDir, "logs-0001.log.gz", true, "log")
+	checkUploadedFile(t, reportDir, "console.0.log.gz", true, "log")
 	checkUploadedFile(t, reportDir, "logs-0002.log.gz", true, "test\n")
 
 	// check file uploaded correctly
@@ -156,7 +156,7 @@ log
 log
 log
 ------WebKitFormBoundarySsdgl8Nq9voFyhdO
-Content-Disposition: form-data; name="log"; filename="instance-0.067644760733513781492004890379"
+Content-Disposition: form-data; name="log"; filename="console.0.log"
 Content-Type: text/plain
 
 log
@@ -207,7 +207,7 @@ func checkParsedMultipartUpload(t *testing.T, p *parsedPayload) {
 	if p.Logs[0] != wanted {
 		t.Errorf("Log 0: got %s, want %s", p.Logs[0], wanted)
 	}
-	wanted = "logs-0001.log.gz"
+	wanted = "console.0.log.gz"
 	if p.Logs[1] != wanted {
 		t.Errorf("Log 1: got %s, want %s", p.Logs[1], wanted)
 	}
