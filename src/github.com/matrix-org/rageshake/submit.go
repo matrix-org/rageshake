@@ -123,7 +123,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	resp, err := s.saveReport(req.Context(), *p, reportDir, listingURL)
 	if err != nil {
-		log.Println("Error handling report", err)
+		log.Println("Error handling report submission:", err)
 		http.Error(w, "Internal error", 500)
 		return
 	}
@@ -478,10 +478,16 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 	}
 
 	body := bodyBuf.String()
+
+	labels := p.Labels
+	// go-github doesn't like nils
+	if labels == nil {
+		labels = []string{}
+	}
 	return github.IssueRequest{
 		Title:  &title,
 		Body:   &body,
-		Labels: &p.Labels,
+		Labels: &labels,
 	}
 }
 

@@ -63,6 +63,9 @@ func TestEmptyJson(t *testing.T) {
 	if p == nil {
 		t.Fatal("parseRequest returned nil")
 	}
+	if len(p.Labels) != 0 {
+		t.Errorf("Labels: got %#v, want []", p.Labels)
+	}
 }
 
 // check that we can unpick the json submitted by the android clients
@@ -137,14 +140,6 @@ Content-Disposition: form-data; name="user_agent"
 
 Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36
 ------WebKitFormBoundarySsdgl8Nq9voFyhdO
-Content-Disposition: form-data; name="label"
-
-label1
-------WebKitFormBoundarySsdgl8Nq9voFyhdO
-Content-Disposition: form-data; name="label"
-
-label2
-------WebKitFormBoundarySsdgl8Nq9voFyhdO
 Content-Disposition: form-data; name="test-field"
 
 Test data
@@ -195,9 +190,8 @@ func checkParsedMultipartUpload(t *testing.T, p *parsedPayload) {
 	if len(p.Data) != 3 {
 		t.Errorf("Data length: got %d, want 3", len(p.Data))
 	}
-	wantedLabels := []string{"label1", "label2"}
-	if !stringSlicesEqual(p.Labels, wantedLabels) {
-		t.Errorf("Labels: got %v, want %v", p.Labels, wantedLabels)
+	if len(p.Labels) != 0 {
+		t.Errorf("Labels: got %#v, want []", p.Labels)
 	}
 	wanted = "Test data"
 	if p.Data["test-field"] != wanted {
@@ -214,6 +208,32 @@ func checkParsedMultipartUpload(t *testing.T, p *parsedPayload) {
 	wanted = "logs-0002.log.gz"
 	if p.Logs[2] != wanted {
 		t.Errorf("Log 2: got %s, want %s", p.Logs[2], wanted)
+	}
+}
+
+func TestLabels(t *testing.T) {
+	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="label"
+
+label1
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="label"
+
+label2
+------WebKitFormBoundarySsdgl8Nq9voFyhdO--
+`
+	p, _ := testParsePayload(t, body,
+		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
+		"",
+	)
+
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
+
+	wantedLabels := []string{"label1", "label2"}
+	if !stringSlicesEqual(p.Labels, wantedLabels) {
+		t.Errorf("Labels: got %v, want %v", p.Labels, wantedLabels)
 	}
 }
 
