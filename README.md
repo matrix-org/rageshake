@@ -57,11 +57,16 @@ logs.)
 * `log`: a log file, with lines separated by newline characters. Multiple log
   files can be included by including several `log` parts.
 
+  If the log is uploaded with a filename `name.ext`, where `name` contains only
+  alphanumerics, `.`, `-` or `_`, and `ext` is one of `log` or `txt`, then the
+  file saved to disk is based on that. Otherwise, a suitable name is
+  constructed.
+
   If using the JSON upload encoding, the request object should instead include
   a single `logs` field, which is an array of objects with the following
   fields:
 
-    * `id`: textual identifier for the logs. Currently ignored.
+    * `id`: textual identifier for the logs. Used as the filename, as above.
     * `lines`: log data. Newlines should be  encoded as `\n`, as normal in JSON).
 
 * `compressed-log`: a gzipped logfile. Decompressed and then treated the same as

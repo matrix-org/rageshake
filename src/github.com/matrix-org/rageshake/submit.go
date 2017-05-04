@@ -189,7 +189,7 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string
 
 	for i, log := range p.Logs {
 		buf := bytes.NewBufferString(log.Lines)
-		leafName, err := saveLogPart(i, buf, reportDir)
+		leafName, err := saveLogPart(i, log.ID, buf, reportDir)
 		if err != nil {
 			return nil, err
 		}
@@ -286,7 +286,7 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 	}
 
 	if field == "log" || field == "compressed-log" {
-		leafName, err := saveLogPart(len(p.Logs), partReader, reportDir)
+		leafName, err := saveLogPart(len(p.Logs), part.FileName(), partReader, reportDir)
 		if err != nil {
 			return err
 		}
@@ -359,11 +359,27 @@ func saveFormPart(leafName string, reader io.Reader, reportDir string) (string, 
 	return leafName, nil
 }
 
+// we require a sensible extension, and don't allow the filename to start with
+// '.'
+var logRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*\.(log|txt)$`)
+
 // saveLogPart saves a log upload to the report directory.
 //
 // Returns the leafname of the saved file.
-func saveLogPart(logNum int, reader io.Reader, reportDir string) (string, error) {
-	leafName := fmt.Sprintf("logs-%04d.log.gz", logNum)
+func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string) (string, error) {
+	// pick a name to save the log file with.
+	//
+	// some clients use sensible names (foo.N.log), which we preserve. For
+	// others, we just make up a filename.
+	//
+	// Either way, we need to append .gz, because we're compressing it.
+	var leafName string
+	if logRegexp.MatchString(filename) {
+		leafName = filename + ".gz"
+	} else {
+		leafName = fmt.Sprintf("logs-%04d.log.gz", logNum)
+	}
+
 	fullname := filepath.Join(reportDir, leafName)
 
 	f, err := os.Create(fullname)
