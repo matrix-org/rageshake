@@ -68,6 +68,45 @@ func TestEmptyJson(t *testing.T) {
 	}
 }
 
+func TestJsonUpload(t *testing.T) {
+	reportDir := mkTempDir(t)
+	defer os.RemoveAll(reportDir)
+
+	body := `{
+    "app": "riot-web",
+    "logs": [
+        {
+            "id": "instance-0.99152119701215051494400738905",
+            "lines": "line1\nline2"
+        }
+    ],
+    "text": "test message",
+    "user_agent": "Mozilla",
+    "version": "0.9.9"
+}`
+
+	p, _ := testParsePayload(t, body, "application/json", reportDir)
+
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
+
+	wanted := "test message"
+	if p.UserText != wanted {
+		t.Errorf("user text: got %s, want %s", p.UserText, wanted)
+	}
+	wanted = "riot-web"
+	if p.AppName != wanted {
+		t.Errorf("appname: got %s, want %s", p.AppName, wanted)
+	}
+	wanted = "0.9.9"
+	if p.Data["Version"] != wanted {
+		t.Errorf("version: got %s, want %s", p.Data["Version"], wanted)
+	}
+
+	checkUploadedFile(t, reportDir, "logs-0000.log.gz", true, "line1\nline2")
+}
+
 // check that we can unpick the json submitted by the android clients
 func TestUnpickAndroidMangling(t *testing.T) {
 	body := `{"text": "test ylc 001",

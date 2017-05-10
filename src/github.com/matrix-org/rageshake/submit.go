@@ -217,6 +217,8 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string
 			parsed.Data[key] = val
 		}
 	} else {
+		parsed.AppName = p.AppName
+
 		if p.UserAgent != "" {
 			parsed.Data["User-Agent"] = p.UserAgent
 		}
