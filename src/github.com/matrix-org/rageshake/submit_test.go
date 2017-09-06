@@ -398,3 +398,29 @@ riot-web
 		t.Errorf("Body: got %s, want %s", *issueReq.Body, expectedBody)
 	}
 }
+
+func TestBuildGithubIssueEmptyBody(t *testing.T) {
+	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="text"
+
+------WebKitFormBoundarySsdgl8Nq9voFyhdO--
+`
+	p, _ := testParsePayload(t, body,
+		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
+		"",
+	)
+
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
+
+	issueReq := buildGithubIssueRequest(*p, "http://test/listing/foo")
+
+	if *issueReq.Title != "Untitled report" {
+		t.Errorf("Title: got %s, want %s", *issueReq.Title, "Untitled report")
+	}
+	expectedBody := "User message:\n```\n\n```"
+	if !strings.HasPrefix(*issueReq.Body, expectedBody) {
+		t.Errorf("Body: got %s, want %s", *issueReq.Body, expectedBody)
+	}
+}
