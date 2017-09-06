@@ -361,3 +361,40 @@ func mkTempDir(t *testing.T) string {
 	}
 	return td
 }
+
+/*****************************************************************************
+ *
+ * buildGithubIssueRequest tests
+ */
+
+func TestBuildGithubIssueLeadingNewline(t *testing.T) {
+	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="text"
+
+
+test words.
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="app"
+
+riot-web
+------WebKitFormBoundarySsdgl8Nq9voFyhdO--
+`
+	p, _ := testParsePayload(t, body,
+		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
+		"",
+	)
+
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
+
+	issueReq := buildGithubIssueRequest(*p, "http://test/listing/foo")
+
+	if *issueReq.Title != "test words." {
+		t.Errorf("Title: got %s, want %s", *issueReq.Title, "test words.")
+	}
+	expectedBody := "User message:\n```\n\ntest words.\n```"
+	if !strings.HasPrefix(*issueReq.Body, expectedBody) {
+		t.Errorf("Body: got %s, want %s", *issueReq.Body, expectedBody)
+	}
+}

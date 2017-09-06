@@ -451,15 +451,16 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 }
 
 func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueRequest {
+	// set the title to the first (non-empty) line of the user's report, if any
 	var title string
-	if p.UserText == "" {
+	trimmedUserText := strings.TrimSpace(p.UserText)
+	if trimmedUserText == "" {
 		title = "Untitled report"
 	} else {
-		// set the title to the first line of the user's report
-		if i := strings.IndexAny(p.UserText, "\r\n"); i < 0 {
-			title = p.UserText
+		if i := strings.IndexAny(trimmedUserText, "\r\n"); i < 0 {
+			title = trimmedUserText
 		} else {
-			title = p.UserText[0:i]
+			title = trimmedUserText[0:i]
 		}
 	}
 
