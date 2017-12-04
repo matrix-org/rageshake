@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/go-github/github"
+	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -259,6 +260,7 @@ func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir s
 func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) error {
 	defer part.Close()
 	field := part.FormName()
+	partName := part.FileName()
 
 	var partReader io.Reader
 	if field == "compressed-log" {
@@ -269,7 +271,7 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 		// gzip at upload time.
 		zrdr, err := gzip.NewReader(part)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Error unzipping %s", partName)
 		}
 		defer zrdr.Close()
 		partReader = zrdr
@@ -279,18 +281,18 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 	}
 
 	if field == "file" {
-		leafName, err := saveFormPart(part.FileName(), partReader, reportDir)
+		leafName, err := saveFormPart(partName, partReader, reportDir)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Error saving %s %s", field, partName)
 		}
 		p.Files = append(p.Files, leafName)
 		return nil
 	}
 
 	if field == "log" || field == "compressed-log" {
-		leafName, err := saveLogPart(len(p.Logs), part.FileName(), partReader, reportDir)
+		leafName, err := saveLogPart(len(p.Logs), partName, partReader, reportDir)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Error saving %s %s", field, partName)
 		}
 		p.Logs = append(p.Logs, leafName)
 		return nil
