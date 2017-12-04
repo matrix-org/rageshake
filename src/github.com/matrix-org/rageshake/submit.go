@@ -83,6 +83,10 @@ type submitResponse struct {
 }
 
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// if we attempt to return a response without reading the request body,
+	// haproxy gets upset and returns a 500. Let's try this.
+	defer req.Body.Close()
+
 	if req.Method != "POST" && req.Method != "OPTIONS" {
 		respond(405, w)
 		return
