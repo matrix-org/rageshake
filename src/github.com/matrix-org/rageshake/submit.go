@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/go-github/github"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -70,12 +69,14 @@ type jsonLogEntry struct {
 
 // the payload after parsing
 type parsedPayload struct {
-	UserText string
-	AppName  string
-	Data     map[string]string
-	Labels   []string
-	Logs     []string
-	Files    []string
+	UserText   string
+	AppName    string
+	Data       map[string]string
+	Labels     []string
+	Logs       []string
+	LogErrors  []string
+	Files      []string
+	FileErrors []string
 }
 
 type submitResponse struct {
@@ -192,13 +193,15 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string
 		parsed.Data = p.Data
 	}
 
-	for i, log := range p.Logs {
-		buf := bytes.NewBufferString(log.Lines)
-		leafName, err := saveLogPart(i, log.ID, buf, reportDir)
+	for i, logfile := range p.Logs {
+		buf := bytes.NewBufferString(logfile.Lines)
+		leafName, err := saveLogPart(i, logfile.ID, buf, reportDir)
 		if err != nil {
-			return nil, err
+			log.Printf("Error saving log %s: %v", leafName, err)
+			parsed.LogErrors = append(parsed.LogErrors, fmt.Sprintf("Error saving log %s: %v", leafName, err))
+		} else {
+			parsed.Logs = append(parsed.Logs, leafName)
 		}
-		parsed.Logs = append(parsed.Logs, leafName)
 	}
 
 	// backwards-compatibility hack: current versions of riot-android
@@ -242,7 +245,6 @@ func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir s
 	}
 
 	p := parsedPayload{
-		Logs: make([]string, 0),
 		Data: make(map[string]string),
 	}
 
@@ -275,7 +277,12 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 		// gzip at upload time.
 		zrdr, err := gzip.NewReader(part)
 		if err != nil {
-			return errors.Wrapf(err, "Error unzipping %s", partName)
+			// we don't reject the whole request if there is an
+			// error reading one attachment.
+			log.Printf("Error unzipping %s: %v", partName, err)
+
+			p.LogErrors = append(p.LogErrors, fmt.Sprintf("Error unzipping %s: %v", partName, err))
+			return nil
 		}
 		defer zrdr.Close()
 		partReader = zrdr
@@ -287,18 +294,22 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 	if field == "file" {
 		leafName, err := saveFormPart(partName, partReader, reportDir)
 		if err != nil {
-			return errors.Wrapf(err, "Error saving %s %s", field, partName)
+			log.Printf("Error saving %s %s: %v", field, partName, err)
+			p.FileErrors = append(p.FileErrors, fmt.Sprintf("Error saving %s: %v", partName, err))
+		} else {
+			p.Files = append(p.Files, leafName)
 		}
-		p.Files = append(p.Files, leafName)
 		return nil
 	}
 
 	if field == "log" || field == "compressed-log" {
 		leafName, err := saveLogPart(len(p.Logs), partName, partReader, reportDir)
 		if err != nil {
-			return errors.Wrapf(err, "Error saving %s %s", field, partName)
+			log.Printf("Error saving %s %s: %v", field, partName, err)
+			p.LogErrors = append(p.LogErrors, fmt.Sprintf("Error saving %s: %v", partName, err))
+		} else {
+			p.Logs = append(p.Logs, leafName)
 		}
-		p.Logs = append(p.Logs, leafName)
 		return nil
 	}
 
@@ -420,6 +431,19 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 	for k, v := range p.Data {
 		fmt.Fprintf(&summaryBuf, "%s: %s\n", k, v)
 	}
+	if len(p.LogErrors) > 0 {
+		fmt.Fprint(&summaryBuf, "Log upload failures:\n")
+		for _, e := range p.LogErrors {
+			fmt.Fprintf(&summaryBuf, "    %s\n", e)
+		}
+	}
+	if len(p.FileErrors) > 0 {
+		fmt.Fprint(&summaryBuf, "Attachment upload failures:\n")
+		for _, e := range p.FileErrors {
+			fmt.Fprintf(&summaryBuf, "    %s\n", e)
+		}
+	}
+
 	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
 		return nil, err
 	}
