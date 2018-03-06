@@ -85,7 +85,7 @@ type submitResponse struct {
 
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// if we attempt to return a response without reading the request body,
-	// haproxy (apache?) gets upset and returns a 500. Let's try this.
+	// apache gets upset and returns a 500. Let's try this.
 	defer req.Body.Close()
 	defer io.Copy(ioutil.Discard, req.Body)
 
