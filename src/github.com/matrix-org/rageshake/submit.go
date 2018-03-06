@@ -85,8 +85,9 @@ type submitResponse struct {
 
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// if we attempt to return a response without reading the request body,
-	// haproxy gets upset and returns a 500. Let's try this.
+	// haproxy (apache?) gets upset and returns a 500. Let's try this.
 	defer req.Body.Close()
+	defer io.Copy(ioutil.Discard, req.Body)
 
 	if req.Method != "POST" && req.Method != "OPTIONS" {
 		respond(405, w)
@@ -150,7 +151,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 	}
 	if length > maxPayloadSize {
 		log.Println("Content-length", length, "too large")
-		http.Error(w, fmt.Sprintf("Content too large (max %i)", maxPayloadSize), 413)
+		http.Error(w, fmt.Sprintf("Content too large (max %d)", maxPayloadSize), 413)
 		return nil
 	}
 
