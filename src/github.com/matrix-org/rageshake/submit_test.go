@@ -395,7 +395,7 @@ riot-web
 	if *issueReq.Title != "test words." {
 		t.Errorf("Title: got %s, want %s", *issueReq.Title, "test words.")
 	}
-	expectedBody := "User message:\n```\n\ntest words.\n```"
+	expectedBody := "User message:\n\n\ntest words.\n"
 	if !strings.HasPrefix(*issueReq.Body, expectedBody) {
 		t.Errorf("Body: got %s, want %s", *issueReq.Body, expectedBody)
 	}
@@ -421,7 +421,7 @@ Content-Disposition: form-data; name="text"
 	if *issueReq.Title != "Untitled report" {
 		t.Errorf("Title: got %s, want %s", *issueReq.Title, "Untitled report")
 	}
-	expectedBody := "User message:\n```\n\n```"
+	expectedBody := "User message:\n\n\n"
 	if !strings.HasPrefix(*issueReq.Body, expectedBody) {
 		t.Errorf("Body: got %s, want %s", *issueReq.Body, expectedBody)
 	}

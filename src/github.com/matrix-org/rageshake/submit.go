@@ -496,7 +496,7 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 	}
 
 	var bodyBuf bytes.Buffer
-	fmt.Fprintf(&bodyBuf, "User message:\n```\n%s\n```\n", p.UserText)
+	fmt.Fprintf(&bodyBuf, "User message:\n\n%s\n\n", p.UserText)
 	for k, v := range p.Data {
 		fmt.Fprintf(&bodyBuf, "%s: `%s`\n", k, v)
 	}
