@@ -51,6 +51,8 @@ type submitServer struct {
 
 	// mappings from application to github owner/project
 	githubProjectMappings map[string]string
+
+	slack *slackClient
 }
 
 // the type of payload which can be uploaded as JSON to the submit endpoint
@@ -460,36 +462,62 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 		return nil, err
 	}
 
-	if s.ghClient == nil {
-		// we're done here
-		log.Println("GH issue submission disabled")
-		return &resp, nil
-	}
-
-	// submit a github issue
-	ghProj := s.githubProjectMappings[p.AppName]
-	if ghProj == "" {
-		log.Println("Not creating GH issue for unknown app", p.AppName)
-		return &resp, nil
-	}
-	splits := strings.SplitN(ghProj, "/", 2)
-	if len(splits) < 2 {
-		log.Println("Can't create GH issue for invalid repo", ghProj)
-	}
-	owner, repo := splits[0], splits[1]
-
-	issueReq := buildGithubIssueRequest(p, listingURL)
-
-	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
-	if err != nil {
+	if err := s.submitGithubIssue(ctx, p, listingURL, &resp); err != nil {
 		return nil, err
 	}
 
-	log.Println("Created issue:", *issue.HTMLURL)
-
-	resp.ReportURL = *issue.HTMLURL
+	if err := s.submitSlackNotification(p, listingURL); err != nil {
+		return nil, err
+	}
 
 	return &resp, nil
+}
+
+func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {
+	if s.ghClient == nil {
+		log.Println("GH issue submission disabled")
+	} else {
+		// submit a github issue
+		ghProj := s.githubProjectMappings[p.AppName]
+		if ghProj == "" {
+			log.Println("Not creating GH issue for unknown app", p.AppName)
+			return nil
+		}
+		splits := strings.SplitN(ghProj, "/", 2)
+		if len(splits) < 2 {
+			log.Println("Can't create GH issue for invalid repo", ghProj)
+		}
+		owner, repo := splits[0], splits[1]
+
+		issueReq := buildGithubIssueRequest(p, listingURL)
+
+		issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
+		if err != nil {
+			return err
+		}
+
+		log.Println("Created issue:", *issue.HTMLURL)
+
+		resp.ReportURL = *issue.HTMLURL
+	}
+	return nil
+}
+
+func (s *submitServer) submitSlackNotification(p parsedPayload, listingURL string) error {
+	if s.slack == nil {
+		log.Println("Slack notifications disabled")
+	} else {
+		slackBuf := fmt.Sprintf(
+			"%s\nApplication: %s\nReport: %s",
+			p.UserText, p.AppName, listingURL,
+		)
+
+		err := s.slack.Notify(slackBuf)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueRequest {
