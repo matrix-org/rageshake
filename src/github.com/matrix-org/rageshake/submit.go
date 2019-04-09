@@ -81,7 +81,7 @@ type parsedPayload struct {
 	FileErrors []string
 }
 
-func (p parsedPayload) WriteTo(out io.Writer) error {
+func (p parsedPayload) WriteTo(out io.Writer) {
 	fmt.Fprintf(
 		out,
 		"%s\n\nNumber of logs: %d\nApplication: %s\n",
@@ -110,7 +110,6 @@ func (p parsedPayload) WriteTo(out io.Writer) error {
 			fmt.Fprintf(out, "    %s\n", e)
 		}
 	}
-	return nil
 }
 
 type submitResponse struct {
@@ -456,10 +455,7 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDir, listingURL string) (*submitResponse, error) {
 	var summaryBuf bytes.Buffer
 	resp := submitResponse{}
-	err := p.WriteTo(&summaryBuf)
-	if err != nil {
-		return nil, err
-	}
+	p.WriteTo(&summaryBuf)
 	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
 		return nil, err
 	}

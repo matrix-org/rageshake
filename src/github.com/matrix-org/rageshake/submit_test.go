@@ -463,10 +463,7 @@ user_id: id
 	for _, v := range sample {
 		p := parsedPayload{Data: v.data}
 		buf.Reset()
-		err := p.WriteTo(&buf)
-		if err != nil {
-			t.Fatal(err)
-		}
+		p.WriteTo(&buf)
 		got := strings.TrimSpace(buf.String())
 		if got != expect {
 			t.Errorf("expected %s got %s", expect, got)
