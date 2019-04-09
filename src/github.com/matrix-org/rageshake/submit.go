@@ -22,7 +22,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/go-github/github"
 	"io"
 	"io/ioutil"
 	"log"
@@ -32,9 +31,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/go-github/github"
 )
 
 var maxPayloadSize = 1024 * 1024 * 55 // 55 MB
@@ -77,6 +79,38 @@ type parsedPayload struct {
 	LogErrors  []string
 	Files      []string
 	FileErrors []string
+}
+
+func (p parsedPayload) WriteTo(out io.Writer) error {
+	fmt.Fprintf(
+		out,
+		"%s\n\nNumber of logs: %d\nApplication: %s\n",
+		p.UserText, len(p.Logs), p.AppName,
+	)
+	fmt.Fprintf(out, "Labels: %s\n", strings.Join(p.Labels, ", "))
+
+	var dataKeys []string
+	for k := range p.Data {
+		dataKeys = append(dataKeys, k)
+	}
+	sort.Strings(dataKeys)
+	for _, k := range dataKeys {
+		v := p.Data[k]
+		fmt.Fprintf(out, "%s: %s\n", k, v)
+	}
+	if len(p.LogErrors) > 0 {
+		fmt.Fprint(out, "Log upload failures:\n")
+		for _, e := range p.LogErrors {
+			fmt.Fprintf(out, "    %s\n", e)
+		}
+	}
+	if len(p.FileErrors) > 0 {
+		fmt.Fprint(out, "Attachment upload failures:\n")
+		for _, e := range p.FileErrors {
+			fmt.Fprintf(out, "    %s\n", e)
+		}
+	}
+	return nil
 }
 
 type submitResponse struct {
@@ -420,31 +454,12 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 }
 
 func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDir, listingURL string) (*submitResponse, error) {
-	resp := submitResponse{}
-
 	var summaryBuf bytes.Buffer
-	fmt.Fprintf(
-		&summaryBuf,
-		"%s\n\nNumber of logs: %d\nApplication: %s\n",
-		p.UserText, len(p.Logs), p.AppName,
-	)
-	fmt.Fprintf(&summaryBuf, "Labels: %s\n", strings.Join(p.Labels, ", "))
-	for k, v := range p.Data {
-		fmt.Fprintf(&summaryBuf, "%s: %s\n", k, v)
+	resp := submitResponse{}
+	err := p.WriteTo(&summaryBuf)
+	if err != nil {
+		return nil, err
 	}
-	if len(p.LogErrors) > 0 {
-		fmt.Fprint(&summaryBuf, "Log upload failures:\n")
-		for _, e := range p.LogErrors {
-			fmt.Fprintf(&summaryBuf, "    %s\n", e)
-		}
-	}
-	if len(p.FileErrors) > 0 {
-		fmt.Fprint(&summaryBuf, "Attachment upload failures:\n")
-		for _, e := range p.FileErrors {
-			fmt.Fprintf(&summaryBuf, "    %s\n", e)
-		}
-	}
-
 	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
 		return nil, err
 	}
@@ -497,7 +512,13 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 
 	var bodyBuf bytes.Buffer
 	fmt.Fprintf(&bodyBuf, "User message:\n\n%s\n\n", p.UserText)
-	for k, v := range p.Data {
+	var dataKeys []string
+	for k := range p.Data {
+		dataKeys = append(dataKeys, k)
+	}
+	sort.Strings(dataKeys)
+	for _, k := range dataKeys {
+		v := p.Data[k]
 		fmt.Fprintf(&bodyBuf, "%s: `%s`\n", k, v)
 	}
 	fmt.Fprintf(&bodyBuf, "[Logs](%s)", listingURL)

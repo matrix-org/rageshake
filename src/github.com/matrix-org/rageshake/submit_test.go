@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"compress/gzip"
 	"io"
 	"io/ioutil"
@@ -424,5 +425,64 @@ Content-Disposition: form-data; name="text"
 	expectedBody := "User message:\n\n\n"
 	if !strings.HasPrefix(*issueReq.Body, expectedBody) {
 		t.Errorf("Body: got %s, want %s", *issueReq.Body, expectedBody)
+	}
+}
+
+func TestTestSortDataKeys(t *testing.T) {
+	expect := `
+Number of logs: 0
+Application: 
+Labels: 
+User-Agent: xxx
+Version: 1
+device_id: id
+user_id: id
+	`
+	expect = strings.TrimSpace(expect)
+	sample := []struct {
+		data map[string]string
+	}{
+		{
+			map[string]string{
+				"Version":    "1",
+				"User-Agent": "xxx",
+				"user_id":    "id",
+				"device_id":  "id",
+			},
+		},
+		{
+			map[string]string{
+				"user_id":    "id",
+				"device_id":  "id",
+				"Version":    "1",
+				"User-Agent": "xxx",
+			},
+		},
+	}
+	var buf bytes.Buffer
+	for _, v := range sample {
+		p := parsedPayload{Data: v.data}
+		buf.Reset()
+		err := p.WriteTo(&buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := strings.TrimSpace(buf.String())
+		if got != expect {
+			t.Errorf("expected %s got %s", expect, got)
+		}
+	}
+
+	for k, v := range sample {
+		p := parsedPayload{Data: v.data}
+		res := buildGithubIssueRequest(p, "")
+		got := *res.Body
+		if k == 0 {
+			expect = got
+			continue
+		}
+		if got != expect {
+			t.Errorf("expected %s got %s", expect, got)
+		}
 	}
 }
