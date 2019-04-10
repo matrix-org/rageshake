@@ -4,4 +4,5 @@ go:
 install:
  - go get -u golang.org/x/lint/golint
  - go get github.com/fzipp/gocyclo
+ - go get -t ./src/...
 script: ./hooks/pre-commit
