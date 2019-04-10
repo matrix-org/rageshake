@@ -2,6 +2,6 @@ language: go
 go:
  - 1.12
 install:
- - go get github.com/golang/lint/golint
+ - go get -u golang.org/x/lint/golint
  - go get github.com/fzipp/gocyclo
 script: ./hooks/pre-commit
