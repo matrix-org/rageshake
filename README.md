@@ -7,8 +7,7 @@ rageshake requires Go version 1.11 or later.
 To run it, do:
 
 ```
-go get github.com/constabulary/gb/...
-gb build
+go build
 ./bin/rageshake
 ```
 

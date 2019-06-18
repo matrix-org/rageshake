@@ -26,11 +26,11 @@ cd "$tmpdir"
 git --git-dir="${git_dir}" checkout-index -a
 
 # run our checks
-golint src/...
-go fmt ./src/...
-go tool vet --shadow ./src
-gocyclo -over 12 src/
-gb test
+golint
+go fmt
+go vet --shadow
+gocyclo -over 12 .
+go test
 
 # we're done with go so can set GIT_DIR
 export GIT_DIR="$git_dir"
