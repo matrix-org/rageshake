@@ -2,7 +2,7 @@
 
 Web service which collects and serves bug reports.
 
-rageshake requires Go version 1.9 or later.
+rageshake requires Go version 1.11 or later.
 
 To run it, do:
 
