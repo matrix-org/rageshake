@@ -5,6 +5,6 @@ go:
  - "1.11"
 install:
  - go get github.com/constabulary/gb/...
- - go get github.com/golang/lint/golint
+ - go get golang.org/x/lint/golint
  - go get github.com/fzipp/gocyclo
 script: ./hooks/pre-commit
