@@ -49,6 +49,8 @@ type config struct {
 	GithubToken string `yaml:"github_token"`
 
 	GithubProjectMappings map[string]string `yaml:"github_project_mappings"`
+
+	SlackWebhookURL string `yaml:"slack_webhook_url"`
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -89,6 +91,14 @@ func main() {
 		ghClient = github.NewClient(tc)
 	}
 
+	var slack *slackClient
+
+	if cfg.SlackWebhookURL == "" {
+		fmt.Println("No slack_webhook_url configured. Reporting bugs to slack is disabled.")
+	} else {
+		slack = NewSlackClient(cfg.SlackWebhookURL)
+	}
+
 	apiPrefix := cfg.APIPrefix
 	if apiPrefix == "" {
 		_, port, err := net.SplitHostPort(*bindAddr)
@@ -102,7 +112,7 @@ func main() {
 	}
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
-	http.Handle("/api/submit", &submitServer{ghClient, apiPrefix, cfg.GithubProjectMappings})
+	http.Handle("/api/submit", &submitServer{ghClient, apiPrefix, cfg.GithubProjectMappings, slack})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)
