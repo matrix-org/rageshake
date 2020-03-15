@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Vector Creations Ltd
+Copyright 2017, 2020 Vector Creations Ltd
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,7 +50,8 @@ type submitServer struct {
 	apiPrefix string
 
 	// mappings from application to github owner/project
-	githubProjectMappings map[string]string
+	githubProjectMappings       map[string]string
+	autocompleteProjectMappings map[string]string
 
 	slack *slackClient
 }
@@ -118,6 +119,9 @@ type submitResponse struct {
 	ReportURL string `json:"report_url,omitempty"`
 }
 
+// regex to catch and substitute ambiguous issue references with explicit ones to the actual repo they are in
+var ambiguousIssueRegex = regexp.MustCompile(`[\s,.](#\d+)`)
+
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// if we attempt to return a response without reading the request body,
 	// apache gets upset and returns a 500. Let's try this.
@@ -161,6 +165,10 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				reportDir, err)
 		}
 		return
+	}
+
+	if s.autocompleteProjectMappings[p.AppName] != "" {
+		p.UserText = ambiguousIssueRegex.ReplaceAllString(p.UserText, fmt.Sprintf("%s/$1", s.autocompleteProjectMappings[p.AppName]))
 	}
 
 	resp, err := s.saveReport(req.Context(), *p, reportDir, listingURL)

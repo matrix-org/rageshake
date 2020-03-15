@@ -17,6 +17,11 @@ github_token: secrettoken
 github_project_mappings:
    my-app: octocat/HelloWorld
 
+# mappings from app name (as submitted in the API) to github repo as to which the issues pertain.
+# not needed if the issues are reported to the main repo as github will complete the ambiguous references correctly.
+autocomplete_project_mappings:
+   my-app: octocat/HelloWorld_src
+
 # a Slack personal webhook URL (https://api.slack.com/incoming-webhooks), which
 # will be used to post a notification on Slack for each report.
 slack_webhook_url: https://hooks.slack.com/services/TTTTTTT/XXXXXXXXXX/YYYYYYYYYYY
