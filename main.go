@@ -1,5 +1,6 @@
 /*
-Copyright 2017, 2020 Vector Creations Ltd
+Copyright 2017 Vector Creations Ltd
+Copyright 2020 The Matrix.org Foundation C.I.C.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -48,7 +49,10 @@ type config struct {
 	// A GitHub personal access token, to create a GitHub issue for each report.
 	GithubToken string `yaml:"github_token"`
 
-	GithubProjectMappings       map[string]string `yaml:"github_project_mappings"`
+	// Mappings from app name (as submitted in the API) to github repo for issue reporting.
+	GithubProjectMappings map[string]string `yaml:"github_project_mappings"`
+	// Mappings from app name (as submitted in the API) to github repo as to which the issues pertain.
+	// Not needed if the issues are reported to the main repo as github will complete the ambiguous references correctly.
 	AutocompleteProjectMappings map[string]string `yaml:"autocomplete_project_mappings"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`

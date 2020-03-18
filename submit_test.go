@@ -1,5 +1,6 @@
 /*
 Copyright 2017 Vector Creations Ltd
+Copyright 2020 The Matrix.org Foundation C.I.C.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -479,6 +480,23 @@ user_id: id
 			continue
 		}
 		if got != expect {
+			t.Errorf("expected %s got %s", expect, got)
+		}
+	}
+}
+
+func TestAutocompleteIssueReferences(t *testing.T) {
+	tests := map[string]string{
+		"Testing #123 Foobar": "Testing owner/repo#123 Foobar", // standard
+		"#123":                "owner/repo#123",                // first/last word
+		"test (#123) bar":     "test (owner/repo#123) bar",     // brackets
+		"Start #123. Now":     "Start owner/repo#123. Now",     // followed by punctuation
+		"#123foo":             "#123foo",                       // ignore
+	}
+
+	for text, expect := range tests {
+		got := replaceAmbiguousIssueReferences("owner/repo", text)
+		if expect != got {
 			t.Errorf("expected %s got %s", expect, got)
 		}
 	}

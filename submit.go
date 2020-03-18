@@ -1,5 +1,6 @@
 /*
-Copyright 2017, 2020 Vector Creations Ltd
+Copyright 2017 Vector Creations Ltd
+Copyright 2020 The Matrix.org Foundation C.I.C.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -120,7 +121,12 @@ type submitResponse struct {
 }
 
 // regex to catch and substitute ambiguous issue references with explicit ones to the actual repo they are in
-var ambiguousIssueRegex = regexp.MustCompile(`[\s,.](#\d+)`)
+var ambiguousIssueRegex = regexp.MustCompile(`(^|[([{\s])(#\d+)([^\w]|$)`)
+
+func replaceAmbiguousIssueReferences(ownerRepo, text string) string {
+	t := ambiguousIssueRegex.ReplaceAllString(text, fmt.Sprintf("${1}%s$2$3", ownerRepo))
+	return t
+}
 
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// if we attempt to return a response without reading the request body,
@@ -168,7 +174,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.autocompleteProjectMappings[p.AppName] != "" {
-		p.UserText = ambiguousIssueRegex.ReplaceAllString(p.UserText, fmt.Sprintf("%s/$1", s.autocompleteProjectMappings[p.AppName]))
+		p.UserText = replaceAmbiguousIssueReferences(s.autocompleteProjectMappings[p.AppName], p.UserText)
 	}
 
 	resp, err := s.saveReport(req.Context(), *p, reportDir, listingURL)
