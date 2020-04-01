@@ -17,7 +17,7 @@ github_token: secrettoken
 github_project_mappings:
    my-app: octocat/HelloWorld
 
-# mappings from app name (as submitted in the API) to github repo as to which the issues pertain.
+# mappings from app name (as submitted in the API) to github repo to which the issues pertain.
 # not needed if the issues are reported to the main repo as github will complete the ambiguous references correctly.
 autocomplete_project_mappings:
    my-app: octocat/HelloWorld_src
