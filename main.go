@@ -51,7 +51,7 @@ type config struct {
 
 	// Mappings from app name (as submitted in the API) to github repo for issue reporting.
 	GithubProjectMappings map[string]string `yaml:"github_project_mappings"`
-	// Mappings from app name (as submitted in the API) to github repo as to which the issues pertain.
+	// Mappings from app name (as submitted in the API) to github repo to which the issues pertain.
 	// Not needed if the issues are reported to the main repo as github will complete the ambiguous references correctly.
 	AutocompleteProjectMappings map[string]string `yaml:"autocomplete_project_mappings"`
 
