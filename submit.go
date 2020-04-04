@@ -120,11 +120,13 @@ type submitResponse struct {
 	ReportURL string `json:"report_url,omitempty"`
 }
 
-// regex to catch and substitute ambiguous issue references with explicit ones to the actual repo they are in
-var ambiguousIssueRegex = regexp.MustCompile(`(^|[([{\s])(#\d+)([^\w]|$)`)
+// regex to match and substitute ambiguous issue references in the rageshake body text
+// matches a hash followed by digits optionally surrounded by whitespace or some punctuation
+// also matches if the input starts with digits where the hash becomes optional
+var ambiguousIssueRegex = regexp.MustCompile(`(^|[([{\s])(?:^|#)(\d+)([^\w]|$)`)
 
 func replaceAmbiguousIssueReferences(ownerRepo, text string) string {
-	t := ambiguousIssueRegex.ReplaceAllString(text, fmt.Sprintf("${1}%s$2$3", ownerRepo))
+	t := ambiguousIssueRegex.ReplaceAllString(text, fmt.Sprintf("${1}%s#$2$3", ownerRepo))
 	return t
 }
 

@@ -492,6 +492,8 @@ func TestAutocompleteIssueReferences(t *testing.T) {
 		"test (#123) bar":     "test (owner/repo#123) bar",     // brackets
 		"Start #123. Now":     "Start owner/repo#123. Now",     // followed by punctuation
 		"#123foo":             "#123foo",                       // ignore
+		"foo/#123":            "foo/#123",                      // ignore
+		"123":                 "owner/repo#123",                // special case for entire body being a number
 	}
 
 	for text, expect := range tests {
