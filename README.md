@@ -1,4 +1,4 @@
-# rageshake [![Build Status](https://travis-ci.org/matrix-org/rageshake.svg?branch=master)](https://travis-ci.org/matrix-org/rageshake)
+# rageshake [![Build status](https://badge.buildkite.com/76a4362a20b12dcd589f9308a905ffcc537278b9c363c0b5f1.svg?branch=master)](https://buildkite.com/matrix-dot-org/rageshake)
 
 Web service which collects and serves bug reports.
 

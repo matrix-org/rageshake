@@ -21,10 +21,9 @@ merge this back into the matrix.org 'official' master branch. We use github's
 pull request workflow to review the contribution, and either ask you to make
 any refinements needed or merge it and make them ourselves.
 
-We use Travis for continuous integration, and all pull requests get
-automatically tested by Travis: if your change breaks the build, then the PR
-will show that there are failed checks, so please check back after a few
-minutes.
+We use Buildkite for continuous integration, and all pull requests get
+automatically tested: if your change breaks the build, then the PR will show
+that there are failed checks, so please check back after a few minutes.
 
 Code style
 ~~~~~~~~~~
