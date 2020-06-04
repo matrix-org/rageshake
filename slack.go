@@ -12,7 +12,7 @@ type slackClient struct {
 	face    string
 }
 
-func NewSlackClient(webHook string) *slackClient {
+func newSlackClient(webHook string) *slackClient {
 	return &slackClient{
 		webHook: webHook,
 		name:    "Notifier",

@@ -96,7 +96,7 @@ func main() {
 	if cfg.SlackWebhookURL == "" {
 		fmt.Println("No slack_webhook_url configured. Reporting bugs to slack is disabled.")
 	} else {
-		slack = NewSlackClient(cfg.SlackWebhookURL)
+		slack = newSlackClient(cfg.SlackWebhookURL)
 	}
 
 	apiPrefix := cfg.APIPrefix
