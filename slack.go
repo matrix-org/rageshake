@@ -1,9 +1,9 @@
 package main
 
 import (
-	"strings"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type slackClient struct {
