@@ -26,10 +26,8 @@ cd "$tmpdir"
 git --git-dir="${git_dir}" checkout-index -a
 
 # run our checks
-golint
 go fmt
-go vet --shadow
-gocyclo -over 12 .
+./scripts/lint.sh
 go test
 
 # we're done with go so can set GIT_DIR
