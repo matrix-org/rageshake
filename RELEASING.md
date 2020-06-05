@@ -4,7 +4,8 @@
    ```
 1. Update the changelog:
    ```sh
-   pip3 install --pre 'towncrier>=19.2'
+   # we need 19.9 to read config from towncrier.toml
+   pip3 install --pre 'towncrier>19.2'
    towncrier --version=$ver
    ```
 1. Push your changes:
