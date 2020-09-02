@@ -21,8 +21,6 @@ import (
 	"crypto/subtle"
 	"flag"
 	"fmt"
-	"github.com/google/go-github/github"
-	"golang.org/x/oauth2"
 	"io/ioutil"
 	"log"
 	"net"
@@ -30,6 +28,9 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/google/go-github/github"
+	"golang.org/x/oauth2"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -51,6 +52,16 @@ type config struct {
 	GithubProjectMappings map[string]string `yaml:"github_project_mappings"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`
+
+	EmailAddresses []string `yaml:"email_addresses"`
+
+	EmailFrom string `yaml:"email_from"`
+
+	SMTPServer string `yaml:"smtp_server"`
+
+	SMTPUsername string `yaml:"smtp_username"`
+
+	SMTPPassword string `yaml:"smtp_password"`
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -99,6 +110,10 @@ func main() {
 		slack = newSlackClient(cfg.SlackWebhookURL)
 	}
 
+	if len(cfg.EmailAddresses) > 0 && cfg.SMTPServer == "" {
+		log.Fatal("Email address(es) specified but no smtp_server configured. Wrong configuration, aborting...")
+	}
+
 	apiPrefix := cfg.APIPrefix
 	if apiPrefix == "" {
 		_, port, err := net.SplitHostPort(*bindAddr)
@@ -112,7 +127,7 @@ func main() {
 	}
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
-	http.Handle("/api/submit", &submitServer{ghClient, apiPrefix, cfg.GithubProjectMappings, slack})
+	http.Handle("/api/submit", &submitServer{ghClient, apiPrefix, slack, cfg})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)

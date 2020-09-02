@@ -91,3 +91,11 @@ The response (if successful) will be a JSON object with the following fields:
 
 * `report_url`: A URL where the user can track their bug report. Omitted if
   issue submission was disabled.
+
+## Notifications
+
+You can get notifications when a new rageshake arrives on the server.
+
+Currently this tool supports pushing notifications as GitHub issues in a repo,
+through a Slack webhook or by email, cf sample config file for how to
+configure them.
