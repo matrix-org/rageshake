@@ -479,6 +479,10 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 }
 
 func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {
+	if s.ghClient == nil {
+		return nil
+	}
+
 	// submit a github issue
 	ghProj := s.cfg.GithubProjectMappings[p.AppName]
 	if ghProj == "" {
@@ -506,6 +510,10 @@ func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, l
 }
 
 func (s *submitServer) submitSlackNotification(p parsedPayload, listingURL string) error {
+	if s.slack == nil {
+		return nil
+	}
+
 	slackBuf := fmt.Sprintf(
 		"%s\nApplication: %s\nReport: %s",
 		p.UserText, p.AppName, listingURL,
