@@ -479,49 +479,43 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 }
 
 func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {
-	if s.ghClient == nil {
-		log.Println("GH issue submission disabled")
-	} else {
-		// submit a github issue
-		ghProj := s.cfg.GithubProjectMappings[p.AppName]
-		if ghProj == "" {
-			log.Println("Not creating GH issue for unknown app", p.AppName)
-			return nil
-		}
-		splits := strings.SplitN(ghProj, "/", 2)
-		if len(splits) < 2 {
-			log.Println("Can't create GH issue for invalid repo", ghProj)
-		}
-		owner, repo := splits[0], splits[1]
-
-		issueReq := buildGithubIssueRequest(p, listingURL)
-
-		issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
-		if err != nil {
-			return err
-		}
-
-		log.Println("Created issue:", *issue.HTMLURL)
-
-		resp.ReportURL = *issue.HTMLURL
+	// submit a github issue
+	ghProj := s.cfg.GithubProjectMappings[p.AppName]
+	if ghProj == "" {
+		log.Println("Not creating GH issue for unknown app", p.AppName)
+		return nil
 	}
+	splits := strings.SplitN(ghProj, "/", 2)
+	if len(splits) < 2 {
+		log.Println("Can't create GH issue for invalid repo", ghProj)
+	}
+	owner, repo := splits[0], splits[1]
+
+	issueReq := buildGithubIssueRequest(p, listingURL)
+
+	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
+	if err != nil {
+		return err
+	}
+
+	log.Println("Created issue:", *issue.HTMLURL)
+
+	resp.ReportURL = *issue.HTMLURL
+
 	return nil
 }
 
 func (s *submitServer) submitSlackNotification(p parsedPayload, listingURL string) error {
-	if s.slack == nil {
-		log.Println("Slack notifications disabled")
-	} else {
-		slackBuf := fmt.Sprintf(
-			"%s\nApplication: %s\nReport: %s",
-			p.UserText, p.AppName, listingURL,
-		)
+	slackBuf := fmt.Sprintf(
+		"%s\nApplication: %s\nReport: %s",
+		p.UserText, p.AppName, listingURL,
+	)
 
-		err := s.slack.Notify(slackBuf)
-		if err != nil {
-			return err
-		}
+	err := s.slack.Notify(slackBuf)
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 
@@ -587,37 +581,34 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 }
 
 func (s *submitServer) sendEmail(p parsedPayload, reportDir string) error {
-	if s.cfg.SMTPServer == "" {
-		log.Println("Email submission disabled")
-	} else {
-		e := email.NewEmail()
+	e := email.NewEmail()
 
-		e.From = "Rageshake <rageshake@matrix.org>"
-		if s.cfg.EmailFrom != "" {
-			e.From = s.cfg.EmailFrom
-		}
-
-		e.To = s.cfg.EmailAddresses
-
-		e.Subject = fmt.Sprintf("[%s] %s", p.AppName, buildReportTitle(p))
-
-		e.Text = buildReportBody(p, "\"").Bytes()
-
-		allFiles := append(p.Files, p.Logs...)
-		for _, file := range allFiles {
-			fullPath := filepath.Join(reportDir, file)
-			e.AttachFile(fullPath)
-		}
-
-		var auth smtp.Auth = nil
-		if s.cfg.SMTPPassword != "" || s.cfg.SMTPUsername != "" {
-			auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPServer)
-		}
-		err := e.Send(s.cfg.SMTPServer, auth)
-		if err != nil {
-			return err
-		}
+	e.From = "Rageshake <rageshake@matrix.org>"
+	if s.cfg.EmailFrom != "" {
+		e.From = s.cfg.EmailFrom
 	}
+
+	e.To = s.cfg.EmailAddresses
+
+	e.Subject = fmt.Sprintf("[%s] %s", p.AppName, buildReportTitle(p))
+
+	e.Text = buildReportBody(p, "\"").Bytes()
+
+	allFiles := append(p.Files, p.Logs...)
+	for _, file := range allFiles {
+		fullPath := filepath.Join(reportDir, file)
+		e.AttachFile(fullPath)
+	}
+
+	var auth smtp.Auth = nil
+	if s.cfg.SMTPPassword != "" || s.cfg.SMTPUsername != "" {
+		auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPServer)
+	}
+	err := e.Send(s.cfg.SMTPServer, auth)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
