@@ -1,5 +1,7 @@
 module github.com/matrix-org/rageshake
 
+go 1.14
+
 require (
 	cloud.google.com/go v0.0.0-20170406015231-675fad27ef35
 	github.com/golang/protobuf v0.0.0-20170331031902-2bba0603135d

@@ -589,6 +589,10 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 }
 
 func (s *submitServer) sendEmail(p parsedPayload, reportDir string) error {
+	if len(s.cfg.EmailAddresses) == 0 {
+		return nil
+	}
+
 	e := email.NewEmail()
 
 	e.From = "Rageshake <rageshake@matrix.org>"
