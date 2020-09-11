@@ -24,7 +24,7 @@ slack_webhook_url: https://hooks.slack.com/services/TTTTTTT/XXXXXXXXXX/YYYYYYYYY
 # notification can also be pushed by email.
 # this param controls the target emails
 email_addresses:
-- support@matrix.org
+  - support@matrix.org
 
 # this is the from field that will be used in the email notifications
 email_from: Rageshake <rageshake@matrix.org>
@@ -33,4 +33,3 @@ email_from: Rageshake <rageshake@matrix.org>
 smtp_server: localhost:25
 smtp_username: myemailuser
 smtp_password: myemailpass
-
