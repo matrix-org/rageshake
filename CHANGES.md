@@ -1,3 +1,12 @@
+1.2 (2020-09-16)
+================
+
+Features
+--------
+
+- Add email support. ([\#35](https://github.com/matrix-org/rageshake/issues/35))
+
+
 1.1 (2020-06-04)
 ================
 
