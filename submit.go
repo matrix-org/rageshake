@@ -28,6 +28,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/smtp"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -37,6 +38,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/github"
+	"github.com/jordan-wright/email"
 )
 
 var maxPayloadSize = 1024 * 1024 * 55 // 55 MB
@@ -49,10 +51,9 @@ type submitServer struct {
 	// External URI to /api
 	apiPrefix string
 
-	// mappings from application to github owner/project
-	githubProjectMappings map[string]string
-
 	slack *slackClient
+
+	cfg *config
 }
 
 // the type of payload which can be uploaded as JSON to the submit endpoint
@@ -470,70 +471,77 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 		return nil, err
 	}
 
+	if err := s.sendEmail(p, reportDir); err != nil {
+		return nil, err
+	}
+
 	return &resp, nil
 }
 
 func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {
 	if s.ghClient == nil {
-		log.Println("GH issue submission disabled")
-	} else {
-		// submit a github issue
-		ghProj := s.githubProjectMappings[p.AppName]
-		if ghProj == "" {
-			log.Println("Not creating GH issue for unknown app", p.AppName)
-			return nil
-		}
-		splits := strings.SplitN(ghProj, "/", 2)
-		if len(splits) < 2 {
-			log.Println("Can't create GH issue for invalid repo", ghProj)
-		}
-		owner, repo := splits[0], splits[1]
-
-		issueReq := buildGithubIssueRequest(p, listingURL)
-
-		issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
-		if err != nil {
-			return err
-		}
-
-		log.Println("Created issue:", *issue.HTMLURL)
-
-		resp.ReportURL = *issue.HTMLURL
+		return nil
 	}
+
+	// submit a github issue
+	ghProj := s.cfg.GithubProjectMappings[p.AppName]
+	if ghProj == "" {
+		log.Println("Not creating GH issue for unknown app", p.AppName)
+		return nil
+	}
+	splits := strings.SplitN(ghProj, "/", 2)
+	if len(splits) < 2 {
+		log.Println("Can't create GH issue for invalid repo", ghProj)
+	}
+	owner, repo := splits[0], splits[1]
+
+	issueReq := buildGithubIssueRequest(p, listingURL)
+
+	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
+	if err != nil {
+		return err
+	}
+
+	log.Println("Created issue:", *issue.HTMLURL)
+
+	resp.ReportURL = *issue.HTMLURL
+
 	return nil
 }
 
 func (s *submitServer) submitSlackNotification(p parsedPayload, listingURL string) error {
 	if s.slack == nil {
-		log.Println("Slack notifications disabled")
-	} else {
-		slackBuf := fmt.Sprintf(
-			"%s\nApplication: %s\nReport: %s",
-			p.UserText, p.AppName, listingURL,
-		)
-
-		err := s.slack.Notify(slackBuf)
-		if err != nil {
-			return err
-		}
+		return nil
 	}
+
+	slackBuf := fmt.Sprintf(
+		"%s\nApplication: %s\nReport: %s",
+		p.UserText, p.AppName, listingURL,
+	)
+
+	err := s.slack.Notify(slackBuf)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueRequest {
+func buildReportTitle(p parsedPayload) string {
 	// set the title to the first (non-empty) line of the user's report, if any
-	var title string
 	trimmedUserText := strings.TrimSpace(p.UserText)
 	if trimmedUserText == "" {
-		title = "Untitled report"
-	} else {
-		if i := strings.IndexAny(trimmedUserText, "\r\n"); i < 0 {
-			title = trimmedUserText
-		} else {
-			title = trimmedUserText[0:i]
-		}
+		return "Untitled report"
 	}
 
+	if i := strings.IndexAny(trimmedUserText, "\r\n"); i >= 0 {
+		return trimmedUserText[0:i]
+	}
+
+	return trimmedUserText
+}
+
+func buildReportBody(p parsedPayload, quoteChar string) *bytes.Buffer {
 	var bodyBuf bytes.Buffer
 	fmt.Fprintf(&bodyBuf, "User message:\n\n%s\n\n", p.UserText)
 	var dataKeys []string
@@ -543,18 +551,28 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 	sort.Strings(dataKeys)
 	for _, k := range dataKeys {
 		v := p.Data[k]
-		fmt.Fprintf(&bodyBuf, "%s: `%s`\n", k, v)
+		fmt.Fprintf(&bodyBuf, "%s: %s%s%s\n", k, quoteChar, v, quoteChar)
 	}
-	fmt.Fprintf(&bodyBuf, "[Logs](%s)", listingURL)
+
+	return &bodyBuf
+}
+
+func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueRequest {
+	bodyBuf := buildReportBody(p, "`")
+
+	// Add log links to the body
+	fmt.Fprintf(bodyBuf, "[Logs](%s)", listingURL)
 
 	for _, file := range p.Files {
 		fmt.Fprintf(
-			&bodyBuf,
+			bodyBuf,
 			" / [%s](%s)",
 			file,
 			listingURL+"/"+file,
 		)
 	}
+
+	title := buildReportTitle(p)
 
 	body := bodyBuf.String()
 
@@ -568,6 +586,42 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 		Body:   &body,
 		Labels: &labels,
 	}
+}
+
+func (s *submitServer) sendEmail(p parsedPayload, reportDir string) error {
+	if len(s.cfg.EmailAddresses) == 0 {
+		return nil
+	}
+
+	e := email.NewEmail()
+
+	e.From = "Rageshake <rageshake@matrix.org>"
+	if s.cfg.EmailFrom != "" {
+		e.From = s.cfg.EmailFrom
+	}
+
+	e.To = s.cfg.EmailAddresses
+
+	e.Subject = fmt.Sprintf("[%s] %s", p.AppName, buildReportTitle(p))
+
+	e.Text = buildReportBody(p, "\"").Bytes()
+
+	allFiles := append(p.Files, p.Logs...)
+	for _, file := range allFiles {
+		fullPath := filepath.Join(reportDir, file)
+		e.AttachFile(fullPath)
+	}
+
+	var auth smtp.Auth = nil
+	if s.cfg.SMTPPassword != "" || s.cfg.SMTPUsername != "" {
+		auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPServer)
+	}
+	err := e.Send(s.cfg.SMTPServer, auth)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func respond(code int, w http.ResponseWriter) {

@@ -20,3 +20,16 @@ github_project_mappings:
 # a Slack personal webhook URL (https://api.slack.com/incoming-webhooks), which
 # will be used to post a notification on Slack for each report.
 slack_webhook_url: https://hooks.slack.com/services/TTTTTTT/XXXXXXXXXX/YYYYYYYYYYY
+
+# notification can also be pushed by email.
+# this param controls the target emails
+email_addresses:
+  - support@matrix.org
+
+# this is the from field that will be used in the email notifications
+email_from: Rageshake <rageshake@matrix.org>
+
+# SMTP server configuration
+smtp_server: localhost:25
+smtp_username: myemailuser
+smtp_password: myemailpass
