@@ -10,7 +10,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o rageshake
 
-FROM scratch
+FROM alpine:3.13
 COPY --from=builder /build/rageshake /rageshake
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 WORKDIR /
