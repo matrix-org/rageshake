@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  app:
+    entrypoint: ["/rageshake"]
+    image: rageshake:v1
+    container_name: bugreports
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:9110:9110

@@ -13,6 +13,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflag
 FROM scratch
 COPY --from=builder /build/rageshake /rageshake
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /build/rageshake.sample.yaml /rageshake.yaml
 WORKDIR /
 EXPOSE 9110
 CMD ["/rageshake"]
