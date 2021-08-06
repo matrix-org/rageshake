@@ -39,6 +39,7 @@ import (
 
 	"github.com/google/go-github/github"
 	"github.com/jordan-wright/email"
+	"github.com/xanzy/go-gitlab"
 )
 
 var maxPayloadSize = 1024 * 1024 * 55 // 55 MB
@@ -47,6 +48,7 @@ type submitServer struct {
 	// github client for reporting bugs. may be nil, in which case,
 	// reporting is disabled.
 	ghClient *github.Client
+	glClient *gitlab.Client
 
 	// External URI to /api
 	apiPrefix string
@@ -467,6 +469,10 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 		return nil, err
 	}
 
+	if err := s.submitGitlabIssue(p, listingURL, &resp); err != nil {
+		return nil, err
+	}
+
 	if err := s.submitSlackNotification(p, listingURL); err != nil {
 		return nil, err
 	}
@@ -505,6 +511,29 @@ func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, l
 	log.Println("Created issue:", *issue.HTMLURL)
 
 	resp.ReportURL = *issue.HTMLURL
+
+	return nil
+}
+
+func (s *submitServer) submitGitlabIssue(p parsedPayload, listingURL string, resp *submitResponse) error {
+	if s.glClient == nil {
+		return nil
+	}
+
+	glProj := s.cfg.GitlabProjectMappings[p.AppName]
+	glLabels := s.cfg.GitlabProjectLabels[p.AppName]
+
+	issueReq := buildGitlabIssueRequest(p, listingURL, glLabels, s.cfg.GitlabIssueConfidential)
+
+	issue, _, err := s.glClient.Issues.CreateIssue(glProj, issueReq)
+
+	if err != nil {
+		return err
+	}
+
+	log.Println("Created issue:", issue.WebURL)
+
+	resp.ReportURL = issue.WebURL
 
 	return nil
 }
@@ -557,7 +586,7 @@ func buildReportBody(p parsedPayload, quoteChar string) *bytes.Buffer {
 	return &bodyBuf
 }
 
-func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueRequest {
+func buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body string) {
 	bodyBuf := buildReportBody(p, "`")
 
 	// Add log links to the body
@@ -572,9 +601,15 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 		)
 	}
 
-	title := buildReportTitle(p)
+	title = buildReportTitle(p)
 
-	body := bodyBuf.String()
+	body = bodyBuf.String()
+
+	return
+}
+
+func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueRequest {
+	title, body := buildGenericIssueRequest(p, listingURL)
 
 	labels := p.Labels
 	// go-github doesn't like nils
@@ -585,6 +620,21 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 		Title:  &title,
 		Body:   &body,
 		Labels: &labels,
+	}
+}
+
+func buildGitlabIssueRequest(p parsedPayload, listingURL string, labels []string, confidential bool) *gitlab.CreateIssueOptions {
+	title, body := buildGenericIssueRequest(p, listingURL)
+
+	if p.Labels != nil {
+		labels = append(labels, p.Labels...)
+	}
+
+	return &gitlab.CreateIssueOptions{
+		Title:        &title,
+		Description:  &body,
+		Confidential: &confidential,
+		Labels:       labels,
 	}
 }
 
