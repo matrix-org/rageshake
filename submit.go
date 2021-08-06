@@ -570,7 +570,7 @@ func buildReportTitle(p parsedPayload) string {
 	return trimmedUserText
 }
 
-func buildReportBody(p parsedPayload, quoteChar string) *bytes.Buffer {
+func buildReportBody(p parsedPayload, newline, quoteChar string) *bytes.Buffer {
 	var bodyBuf bytes.Buffer
 	fmt.Fprintf(&bodyBuf, "User message:\n\n%s\n\n", p.UserText)
 	var dataKeys []string
@@ -580,17 +580,17 @@ func buildReportBody(p parsedPayload, quoteChar string) *bytes.Buffer {
 	sort.Strings(dataKeys)
 	for _, k := range dataKeys {
 		v := p.Data[k]
-		fmt.Fprintf(&bodyBuf, "%s: %s%s%s\n", k, quoteChar, v, quoteChar)
+		fmt.Fprintf(&bodyBuf, "%s: %s%s%s%s", k, quoteChar, v, quoteChar, newline)
 	}
 
 	return &bodyBuf
 }
 
 func buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body string) {
-	bodyBuf := buildReportBody(p, "`")
+	bodyBuf := buildReportBody(p, "  \n", "`")
 
 	// Add log links to the body
-	fmt.Fprintf(bodyBuf, "[Logs](%s)", listingURL)
+	fmt.Fprintf(bodyBuf, "\n[Logs](%s)", listingURL)
 
 	for _, file := range p.Files {
 		fmt.Fprintf(
@@ -654,7 +654,7 @@ func (s *submitServer) sendEmail(p parsedPayload, reportDir string) error {
 
 	e.Subject = fmt.Sprintf("[%s] %s", p.AppName, buildReportTitle(p))
 
-	e.Text = buildReportBody(p, "\"").Bytes()
+	e.Text = buildReportBody(p, "\n", "\"").Bytes()
 
 	allFiles := append(p.Files, p.Logs...)
 	for _, file := range allFiles {
