@@ -34,6 +34,9 @@ gitlab_label_mappings:
 # whether GitLab issues should be created as confidential issues
 gitlab_issue_confidential: true
 
+# A custom webhook URL that receives all the relevant data about the rageshake.
+webhook_url: https://example.com/rageshake-webhook
+
 # a Slack personal webhook URL (https://api.slack.com/incoming-webhooks), which
 # will be used to post a notification on Slack for each report.
 slack_webhook_url: https://hooks.slack.com/services/TTTTTTT/XXXXXXXXXX/YYYYYYYYYYY

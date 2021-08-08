@@ -59,6 +59,8 @@ type config struct {
 	GitlabProjectLabels     map[string][]string `yaml:"gitlab_project_labels"`
 	GitlabIssueConfidential bool                `yaml:"gitlab_issue_confidential"`
 
+	WebhookURL string `yaml:"webhook_url"`
+
 	SlackWebhookURL string `yaml:"slack_webhook_url"`
 
 	EmailAddresses []string `yaml:"email_addresses"`

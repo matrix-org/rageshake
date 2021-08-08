@@ -76,14 +76,14 @@ type jsonLogEntry struct {
 
 // the payload after parsing
 type parsedPayload struct {
-	UserText   string
-	AppName    string
-	Data       map[string]string
-	Labels     []string
-	Logs       []string
-	LogErrors  []string
-	Files      []string
-	FileErrors []string
+	UserText   string            `json:"user_text"`
+	AppName    string            `json:"app_name"`
+	Data       map[string]string `json:"data"`
+	Labels     []string          `json:"labels"`
+	Logs       []string          `json:"log_files"`
+	LogErrors  []string          `json:"log_file_errors"`
+	Files      []string          `json:"files"`
+	FileErrors []string          `json:"file_errors"`
 }
 
 func (p parsedPayload) WriteTo(out io.Writer) {
@@ -473,6 +473,10 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 		return nil, err
 	}
 
+	if err := s.submitWebhook(ctx, p, listingURL, &resp); err != nil {
+		return nil, err
+	}
+
 	if err := s.submitSlackNotification(p, listingURL); err != nil {
 		return nil, err
 	}
@@ -536,6 +540,45 @@ func (s *submitServer) submitGitlabIssue(p parsedPayload, listingURL string, res
 	resp.ReportURL = issue.WebURL
 
 	return nil
+}
+
+type webhookRequest struct {
+	Payload    parsedPayload `json:"payload"`
+	ListingURL string        `json:"listing_url"`
+	ReportURL  string        `json:"report_url"`
+}
+
+func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listingURL string, submitResp *submitResponse) error {
+	if len(s.cfg.WebhookURL) == 0 {
+		return nil
+	}
+
+	reqData := &webhookRequest{
+		Payload:    p,
+		ListingURL: listingURL,
+		ReportURL:  submitResp.ReportURL,
+	}
+
+	var body bytes.Buffer
+	var req *http.Request
+	var resp *http.Response
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+	}()
+
+	if err := json.NewEncoder(&body).Encode(reqData); err != nil {
+		return fmt.Errorf("failed to encode JSON for webhook: %w", err)
+	} else if req, err = http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.WebhookURL, &body); err != nil {
+		return fmt.Errorf("failed to prepare webhook request: %w", err)
+	} else if resp, err = http.DefaultClient.Do(req); err != nil {
+		return fmt.Errorf("failed to send webhook request: %w", err)
+	} else if resp.StatusCode < 200 || resp.StatusCode > 300 {
+		return fmt.Errorf("unexpected webhook HTTP status code %d", resp.StatusCode)
+	} else {
+		return nil
+	}
 }
 
 func (s *submitServer) submitSlackNotification(p parsedPayload, listingURL string) error {
