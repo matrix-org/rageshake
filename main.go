@@ -30,9 +30,10 @@ import (
 	"time"
 
 	"github.com/google/go-github/github"
+	"github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
@@ -50,6 +51,13 @@ type config struct {
 	GithubToken string `yaml:"github_token"`
 
 	GithubProjectMappings map[string]string `yaml:"github_project_mappings"`
+
+	GitlabURL   string `yaml:"gitlab_url"`
+	GitlabToken string `yaml:"gitlab_token"`
+
+	GitlabProjectMappings   map[string]int      `yaml:"gitlab_project_mappings"`
+	GitlabProjectLabels     map[string][]string `yaml:"gitlab_project_labels"`
+	GitlabIssueConfidential bool                `yaml:"gitlab_issue_confidential"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`
 
@@ -102,6 +110,17 @@ func main() {
 		ghClient = github.NewClient(tc)
 	}
 
+	var glClient *gitlab.Client
+	if cfg.GitlabToken == "" {
+		fmt.Println("No gitlab_token configured. Reporting bugs to gitlab is disaled.")
+	} else {
+		glClient, err = gitlab.NewClient(cfg.GitlabToken, gitlab.WithBaseURL(cfg.GitlabURL))
+		if err != nil {
+			// This probably only happens if the base URL is invalid
+			log.Fatalln("Failed to create GitLab client:", err)
+		}
+	}
+
 	var slack *slackClient
 
 	if cfg.SlackWebhookURL == "" {
@@ -127,7 +146,7 @@ func main() {
 	}
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
-	http.Handle("/api/submit", &submitServer{ghClient, apiPrefix, slack, cfg})
+	http.Handle("/api/submit", &submitServer{ghClient, glClient, apiPrefix, slack, cfg})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)
