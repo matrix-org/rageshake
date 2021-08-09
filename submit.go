@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"io/ioutil"
 	"log"
@@ -616,16 +617,28 @@ func buildReportTitle(p parsedPayload) string {
 
 func buildReportBody(p parsedPayload, newline, quoteChar string) *bytes.Buffer {
 	var bodyBuf bytes.Buffer
-	fmt.Fprintf(&bodyBuf, "User message:\n\n%s\n\n", p.UserText)
+
+	textLines := strings.Split(p.UserText, "\n")
+	for i, line := range textLines {
+		textLines[i] = fmt.Sprintf("> %s", html.EscapeString(line))
+	}
+	userText := strings.Join(textLines, "\n")
+
+	fmt.Fprintf(&bodyBuf, "User message:\n\n%s\n\n", userText)
 	var dataKeys []string
 	for k := range p.Data {
 		dataKeys = append(dataKeys, k)
 	}
 	sort.Strings(dataKeys)
+
+	fmt.Fprintf(&bodyBuf, "<details><summary>Data from app</summary>\n\n")
+
 	for _, k := range dataKeys {
 		v := p.Data[k]
 		fmt.Fprintf(&bodyBuf, "%s: %s%s%s%s", k, quoteChar, v, quoteChar, newline)
 	}
+
+	fmt.Fprintf(&bodyBuf, "\n</details>\n")
 
 	return &bodyBuf
 }
