@@ -28,7 +28,7 @@ gitlab_url: https://gitlab.com
 gitlab_project_mappings:
   my-app: 12345
 # mappings from app name to a list of GitLab label names for issue reporting.
-gitlab_label_mappings:
+gitlab_project_labels:
   my-app:
     - client::my-app
 # whether GitLab issues should be created as confidential issues
