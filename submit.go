@@ -606,14 +606,12 @@ func buildReportTitle(p parsedPayload) string {
 	// set the title to the first (non-empty) line of the user's report, if any
 	trimmedUserText := strings.TrimSpace(p.UserText)
 	if trimmedUserText == "" {
-		return "Untitled report"
+		trimmedUserText = "Untitled report"
+	} else if i := strings.IndexAny(trimmedUserText, "\r\n"); i >= 0 {
+		trimmedUserText = trimmedUserText[0:i]
 	}
-
-	if i := strings.IndexAny(trimmedUserText, "\r\n"); i >= 0 {
-		return trimmedUserText[0:i]
-	}
-
-	return trimmedUserText
+	userID := p.Data["user_id"]
+	return fmt.Sprintf("Rageshake from %s: %s", userID, trimmedUserText)
 }
 
 func buildReportBody(p parsedPayload, newline, quoteChar string) *bytes.Buffer {
