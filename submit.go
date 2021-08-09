@@ -562,17 +562,20 @@ func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listi
 	var body bytes.Buffer
 	var req *http.Request
 	var resp *http.Response
+	var err error
 	defer func() {
 		if resp != nil && resp.Body != nil {
 			_ = resp.Body.Close()
 		}
 	}()
 
-	if err := json.NewEncoder(&body).Encode(reqData); err != nil {
+	if err = json.NewEncoder(&body).Encode(reqData); err != nil {
 		return fmt.Errorf("failed to encode JSON for webhook: %w", err)
 	} else if req, err = http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.WebhookURL, &body); err != nil {
 		return fmt.Errorf("failed to prepare webhook request: %w", err)
-	} else if resp, err = http.DefaultClient.Do(req); err != nil {
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if resp, err = http.DefaultClient.Do(req); err != nil {
 		return fmt.Errorf("failed to send webhook request: %w", err)
 	} else if resp.StatusCode < 200 || resp.StatusCode > 300 {
 		return fmt.Errorf("unexpected webhook HTTP status code %d", resp.StatusCode)
