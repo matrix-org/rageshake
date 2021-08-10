@@ -1,6 +1,6 @@
 module github.com/matrix-org/rageshake
 
-go 1.16
+go 1.15
 
 require (
 	github.com/google/go-github v0.0.0-20170401000335-12363ffc1001
