@@ -17,6 +17,23 @@ github_token: secrettoken
 github_project_mappings:
    my-app: octocat/HelloWorld
 
+# a GitLab personal access token (https://gitlab.com/-/profile/personal_access_tokens), which
+# will be used to create a GitLab issue for each report. It requires
+# `api` scope. If omitted, no issues will be created.
+gitlab_token: secrettoken
+# the base URL of the GitLab instance to use
+gitlab_url: https://gitlab.com
+
+# mappings from app name (as submitted in the API) to the GitLab Project ID (not name!) for issue reporting.
+gitlab_project_mappings:
+  my-app: 12345
+# mappings from app name to a list of GitLab label names for issue reporting.
+gitlab_project_labels:
+  my-app:
+    - client::my-app
+# whether GitLab issues should be created as confidential issues. Defaults to false.
+gitlab_issue_confidential: true
+
 # a Slack personal webhook URL (https://api.slack.com/incoming-webhooks), which
 # will be used to post a notification on Slack for each report.
 slack_webhook_url: https://hooks.slack.com/services/TTTTTTT/XXXXXXXXXX/YYYYYYYYYYY
