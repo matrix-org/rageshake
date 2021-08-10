@@ -31,7 +31,7 @@ gitlab_project_mappings:
 gitlab_project_labels:
   my-app:
     - client::my-app
-# whether GitLab issues should be created as confidential issues
+# whether GitLab issues should be created as confidential issues. Defaults to false.
 gitlab_issue_confidential: true
 
 # a Slack personal webhook URL (https://api.slack.com/incoming-webhooks), which
