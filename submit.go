@@ -612,7 +612,18 @@ func buildReportTitle(p parsedPayload) string {
 		trimmedUserText = trimmedUserText[0:i]
 	}
 	userID := p.Data["user_id"]
-	return fmt.Sprintf("Rageshake from %s: %s", userID, trimmedUserText)
+	if len(userID) > 0 && userID[0] == '@' {
+		// Remove @ at start to prevent GitLab from linkifying it as a username
+		userID = userID[1:]
+	}
+	if len(userID) == 0 {
+		userID = "unknown user"
+	}
+	title := fmt.Sprintf("Rageshake from %s: %s", userID, trimmedUserText)
+	if len(title) > 255 {
+		title = title[:255]
+	}
+	return title
 }
 
 func buildReportBody(p parsedPayload, newline, quoteChar string) *bytes.Buffer {
