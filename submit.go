@@ -526,9 +526,8 @@ func (s *submitServer) submitGitlabIssue(p parsedPayload, listingURL string, res
 	}
 
 	glProj := s.cfg.GitlabProjectMappings[p.AppName]
-	glLabels := s.cfg.GitlabProjectLabels[p.AppName]
 
-	issueReq := buildGitlabIssueRequest(p, listingURL, glLabels, s.cfg.GitlabIssueConfidential)
+	issueReq := s.buildGitlabIssueRequest(p, listingURL)
 
 	issue, _, err := s.glClient.Issues.CreateIssue(glProj, issueReq)
 
@@ -691,17 +690,26 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 	}
 }
 
-func buildGitlabIssueRequest(p parsedPayload, listingURL string, labels []string, confidential bool) *gitlab.CreateIssueOptions {
+func (s *submitServer) buildGitlabIssueRequest(p parsedPayload, listingURL string) *gitlab.CreateIssueOptions {
 	title, body := buildGenericIssueRequest(p, listingURL)
 
+	labels := s.cfg.GitlabProjectLabels[p.AppName]
 	if p.Labels != nil {
 		labels = append(labels, p.Labels...)
+	}
+	if bridge, ok := p.Data["bridge"]; ok {
+		labels = append(labels, fmt.Sprintf("bridge::%s", bridge))
+	}
+	if problem, ok := p.Data["problem"]; ok {
+		if label, ok := s.cfg.GitlabProblemLabels[problem]; ok {
+			labels = append(labels, label)
+		}
 	}
 
 	return &gitlab.CreateIssueOptions{
 		Title:        &title,
 		Description:  &body,
-		Confidential: &confidential,
+		Confidential: &s.cfg.GitlabIssueConfidential,
 		Labels:       labels,
 	}
 }
