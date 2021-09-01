@@ -690,6 +690,16 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 	}
 }
 
+func unorderedArrayDelete(data []string, value string) []string {
+	for i := len(data) - 1; i >= 0; i-- {
+		if data[i] == value {
+			data[i] = data[len(data)-1]
+			data = data[:len(data)-1]
+		}
+	}
+	return data
+}
+
 func (s *submitServer) buildGitlabIssueRequest(p parsedPayload, listingURL string) *gitlab.CreateIssueOptions {
 	title, body := buildGenericIssueRequest(p, listingURL)
 
@@ -699,6 +709,11 @@ func (s *submitServer) buildGitlabIssueRequest(p parsedPayload, listingURL strin
 	}
 	if bridge, ok := p.Data["bridge"]; ok {
 		labels = append(labels, fmt.Sprintf("bridge::%s", bridge))
+
+		labels = unorderedArrayDelete(labels, "Desktop::Needs Triage")
+		labels = unorderedArrayDelete(labels, "Android::Needs Triage")
+		labels = unorderedArrayDelete(labels, "iOS::Needs Triage")
+		labels = append(labels, "Bridge Work::Needs Triage")
 	}
 	if problem, ok := p.Data["problem"]; ok {
 		if label, ok := s.cfg.GitlabProblemLabels[problem]; ok {
