@@ -119,7 +119,8 @@ func (p parsedPayload) WriteTo(out io.Writer) {
 }
 
 type submitResponse struct {
-	ReportURL string `json:"report_url,omitempty"`
+	ReportURL   string `json:"report_url,omitempty"`
+	IssueNumber string `json:"issue_number,omitempty"`
 }
 
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -375,6 +376,11 @@ func formPartToPayload(field, data string, p *parsedPayload) {
 		p.Data["User-Agent"] = data
 	} else if field == "label" {
 		p.Labels = append(p.Labels, data)
+		if len(p.Data[field]) == 0 {
+			p.Data[field] = data
+		} else {
+			p.Data[field] = fmt.Sprintf("%s, %s", p.Data[field], data)
+		}
 	} else {
 		p.Data[field] = data
 	}
@@ -474,6 +480,10 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 		return nil, err
 	}
 
+	if err := s.submitLinearIssue(p, listingURL, &resp); err != nil {
+		return nil, err
+	}
+
 	if err := s.submitWebhook(ctx, p, listingURL, &resp); err != nil {
 		return nil, err
 	}
@@ -538,14 +548,84 @@ func (s *submitServer) submitGitlabIssue(p parsedPayload, listingURL string, res
 	log.Println("Created issue:", issue.WebURL)
 
 	resp.ReportURL = issue.WebURL
+	resp.IssueNumber = fmt.Sprintf("#%d", issue.IID)
+
+	return nil
+}
+
+func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, resp *submitResponse) error {
+	if len(s.cfg.LinearToken) == 0 {
+		return nil
+	}
+
+	teamID, ok := appToTeamID[p.AppName]
+	if !ok {
+		return nil
+	}
+
+	title, body := buildGenericIssueRequest(p, listingURL)
+
+	labels := p.Labels
+	if bridge, ok := p.Data["bridge"]; ok && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
+		teamID = linearTeamBridges
+		if bridgeLabel, ok := bridgeToLabelName[bridge]; ok {
+			labels = append(labels, bridgeLabel)
+		}
+	}
+	if problem, ok := p.Data["problem"]; ok {
+		if problem == problemBridgeRequest {
+			teamID = linearTeamBridges
+		}
+		if problemLabel, ok := problemToLabelName[problem]; ok {
+			labels = append(labels, problemLabel)
+		}
+	}
+
+	labelIDs := make([]string, 0, len(labels))
+	for _, label := range labels {
+		labelID := teamTolabelNameToID[teamID][label]
+		if len(labelID) > 0 {
+			labelIDs = append(labelIDs, labelID)
+		}
+	}
+
+	fmt.Println("Creating issue:", teamID)
+	fmt.Println(labelIDs)
+	fmt.Println(title)
+
+	var createResp CreateIssueResponse
+	err := LinearRequest(&GraphQLRequest{
+		Token: s.cfg.LinearToken,
+		Query: mutationCreateIssue,
+		Variables: map[string]interface{}{
+			"input": map[string]interface{}{
+				"teamId": teamID,
+				"title": title,
+				"description": body,
+				"labelIds": labelIDs,
+			},
+		},
+	}, &createResp)
+	if err != nil {
+		return err
+	}
+
+	log.Println("Created issue:", createResp.IssueCreate.Issue.URL)
+
+	resp.ReportURL = createResp.IssueCreate.Issue.URL
+	resp.IssueNumber = createResp.IssueCreate.Issue.Identifier
+
+	fmt.Printf("%+v\n", createResp.IssueCreate)
+	fmt.Println(resp)
 
 	return nil
 }
 
 type webhookRequest struct {
-	Payload    parsedPayload `json:"payload"`
-	ListingURL string        `json:"listing_url"`
-	ReportURL  string        `json:"report_url"`
+	Payload     parsedPayload `json:"payload"`
+	ListingURL  string        `json:"listing_url"`
+	ReportURL   string        `json:"report_url"`
+	IssueNumber string        `json:"issue_number"`
 }
 
 func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listingURL string, submitResp *submitResponse) error {
@@ -554,9 +634,10 @@ func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listi
 	}
 
 	reqData := &webhookRequest{
-		Payload:    p,
-		ListingURL: listingURL,
-		ReportURL:  submitResp.ReportURL,
+		Payload:     p,
+		ListingURL:  listingURL,
+		ReportURL:   submitResp.ReportURL,
+		IssueNumber: submitResp.IssueNumber,
 	}
 
 	var body bytes.Buffer
@@ -611,21 +692,17 @@ func buildReportTitle(p parsedPayload) string {
 		trimmedUserText = trimmedUserText[0:i]
 	}
 	userID := p.Data["user_id"]
-	if len(userID) > 0 && userID[0] == '@' {
-		// Remove @ at start to prevent GitLab from linkifying it as a username
-		userID = userID[1:]
-	}
 	if len(userID) == 0 {
 		userID = "unknown user"
 	}
 	title := fmt.Sprintf("Rageshake from %s: %s", userID, trimmedUserText)
-	if len(title) > 255 {
-		title = title[:255]
+	if len(title) > 200 {
+		title = title[:200]
 	}
 	return title
 }
 
-func buildReportBody(p parsedPayload, newline, quoteChar string) *bytes.Buffer {
+func buildReportBody(p parsedPayload) *bytes.Buffer {
 	var bodyBuf bytes.Buffer
 
 	textLines := strings.Split(p.UserText, "\n")
@@ -634,30 +711,30 @@ func buildReportBody(p parsedPayload, newline, quoteChar string) *bytes.Buffer {
 	}
 	userText := strings.Join(textLines, "\n")
 
-	fmt.Fprintf(&bodyBuf, "User message:\n\n%s\n\n", userText)
+	fmt.Fprintf(&bodyBuf, "### User message:\n\n%s\n\n", userText)
 	var dataKeys []string
 	for k := range p.Data {
 		dataKeys = append(dataKeys, k)
 	}
 	sort.Strings(dataKeys)
 
-	fmt.Fprintf(&bodyBuf, "<details><summary>Data from app</summary>\n\n")
+	fmt.Fprintf(&bodyBuf, "### Data from app:\n\n```yaml")
 
 	for _, k := range dataKeys {
 		v := p.Data[k]
-		fmt.Fprintf(&bodyBuf, "%s: %s%s%s%s", k, quoteChar, v, quoteChar, newline)
+		fmt.Fprintf(&bodyBuf, "%s: %s\n", k, v)
 	}
 
-	fmt.Fprintf(&bodyBuf, "\n</details>\n")
+	fmt.Fprintf(&bodyBuf, "```\n")
 
 	return &bodyBuf
 }
 
 func buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body string) {
-	bodyBuf := buildReportBody(p, "  \n", "`")
+	bodyBuf := buildReportBody(p)
 
 	// Add log links to the body
-	fmt.Fprintf(bodyBuf, "\n[Logs](%s)", listingURL)
+	fmt.Fprintf(bodyBuf, "\n### [Logs](%s)", listingURL)
 
 	for _, file := range p.Files {
 		fmt.Fprintf(
@@ -745,7 +822,7 @@ func (s *submitServer) sendEmail(p parsedPayload, reportDir string) error {
 
 	e.Subject = fmt.Sprintf("[%s] %s", p.AppName, buildReportTitle(p))
 
-	e.Text = buildReportBody(p, "\n", "\"").Bytes()
+	e.Text = buildReportBody(p).Bytes()
 
 	allFiles := append(p.Files, p.Logs...)
 	for _, file := range allFiles {

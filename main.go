@@ -60,6 +60,8 @@ type config struct {
 	GitlabIssueConfidential bool                `yaml:"gitlab_issue_confidential"`
 	GitlabProblemLabels     map[string]string   `yaml:"gitlab_problem_labels"`
 
+	LinearToken string `yaml:"linear_token"`
+
 	WebhookURL string `yaml:"webhook_url"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`
@@ -121,6 +123,15 @@ func main() {
 		if err != nil {
 			// This probably only happens if the base URL is invalid
 			log.Fatalln("Failed to create GitLab client:", err)
+		}
+	}
+
+	if cfg.LinearToken == "" {
+		fmt.Println("No linear_token configured. Reporting bugs to Linear is disabled.")
+	} else {
+		err = fillLinearLabels(cfg.LinearToken)
+		if err != nil {
+			log.Fatalln("Failed to fetch label IDs from Linear:", err)
 		}
 	}
 
