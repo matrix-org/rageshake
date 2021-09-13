@@ -567,7 +567,11 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 
 	labels := p.Labels
 	if bridge, ok := p.Data["bridge"]; ok && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
-		teamID = linearTeamBridges
+		if bridge == "android-sms" {
+			teamID = linearTeamAndroid
+		} else {
+			teamID = linearTeamBridges
+		}
 		if bridgeLabel, ok := bridgeToLabelName[bridge]; ok {
 			labels = append(labels, bridgeLabel)
 		}
