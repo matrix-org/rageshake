@@ -565,7 +565,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 
 	title, body := buildGenericIssueRequest(p, listingURL)
 
-	labels := p.Labels
+	labels := append(p.Labels, "Rageshake")
 	if bridge, ok := p.Data["bridge"]; ok && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
 		if bridge == "android-sms" {
 			teamID = linearTeamAndroid
