@@ -62,6 +62,8 @@ type config struct {
 
 	LinearToken string `yaml:"linear_token"`
 
+	HomeserverURLs map[string]string `yaml:"homeserver_url"`
+
 	WebhookURL string `yaml:"webhook_url"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`

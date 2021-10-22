@@ -30,6 +30,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/smtp"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -85,6 +86,9 @@ type parsedPayload struct {
 	LogErrors  []string          `json:"log_file_errors"`
 	Files      []string          `json:"files"`
 	FileErrors []string          `json:"file_errors"`
+
+	VerifiedUserID   string `json:"verified_user_id"`
+	VerifiedDeviceID string `json:"verified_device_id"`
 }
 
 func (p parsedPayload) WriteTo(out io.Writer) {
@@ -137,7 +141,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Set CORS
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
 	if req.Method == "OPTIONS" {
 		respond(200, w)
 		return
@@ -157,7 +161,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	listingURL := s.apiPrefix + "/listing/" + prefix
 	log.Println("Handling report submission; listing URI will be", listingURL)
 
-	p := parseRequest(w, req, reportDir)
+	p := s.parseRequest(w, req, reportDir)
 	if p == nil {
 		// parseRequest already wrote an error, but now let's delete the
 		// useless report dir
@@ -165,6 +169,10 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			log.Printf("Unable to remove report dir %s after invalid upload: %v\n",
 				reportDir, err)
 		}
+		return
+	}
+
+	if req.Context().Err() != nil {
 		return
 	}
 
@@ -180,9 +188,67 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	_, _ = w.Write([]byte("{}"))
 }
 
+type whoamiResponse struct {
+	UserID   string `json:"user_id"`
+	DeviceID string `json:"device_id"`
+
+	ErrCode string `json:"errcode"`
+	Error   string `json:"error"`
+}
+
+func (s *submitServer) verifyAccessToken(ctx context.Context, auth, userID string) (string, string, error) {
+	if len(auth) == 0 {
+		return "", "", fmt.Errorf("missing authorization header")
+	} else if !strings.HasPrefix(auth, "Bearer ") {
+		return "", "", fmt.Errorf("invalid authorization header")
+	}
+
+	colonIndex := strings.IndexRune(userID, ':')
+	if colonIndex <= 0 || strings.IndexRune(userID, '@') != 0 {
+		return "", "", fmt.Errorf("invalid user ID")
+	}
+
+	server := userID[colonIndex+1:]
+	homeserverURL, ok := s.cfg.HomeserverURLs[server]
+	if !ok {
+		return "", "", fmt.Errorf("unsupported homeserver '%s'", server)
+	}
+
+	baseURL, _ := url.Parse(homeserverURL)
+	baseURL.Path = "/_matrix/client/r0/account/whoami"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create http request: %w", err)
+	}
+	req.Header.Set("Authorization", auth)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to make whoami request: %w", err)
+	}
+	var respData whoamiResponse
+	err = json.NewDecoder(resp.Body).Decode(&respData)
+	_ = resp.Body.Close()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to parse whoami response body (status %d): %s", resp.StatusCode, err)
+	} else if resp.StatusCode != 200 {
+		return "", "", fmt.Errorf("whoami returned non-200 status code %d (data: %+v)", resp.StatusCode, respData)
+	} else if len(respData.ErrCode) > 0 {
+		return "", "", fmt.Errorf("whoami returned error code %s: %s", respData.ErrCode, respData.Error)
+	}
+	return respData.UserID, respData.DeviceID, nil
+}
+
+func isMultipart(contentType string) bool {
+	if len(contentType) == 0 {
+		return false
+	}
+	d, _, _ := mime.ParseMediaType(contentType)
+	return d == "multipart/form-data"
+}
+
 // parseRequest attempts to parse a received request as a bug report. If
 // the request cannot be parsed, it responds with an error and returns nil.
-func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *parsedPayload {
+func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *parsedPayload {
 	length, err := strconv.Atoi(req.Header.Get("Content-Length"))
 	if err != nil {
 		log.Println("Couldn't parse content-length", err)
@@ -195,25 +261,41 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 		return nil
 	}
 
-	contentType := req.Header.Get("Content-Type")
-	if contentType != "" {
-		d, _, _ := mime.ParseMediaType(contentType)
-		if d == "multipart/form-data" {
-			p, err1 := parseMultipartRequest(w, req, reportDir)
-			if err1 != nil {
-				log.Println("Error parsing multipart data:", err1)
-				http.Error(w, "Bad multipart data", 400)
-				return nil
-			}
-			return p
+	var p *parsedPayload
+	if isMultipart(req.Header.Get("Content-Type")) {
+		p, err = parseMultipartRequest(w, req, reportDir)
+		if err != nil {
+			log.Println("Error parsing multipart data:", err)
+			http.Error(w, "Bad multipart data", 400)
+			return nil
+		}
+	} else {
+		p, err = parseJSONRequest(w, req, reportDir)
+		if err != nil {
+			log.Println("Error parsing JSON body", err)
+			http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
+			return nil
 		}
 	}
 
-	p, err := parseJSONRequest(w, req, reportDir)
-	if err != nil {
-		log.Println("Error parsing JSON body", err)
-		http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
-		return nil
+	userID, ok := p.Data["user_id"]
+	// TODO delete unverified user IDs after clients start sending auth
+	//delete(p.Data, "user_id")
+	delete(p.Data, "verified_user_id")
+	delete(p.Data, "verified_device_id")
+	if ok {
+		p.Data["unverified_user_id"] = userID
+		p.VerifiedUserID, p.VerifiedDeviceID, err = s.verifyAccessToken(req.Context(), req.Header.Get("Authorization"), userID)
+		if err != nil {
+			log.Printf("Error verifying user ID (%s): %v", userID, err)
+		} else {
+			if p.VerifiedUserID != userID {
+				log.Printf("Mismatching user ID (verified: %s, input: %s), overriding...", p.VerifiedUserID, userID)
+			}
+			p.Data["verified_user_id"] = p.VerifiedUserID
+			p.Data["verified_device_id"] = p.VerifiedDeviceID
+			p.Data["user_id"] = p.VerifiedUserID
+		}
 	}
 	return p
 }
@@ -615,10 +697,10 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		Query: mutationCreateIssue,
 		Variables: map[string]interface{}{
 			"input": map[string]interface{}{
-				"teamId": teamID,
-				"title": title,
+				"teamId":      teamID,
+				"title":       title,
 				"description": body,
-				"labelIds": labelIDs,
+				"labelIds":    labelIDs,
 			},
 		},
 	}, &createResp)

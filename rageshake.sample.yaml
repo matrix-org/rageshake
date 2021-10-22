@@ -24,6 +24,10 @@ gitlab_token: secrettoken
 # the base URL of the GitLab instance to use
 gitlab_url: https://gitlab.com
 
+# Homeserver URLs to validate Matrix access tokens.
+homeserver_url:
+  example.com: http://localhost:8008
+
 # mappings from app name (as submitted in the API) to the GitLab Project ID (not name!) for issue reporting.
 gitlab_project_mappings:
   my-app: 12345
