@@ -168,7 +168,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := s.saveReport(req.Context(), *p, reportDir, listingURL)
+	err := s.saveReport(*p, reportDir, listingURL)
 	if err != nil {
 		log.Println("Error handling report submission:", err)
 		http.Error(w, "Internal error", 500)
@@ -177,7 +177,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-	json.NewEncoder(w).Encode(resp)
+	_, _ = w.Write([]byte("{}"))
 }
 
 // parseRequest attempts to parse a received request as a bug report. If
@@ -464,39 +464,51 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 	return leafName, nil
 }
 
-func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDir, listingURL string) (*submitResponse, error) {
-	var summaryBuf bytes.Buffer
-	resp := submitResponse{}
-	p.WriteTo(&summaryBuf)
-	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
-		return nil, err
-	}
+func (s *submitServer) saveReportBackground(p parsedPayload, reportDir, listingURL string) error {
+	var resp submitResponse
 
-	if err := s.submitGithubIssue(ctx, p, listingURL, &resp); err != nil {
-		return nil, err
+	if err := s.submitGithubIssue(context.Background(), p, listingURL, &resp); err != nil {
+		return err
 	}
 
 	if err := s.submitGitlabIssue(p, listingURL, &resp); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := s.submitLinearIssue(p, listingURL, &resp); err != nil {
-		return nil, err
+		return err
 	}
 
-	if err := s.submitWebhook(ctx, p, listingURL, &resp); err != nil {
-		return nil, err
+	if err := s.submitWebhook(context.Background(), p, listingURL, &resp); err != nil {
+		return err
 	}
 
 	if err := s.submitSlackNotification(p, listingURL); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := s.sendEmail(p, reportDir); err != nil {
-		return nil, err
+		return err
 	}
 
-	return &resp, nil
+	return nil
+}
+
+func (s *submitServer) saveReport(p parsedPayload, reportDir, listingURL string) error {
+	var summaryBuf bytes.Buffer
+	p.WriteTo(&summaryBuf)
+	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
+		return err
+	}
+
+	go func() {
+		err := s.saveReportBackground(p, reportDir, listingURL)
+		if err != nil {
+			fmt.Println("Error submitting report in background:", err)
+		}
+	}()
+
+	return nil
 }
 
 func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {

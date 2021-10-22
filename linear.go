@@ -148,7 +148,7 @@ mutation CreateIssue($input: IssueCreateInput!) {
 `
 
 func LinearRequest(payload *GraphQLRequest, into interface{}) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 	var buf bytes.Buffer
 	err := json.NewEncoder(&buf).Encode(payload)
