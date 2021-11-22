@@ -76,7 +76,7 @@ type GraphQLRequest struct {
 }
 
 type GraphQLError struct {
-	Message string `json:"message"`
+	Message    string `json:"message"`
 	Extensions struct {
 		UserPresentableMessage string `json:"userPresentableMessage"`
 	}
@@ -84,7 +84,7 @@ type GraphQLError struct {
 
 type GraphQLResponse struct {
 	Errors []GraphQLError
-	Data json.RawMessage
+	Data   json.RawMessage
 }
 
 type GetLabelsLabel struct {
@@ -194,8 +194,8 @@ func LinearRequest(payload *GraphQLRequest, into interface{}) error {
 func fillLinearLabels(token string) error {
 	var labelResp GetLabelsResponse
 	err := LinearRequest(&GraphQLRequest{
-		Token:     token,
-		Query:     queryGetLabels,
+		Token: token,
+		Query: queryGetLabels,
 	}, &labelResp)
 	if err != nil {
 		return err
