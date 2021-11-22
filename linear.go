@@ -51,6 +51,7 @@ var problemToLabelName = map[string]string{
 
 var bridgeToLabelName = map[string]string{
 	"android-sms":    "Bridge: Android SMS",
+	"androidsms":     "Bridge: Android SMS",
 	"discord":        "Bridge: Discord",
 	"facebook":       "Bridge: Facebook",
 	"googlechat":     "Bridge: Google Chat",
@@ -63,6 +64,7 @@ var bridgeToLabelName = map[string]string{
 	"whatsapp":       "Bridge: WhatsApp",
 	"imessage":       "Bridge: iMessage (Mac)",
 	"imessage-cloud": "Bridge: iMessage (cloud)",
+	"imessagecloud":  "Bridge: iMessage (cloud)",
 }
 
 var teamTolabelNameToID map[string]map[string]string
