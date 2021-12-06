@@ -666,7 +666,7 @@ func (s *submitServer) sendEmail(p parsedPayload, reportDir string) error {
 	if s.cfg.SMTPPassword != "" || s.cfg.SMTPUsername != "" {
 		auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPServer)
 	}
-	err := e.Send(s.cfg.SMTPServer, auth)
+	err := e.Send(s.cfg.SMTPServer+":"+s.cfg.SMTPServerPort, auth)
 	if err != nil {
 		return err
 	}

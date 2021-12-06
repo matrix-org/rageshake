@@ -47,6 +47,7 @@ email_addresses:
 email_from: Rageshake <rageshake@matrix.org>
 
 # SMTP server configuration
-smtp_server: localhost:25
+smtp_server: localhost
+smtp_port: 25
 smtp_username: myemailuser
 smtp_password: myemailpass
