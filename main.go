@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -146,6 +147,7 @@ func main() {
 	}
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
+	rand.Seed(time.Now().UnixNano())
 	http.Handle("/api/submit", &submitServer{ghClient, glClient, apiPrefix, slack, cfg})
 
 	// Make sure bugs directory exists

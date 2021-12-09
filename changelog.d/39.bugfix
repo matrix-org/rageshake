@@ -1,0 +1,1 @@
+Prevent timestamp collisions when reports are submitted within 1 second of each other.
