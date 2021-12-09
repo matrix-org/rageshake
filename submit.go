@@ -20,12 +20,14 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base32"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -141,6 +143,9 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// files straight in
 	t := time.Now().UTC()
 	prefix := t.Format("2006-01-02/150405")
+	randBytes := make([]byte, 5)
+	rand.Read(randBytes)
+	prefix += "-" + base32.StdEncoding.EncodeToString(randBytes)
 	reportDir := filepath.Join("bugs", prefix)
 	if err := os.MkdirAll(reportDir, os.ModePerm); err != nil {
 		log.Println("Unable to create report directory", err)

@@ -21,10 +21,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -92,6 +94,7 @@ func main() {
 	}
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
+	rand.Seed(time.Now().UnixNano())
 	http.Handle("/api/submit", &submitServer{apiPrefix: apiPrefix, cfg: cfg})
 
 	// Make sure bugs directory exists
