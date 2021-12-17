@@ -67,8 +67,6 @@ type config struct {
 
 	SMTPServer string `yaml:"smtp_server"`
 
-	SMTPServerPort string `yaml:"smtp_port"`
-
 	SMTPUsername string `yaml:"smtp_username"`
 
 	SMTPPassword string `yaml:"smtp_password"`
