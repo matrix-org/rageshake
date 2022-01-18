@@ -160,7 +160,7 @@ func TestMultipartUpload(t *testing.T) {
 
 	// check file uploaded correctly
 	checkUploadedFile(t, reportDir, "passwd.txt", false, "bibblybobbly")
-	checkUploadedFile(t, reportDir, "crash.log.gz.gz", true, "test\n")
+	checkUploadedFile(t, reportDir, "crash.log.gz", true, "test\n")
 }
 
 func multipartBody() (body string) {
@@ -262,7 +262,7 @@ func checkParsedMultipartUpload(t *testing.T, p *parsedPayload) {
 	if p.Logs[2] != wanted {
 		t.Errorf("Log 2: got %s, want %s", p.Logs[2], wanted)
 	}
-	wanted = "crash.log.gz.gz"
+	wanted = "crash.log.gz"
 	if p.Logs[3] != wanted {
 		t.Errorf("Log 3: got %s, want %s", p.Logs[3], wanted)
 	}
