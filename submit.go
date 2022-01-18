@@ -438,7 +438,11 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 	// Either way, we need to append .gz, because we're compressing it.
 	var leafName string
 	if logRegexp.MatchString(filename) {
-		leafName = filename + ".gz"
+		if strings.HasSuffix(filename, ".gz") {
+			leafName = filename
+		} else {
+			leafName = filename + ".gz"
+		}
 	} else {
 		leafName = fmt.Sprintf("logs-%04d.log.gz", logNum)
 	}
