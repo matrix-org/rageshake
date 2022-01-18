@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # check the go source for lint. This is run by CI, and the pre-commit hook.
 

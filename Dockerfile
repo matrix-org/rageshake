@@ -7,7 +7,11 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 
+
 COPY . .
+
+RUN CGO_ENABLED=0 sh .buildkite/lint.sh
+
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o rageshake
 
 FROM scratch

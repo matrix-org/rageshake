@@ -8,4 +8,4 @@ go get golang.org/x/lint/golint
 go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
 go get github.com/fzipp/gocyclo/cmd/gocyclo
 
-./scripts/lint.sh
+/bin/sh ./scripts/lint.sh
