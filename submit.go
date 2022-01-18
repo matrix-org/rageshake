@@ -424,7 +424,7 @@ func saveFormPart(leafName string, reader io.Reader, reportDir string) (string, 
 
 // we require a sensible extension, and don't allow the filename to start with
 // '.'
-var logRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*\.(log|txt)$`)
+var logRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*\.(log|txt)(\.gz)?$`)
 
 // saveLogPart saves a log upload to the report directory.
 //
