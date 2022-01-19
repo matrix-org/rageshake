@@ -57,7 +57,9 @@ console-share-49.log (oldest)
 
 ## Element Android
 
-Log file 0000 is special and 
+There is a historical issue with the naming of files, documented in issue #40
+
+Log file 0000 is odd, it contains the logcat data if sent
 
 Log line format:
 ```
@@ -66,11 +68,7 @@ Log line format:
 
 L = Log Level (W=Warn, I=Info etc)
 ```
-
-
 Remaining log files are transmitted according to their position in the round-robin logging to file - there will be (up to) 7 files written to in a continious loop; one of the seven will be the oldest, the rest will be in order.
-
-New log files are started every 30Mb or restart of the app.
 
 Log line format:
 ```
@@ -80,5 +78,14 @@ Log line format:
 L = log level, (W=Warn, I=Info, etc)
 ```
 
+Once the fix is in place, we will see the following files:
 
+```
+logcatError.log
+logcat.log
+crash.log
+keyrequests.log
+log-[1-7].log
+```
 
+Log 1-7 are logs from a round-robin buffer and are ordered but the start point is undefined
