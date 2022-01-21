@@ -15,11 +15,13 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o rageshake
 ## Runtime stage, debug variant ##
 FROM --platform=${TARGETPLATFORM} gcr.io/distroless/static-debian${DEBIAN_VERSION}:debug-nonroot AS debug
 COPY --from=builder /build/rageshake /rageshake
+WORKDIR /
 EXPOSE 9110
 ENTRYPOINT ["/rageshake"]
 
 ## Runtime stage ##
 FROM --platform=${TARGETPLATFORM} gcr.io/distroless/static-debian${DEBIAN_VERSION}:nonroot
 COPY --from=builder /build/rageshake /rageshake
+WORKDIR /
 EXPOSE 9110
 ENTRYPOINT ["/rageshake"]
