@@ -68,10 +68,16 @@ logs.)
     * `id`: textual identifier for the logs. Used as the filename, as above.
     * `lines`: log data. Newlines should be  encoded as `\n`, as normal in JSON).
 
+  A summary of the current log file formats that are uploaded for `log` and
+  `compressed-log`  is [available](docs/submitted_reports.md).
+
 * `compressed-log`: a gzipped logfile. Decompressed and then treated the same as
   `log`.
 
   Compressed logs are not supported for the JSON upload encoding.
+  
+  A summary of the current log file formats that are uploaded for `log` and
+  `compressed-log` is [available](docs/submitted_reports.md).
 
 * `file`: an arbitrary file to attach to the report. Saved as-is to disk, and
   a link is added to the github issue. The filename must be in the format
