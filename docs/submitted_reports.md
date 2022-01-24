@@ -8,6 +8,8 @@ At present these should not be considered absolute nor a structure to follow; bu
 
 Log files are not transmitted; the main feedback is entirely within the user message body.
 
+This occurs from all platforms.
+
 ## Element Web / Element Desktop
 
 Log files are transmitted in reverse order (0000 is the youngest) 
@@ -20,7 +22,7 @@ Log line format:
 L = log level, (W=Warn, I=Info, etc)
 ```
 
-New log files are started each restart of the app.
+New log files are started each restart of the app, but some log files may not contain all data from the start of the session.
 
 ## Element iOS
 
