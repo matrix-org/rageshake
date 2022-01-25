@@ -1,1 +1,0 @@
-Add a /health endpoint that always replies with a 200 OK.
