@@ -57,6 +57,7 @@ type submitServer struct {
 
 	slack *slackClient
 
+	genericWebhookClient *http.Client
 	cfg *config
 }
 
@@ -76,16 +77,23 @@ type jsonLogEntry struct {
 	Lines string `json:"lines"`
 }
 
+
+type genericWebhookPayload struct {
+	parsedPayload
+	ReportURL string             `json:"report_url"`
+	ListingURL string            `json:"listing_url"`
+}
+
 // the payload after parsing
 type parsedPayload struct {
-	UserText   string
-	AppName    string
-	Data       map[string]string
-	Labels     []string
-	Logs       []string
-	LogErrors  []string
-	Files      []string
-	FileErrors []string
+	UserText   string            `json:"user_text"`
+	AppName    string            `json:"app"`
+	Data       map[string]string `json:"data"`
+	Labels     []string          `json:"labels"`
+	Logs       []string          `json:"logs"`
+	LogErrors  []string          `json:"logErrors"`
+	Files      []string          `json:"files"`
+	FileErrors []string          `json:"fileErrors"`
 }
 
 func (p parsedPayload) WriteTo(out io.Writer) {
@@ -492,8 +500,58 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 		return nil, err
 	}
 
+	if err := s.submitGenericWebhook(p, listingURL, resp.ReportURL); err != nil {
+		return nil, err
+	}
+
 	return &resp, nil
 }
+
+// submitGenericWebhook submits a basic JSON body to an endpoint configured in the config
+//
+// The request does not include the log body, only the metadata in the parsedPayload, 
+// with the required listingURL to obtain the logs over http if required.
+//
+// If a github or gitlab issue was previously made, the reportURL will also be passed.
+//
+// Uses a goroutine to handle the http request asynchronously as by this point all critical
+// information has been stored.
+
+func (s *submitServer) submitGenericWebhook(p parsedPayload, listingURL string, reportURL string) error {
+	if s.genericWebhookClient == nil {
+		return nil
+	}
+	url := s.cfg.GenericWebhookURL
+	log.Println("Submitting json to URL", url)
+	// Enrich the parsedPayload with a reportURL and listingURL, to convert a single struct
+	// to JSON easily
+	genericHookPayload := genericWebhookPayload{
+		parsedPayload: p,
+		ReportURL: reportURL,
+		ListingURL: listingURL,
+	}
+
+	payloadBuffer := new(bytes.Buffer)
+	json.NewEncoder(payloadBuffer).Encode(genericHookPayload)
+	req, err := http.NewRequest("POST", url, payloadBuffer)
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		return err
+	}
+	go s.sendGenericWebhook(req)
+	return nil
+}
+
+func (s *submitServer) sendGenericWebhook(req *http.Request) {
+	resp, err := s.genericWebhookClient.Do(req)
+	if err != nil {
+		log.Println("Unable to submit notification", err)
+	} else {
+		defer resp.Body.Close()
+		log.Println("Got response", resp.Status)
+	}
+}
+
 
 func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {
 	if s.ghClient == nil {

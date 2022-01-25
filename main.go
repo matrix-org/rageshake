@@ -71,6 +71,8 @@ type config struct {
 	SMTPUsername string `yaml:"smtp_username"`
 
 	SMTPPassword string `yaml:"smtp_password"`
+
+	GenericWebhookURL string `yaml:"generic_webhook_url"`
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -133,6 +135,15 @@ func main() {
 	if len(cfg.EmailAddresses) > 0 && cfg.SMTPServer == "" {
 		log.Fatal("Email address(es) specified but no smtp_server configured. Wrong configuration, aborting...")
 	}
+	var genericWebhookClient *http.Client
+	if cfg.GenericWebhookURL == "" {
+		fmt.Println("No generic_webhook_url configured.")
+	} else {
+		fmt.Println("Will forward metadata of all requests to ", cfg.GenericWebhookURL)
+		genericWebhookClient = &http.Client{
+			Timeout: time.Second * 300,
+		}
+	}
 
 	apiPrefix := cfg.APIPrefix
 	if apiPrefix == "" {
@@ -148,7 +159,7 @@ func main() {
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
 	rand.Seed(time.Now().UnixNano())
-	http.Handle("/api/submit", &submitServer{ghClient, glClient, apiPrefix, slack, cfg})
+	http.Handle("/api/submit", &submitServer{ghClient, glClient, apiPrefix, slack, genericWebhookClient, cfg})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)
