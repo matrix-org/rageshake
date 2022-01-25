@@ -160,6 +160,7 @@ func TestMultipartUpload(t *testing.T) {
 
 	// check file uploaded correctly
 	checkUploadedFile(t, reportDir, "passwd.txt", false, "bibblybobbly")
+	checkUploadedFile(t, reportDir, "crash.log.gz", true, "test\n")
 }
 
 func multipartBody() (body string) {
@@ -215,6 +216,18 @@ Content-Type: application/octet-stream
 
 bibblybobbly
 `
+	body += `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="compressed-log"; filename="crash.log.gz"
+Content-Type: application/octet-stream
+
+`
+	body += string([]byte{
+		0x1f, 0x8b, 0x08, 0x00, 0xbf, 0xd8, 0xf5, 0x58, 0x00, 0x03,
+		0x2b, 0x49, 0x2d, 0x2e, 0xe1, 0x02, 0x00,
+		0xc6, 0x35, 0xb9, 0x3b, 0x05, 0x00, 0x00, 0x00,
+		0x0a,
+	})
+
 	body += "------WebKitFormBoundarySsdgl8Nq9voFyhdO--\n"
 	return
 }
@@ -224,8 +237,8 @@ func checkParsedMultipartUpload(t *testing.T, p *parsedPayload) {
 	if p.UserText != wanted {
 		t.Errorf("User text: got %s, want %s", p.UserText, wanted)
 	}
-	if len(p.Logs) != 3 {
-		t.Errorf("Log length: got %d, want 3", len(p.Logs))
+	if len(p.Logs) != 4 {
+		t.Errorf("Log length: got %d, want 4", len(p.Logs))
 	}
 	if len(p.Data) != 3 {
 		t.Errorf("Data length: got %d, want 3", len(p.Data))
@@ -248,6 +261,10 @@ func checkParsedMultipartUpload(t *testing.T, p *parsedPayload) {
 	wanted = "logs-0002.log.gz"
 	if p.Logs[2] != wanted {
 		t.Errorf("Log 2: got %s, want %s", p.Logs[2], wanted)
+	}
+	wanted = "crash.log.gz"
+	if p.Logs[3] != wanted {
+		t.Errorf("Log 3: got %s, want %s", p.Logs[3], wanted)
 	}
 }
 

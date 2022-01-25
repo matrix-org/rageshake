@@ -424,7 +424,7 @@ func saveFormPart(leafName string, reader io.Reader, reportDir string) (string, 
 
 // we require a sensible extension, and don't allow the filename to start with
 // '.'
-var logRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*\.(log|txt)$`)
+var logRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*\.(log|txt)(\.gz)?$`)
 
 // saveLogPart saves a log upload to the report directory.
 //
@@ -435,10 +435,16 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 	// some clients use sensible names (foo.N.log), which we preserve. For
 	// others, we just make up a filename.
 	//
-	// Either way, we need to append .gz, because we're compressing it.
+	// We append a ".gz" extension if not already present, as the final file we store on
+	// disk will be gzipped. The original filename may or may not contain a '.gz' depending
+	// on the client that uploaded it, and if it was uploaded already compressed.
+
 	var leafName string
 	if logRegexp.MatchString(filename) {
-		leafName = filename + ".gz"
+		leafName = filename
+		if !strings.HasSuffix(filename, ".gz") {
+			leafName += ".gz"
+		}
 	} else {
 		leafName = fmt.Sprintf("logs-%04d.log.gz", logNum)
 	}
