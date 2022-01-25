@@ -17,8 +17,7 @@ Bugfixes
 Internal Changes
 ----------------
 
-- Update minimum Go version to 1.15. ([\#37](https://github.com/matrix-org/rageshake/issues/37))
-- Update minimum Go version to 1.16. ([\#42](https://github.com/matrix-org/rageshake/issues/42))
+- Update minimum Go version to 1.16. ([\#37](https://github.com/matrix-org/rageshake/issues/37), [\#42](https://github.com/matrix-org/rageshake/issues/42))
 - Add documentation on the types and formats of files submitted to the rageshake server. ([\#44](https://github.com/matrix-org/rageshake/issues/44))
 - Build and push a multi-arch Docker image on the GitHub Container Registry. ([\#47](https://github.com/matrix-org/rageshake/issues/47))
 - Add a /health endpoint that always replies with a 200 OK. ([\#48](https://github.com/matrix-org/rageshake/issues/48))
