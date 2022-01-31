@@ -135,15 +135,8 @@ func main() {
 	if len(cfg.EmailAddresses) > 0 && cfg.SMTPServer == "" {
 		log.Fatal("Email address(es) specified but no smtp_server configured. Wrong configuration, aborting...")
 	}
-	var genericWebhookClient *http.Client
-	if cfg.GenericWebhookURL == "" {
-		fmt.Println("No generic_webhook_url configured.")
-	} else {
-		fmt.Println("Will forward metadata of all requests to ", cfg.GenericWebhookURL)
-		genericWebhookClient = &http.Client{
-			Timeout: time.Second * 300,
-		}
-	}
+
+	genericWebhookClient := configureGenericWebhookClient(cfg)
 
 	apiPrefix := cfg.APIPrefix
 	if apiPrefix == "" {
@@ -185,6 +178,17 @@ func main() {
 	log.Println("Listening on", *bindAddr)
 
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))
+}
+
+func configureGenericWebhookClient(cfg *config) (*http.Client) {
+	if cfg.GenericWebhookURL == "" {
+		fmt.Println("No generic_webhook_url configured.")
+		return nil
+	}
+	fmt.Println("Will forward metadata of all requests to ", cfg.GenericWebhookURL)
+	return &http.Client{
+		Timeout: time.Second * 300,
+	}
 }
 
 func loadConfig(configPath string) (*config, error) {
