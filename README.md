@@ -105,3 +105,13 @@ You can get notifications when a new rageshake arrives on the server.
 Currently this tool supports pushing notifications as GitHub issues in a repo,
 through a Slack webhook or by email, cf sample config file for how to
 configure them.
+
+### Generic Webhook Notifications
+
+You can receive a webhook notifications when a new rageshake arrives on the server.
+
+These requests contain all the parsed metadata, and links to the uploaded files, and any github/gitlab
+issues created.
+
+Details on the request and expected response are [available](docs/generic\_webhook.md).
+
