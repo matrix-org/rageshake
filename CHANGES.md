@@ -1,3 +1,12 @@
+1.4 (2022-02-01)
+================
+
+Features
+--------
+
+- Allow forwarding of a request to a webhook endpoint. ([\#50](https://github.com/matrix-org/rageshake/issues/50))
+
+
 1.3 (2022-01-25)
 ================
 
