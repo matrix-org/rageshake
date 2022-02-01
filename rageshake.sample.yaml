@@ -50,3 +50,9 @@ email_from: Rageshake <rageshake@matrix.org>
 smtp_server: localhost:25
 smtp_username: myemailuser
 smtp_password: myemailpass
+
+
+# a list of webhook URLs, (see docs/generic_webhook.md)
+generic_webhook_urls: 
+  - https://server.example.com/your-server/api
+  - http://another-server.com/api

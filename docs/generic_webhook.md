@@ -1,7 +1,8 @@
 ## Generic webhook request
 
-If the configuration option `generic_webhook_url` is set, then a synchronous request to
-the endpoint will be sent after the incoming request is parsed and the files are uploaded.
+If the configuration option `generic_webhook_urls` is set, then an asynchronous request to
+each endpoint listed will be sent in parallel, after the incoming request is parsed and the
+files are uploaded.
 
 The webhook is designed for notification or other tracking services, and does not contain
 the original log files uploaded.
@@ -36,3 +37,4 @@ A sample JSON body is as follows:
 ```
 
 The log and other files can be individually downloaded by concatenating the `listing_url` and the `logs` or `files` name.
+You may need to provide a HTTP basic auth user/pass if configured on your rageshake server.

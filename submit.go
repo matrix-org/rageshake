@@ -521,24 +521,26 @@ func (s *submitServer) submitGenericWebhook(p parsedPayload, listingURL string, 
 	if s.genericWebhookClient == nil {
 		return nil
 	}
-	url := s.cfg.GenericWebhookURL
-	log.Println("Submitting json to URL", url)
-	// Enrich the parsedPayload with a reportURL and listingURL, to convert a single struct
-	// to JSON easily
-	genericHookPayload := genericWebhookPayload{
-		parsedPayload: p,
-		ReportURL: reportURL,
-		ListingURL: listingURL,
-	}
+	for _, url := range s.cfg.GenericWebhookURLs {
+		// Enrich the parsedPayload with a reportURL and listingURL, to convert a single struct
+		// to JSON easily
+		genericHookPayload := genericWebhookPayload{
+			parsedPayload: p,
+			ReportURL: reportURL,
+			ListingURL: listingURL,
+		}
 
-	payloadBuffer := new(bytes.Buffer)
-	json.NewEncoder(payloadBuffer).Encode(genericHookPayload)
-	req, err := http.NewRequest("POST", url, payloadBuffer)
-	req.Header.Set("Content-Type", "application/json")
-	if err != nil {
-		return err
+		payloadBuffer := new(bytes.Buffer)
+		json.NewEncoder(payloadBuffer).Encode(genericHookPayload)
+		req, err := http.NewRequest("POST", url, payloadBuffer)
+		req.Header.Set("Content-Type", "application/json")
+		if err != nil {
+			log.Println("Unable to submit to URL ", url, " ", err)
+			return err
+		}
+		log.Println("Making generic webhook request to URL ", url)
+		go s.sendGenericWebhook(req)
 	}
-	go s.sendGenericWebhook(req)
 	return nil
 }
 

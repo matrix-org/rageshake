@@ -72,7 +72,7 @@ type config struct {
 
 	SMTPPassword string `yaml:"smtp_password"`
 
-	GenericWebhookURL string `yaml:"generic_webhook_url"`
+	GenericWebhookURLs []string `yaml:"generic_webhook_urls"`
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -181,11 +181,11 @@ func main() {
 }
 
 func configureGenericWebhookClient(cfg *config) (*http.Client) {
-	if cfg.GenericWebhookURL == "" {
-		fmt.Println("No generic_webhook_url configured.")
+	if len(cfg.GenericWebhookURLs) == 0 {
+		fmt.Println("No generic_webhook_urls configured.")
 		return nil
 	}
-	fmt.Println("Will forward metadata of all requests to ", cfg.GenericWebhookURL)
+	fmt.Println("Will forward metadata of all requests to ", cfg.GenericWebhookURLs)
 	return &http.Client{
 		Timeout: time.Second * 300,
 	}
