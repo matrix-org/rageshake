@@ -521,14 +521,14 @@ func (s *submitServer) submitGenericWebhook(p parsedPayload, listingURL string, 
 	if s.genericWebhookClient == nil {
 		return nil
 	}
+	genericHookPayload := genericWebhookPayload{
+		parsedPayload: p,
+		ReportURL: reportURL,
+		ListingURL: listingURL,
+	}
 	for _, url := range s.cfg.GenericWebhookURLs {
 		// Enrich the parsedPayload with a reportURL and listingURL, to convert a single struct
 		// to JSON easily
-		genericHookPayload := genericWebhookPayload{
-			parsedPayload: p,
-			ReportURL: reportURL,
-			ListingURL: listingURL,
-		}
 
 		payloadBuffer := new(bytes.Buffer)
 		json.NewEncoder(payloadBuffer).Encode(genericHookPayload)
