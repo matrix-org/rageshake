@@ -1,3 +1,12 @@
+1.5 (2022-02-08)
+================
+
+Features
+--------
+
+- Allow upload of Files with a .json postfix. ([\#52](https://github.com/matrix-org/rageshake/issues/52))
+
+
 1.4 (2022-02-01)
 ================
 
