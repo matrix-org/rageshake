@@ -119,6 +119,9 @@ func extensionToMimeType(path string) string {
 		return "image/jpeg"
 	}
 
+	if strings.HasSuffix(path, ".json") {
+		return "application/json"
+	}
 	return "application/octet-stream"
 }
 
