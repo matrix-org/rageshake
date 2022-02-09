@@ -155,7 +155,7 @@ func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
 	// This tends to trigger archive type tools, which will then use the filename to 
 	// identify the contents correctly.
 	w.Header().Set("Content-Type", "application/gzip")
-	w.Header().Set("Content-Disposition", "attachment; filename=" + dfilename+".tar.gz")
+	w.Header().Set("Content-Disposition", "attachment; filename=" + dfilename + ".tar.gz")
 
 	filenames, err := directory.Readdirnames(-1)
 	if err != nil {
