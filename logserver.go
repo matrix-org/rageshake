@@ -149,7 +149,7 @@ func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
 	}
 	// "disposition filename"
 	dfilename := strings.Trim(r.URL.Path,"/")
-	dfilename = strings.Replace(dfile, "/","_",-1)
+	dfilename = strings.Replace(dfilename, "/","_",-1)
 
 	// There is no application/tgz or similar; return a gzip file as best option. 
 	// This tends to trigger archive type tools, which will then use the filename to 
