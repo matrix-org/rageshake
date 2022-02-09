@@ -291,5 +291,3 @@ func containsDotDot(v string) bool {
 	return false
 }
 func isSlashRune(r rune) bool { return r == '/' || r == '\\' }
-
-
