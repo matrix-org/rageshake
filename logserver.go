@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"archive/tar"
 	"compress/gzip"
 	"io"
 	"log"
@@ -69,6 +70,7 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveFile(w http.ResponseWriter, r *http.Request, path string) {
+
 	d, err := os.Stat(path)
 	if err != nil {
 		msg, code := toHTTPError(err)
@@ -79,9 +81,18 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 	// for anti-XSS belt-and-braces, set a very restrictive CSP
 	w.Header().Set("Content-Security-Policy", "default-src: none")
 
-	// if it's a directory, serve a listing
+	// if it's a directory, serve a listing or a tarball
 	if d.IsDir() {
-		log.Println("Serving", path)
+		format, _ := r.URL.Query()["format"]
+		if len(format) == 1 && format[0] == "tar.gz" {
+			log.Println("Serving tarball of", path)
+			err := serveTarball(w, r, path)
+			if err != nil {
+				log.Println("Error", err)
+			}
+			return
+		}
+		log.Println("Serving directory listing of", path)
 		http.ServeFile(w, r, path)
 		return
 	}
@@ -123,6 +134,78 @@ func extensionToMimeType(path string) string {
 		return "application/json"
 	}
 	return "application/octet-stream"
+}
+
+// Streams a dynamically created tar.gz file with the contents of the given directory
+// Will serve a partial, corrupted response if there is a error partway through the 
+// operation as we stream the response.
+// 
+// The resultant tarball will contain a single directory containing all the files
+// so it can unpack cleanly without overwriting other files.
+func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
+	directory, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	// "disposition filename"
+	dfilename := strings.Trim(r.URL.Path,"/")
+	dfilename = strings.Replace(dfile, "/","_",-1)
+
+	// There is no application/tgz or similar; return a gzip file as best option. 
+	// This tends to trigger archive type tools, which will then use the filename to 
+	// identify the contents correctly.
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", "attachment; filename=" + dfilename+".tar.gz")
+
+	filenames, err := directory.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+
+	gzip := gzip.NewWriter(w)
+	defer gzip.Close()
+	targz := tar.NewWriter(gzip)
+	defer targz.Close()
+
+	for _, filename := range filenames {
+		path := dir + "/" + filename
+		err := addToArchive(targz, dfilename, path)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Add a single file into the archive. 
+func addToArchive(targz *tar.Writer, dfilename string, filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	header, err := tar.FileInfoHeader(info, info.Name())
+	if err != nil {
+		return err
+	}
+	header.Name = dfilename + "/" + info.Name()
+
+	err = targz.WriteHeader(header)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(targz, file)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func serveGzippedFile(w http.ResponseWriter, r *http.Request, path string, size int64) {
@@ -208,3 +291,5 @@ func containsDotDot(v string) bool {
 	return false
 }
 func isSlashRune(r rune) bool { return r == '/' || r == '\\' }
+
+
