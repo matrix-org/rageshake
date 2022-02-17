@@ -70,7 +70,6 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveFile(w http.ResponseWriter, r *http.Request, path string) {
-
 	d, err := os.Stat(path)
 	if err != nil {
 		msg, code := toHTTPError(err)
@@ -88,6 +87,8 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 			log.Println("Serving tarball of", path)
 			err := serveTarball(w, r, path)
 			if err != nil {
+				msg, code := toHTTPError(err)
+				http.Error(w, msg, code)
 				log.Println("Error", err)
 			}
 			return
@@ -142,12 +143,20 @@ func extensionToMimeType(path string) string {
 // 
 // The resultant tarball will contain a single directory containing all the files
 // so it can unpack cleanly without overwriting other files.
+//
+// Errors are only returned if generated before the tarball has started being
+// written to the ResponseWriter
 func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
 	directory, err := os.Open(dir)
 	if err != nil {
 		return err
 	}
-	// "disposition filename"
+
+	// Creates a "disposition filename"
+	// Take a URL.path like `/2022-01-10/184843-BZZXEGYH/`
+	// and removes leading and trailing `/` and replaces internal `/` with `_`
+	// to form a suitable filename for use in the content-disposition header
+	// dfilename would turn into `2022-01-10_184843-BZZXEGYH`
 	dfilename := strings.Trim(r.URL.Path,"/")
 	dfilename = strings.Replace(dfilename, "/","_",-1)
 
@@ -157,7 +166,7 @@ func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
 	w.Header().Set("Content-Type", "application/gzip")
 	w.Header().Set("Content-Disposition", "attachment; filename=" + dfilename + ".tar.gz")
 
-	filenames, err := directory.Readdirnames(-1)
+	files, err := directory.Readdir(-1)
 	if err != nil {
 		return err
 	}
@@ -167,11 +176,25 @@ func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
 	targz := tar.NewWriter(gzip)
 	defer targz.Close()
 
-	for _, filename := range filenames {
-		path := dir + "/" + filename
+
+	for _, file := range files {
+		if file.IsDir() {
+			// We avoid including nested directories
+			// This will result in requests for directories with only directories in
+			// to return an empty tarball instead of recursively including directories.
+			// This helps the server remain performant as a download of 'everything' would be slow
+			continue
+		}
+		path := dir + "/" + file.Name()
+		// We use the existing disposition filename to create a base directory structure for the files
+		// so when they are unpacked, they are grouped in a unique folder on disk
 		err := addToArchive(targz, dfilename, path)
 		if err != nil {
-			return err
+			// From this point we assume that data may have been sent to the client already.
+			// We therefore do not http.Error() after this point, instead closing the stream and
+			// allowing the client to deal with a partial file as if there was a network issue.
+			log.Println("Error streaming tarball", err)
+			return nil
 		}
 	}
 	return nil
