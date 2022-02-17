@@ -28,6 +28,8 @@ Serves submitted bug reports. Protected by basic HTTP auth using the
 username/password provided in the environment. A browsable list, collated by
 report submission date and time.
 
+A whole directory can be downloaded as a tarball by appending the parameter `?format=tar.gz` to the end of the URL path
+
 ### POST `/api/submit`
 
 Submission endpoint: this is where applications should send their reports.
