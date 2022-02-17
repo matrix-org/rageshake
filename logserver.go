@@ -69,6 +69,7 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serveFile(w, r, upath)
 }
 
+
 func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 	d, err := os.Stat(path)
 	if err != nil {
@@ -82,20 +83,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 
 	// if it's a directory, serve a listing or a tarball
 	if d.IsDir() {
-		format, _ := r.URL.Query()["format"]
-		if len(format) == 1 && format[0] == "tar.gz" {
-			log.Println("Serving tarball of", path)
-			err := serveTarball(w, r, path)
-			if err != nil {
-				msg, code := toHTTPError(err)
-				http.Error(w, msg, code)
-				log.Println("Error", err)
-			}
-			return
-		}
-		log.Println("Serving directory listing of", path)
-		http.ServeFile(w, r, path)
-		return
+		serveDirectory(w, r, path)
 	}
 
 	// if it's a gzipped log file, serve it as text
@@ -135,6 +123,24 @@ func extensionToMimeType(path string) string {
 		return "application/json"
 	}
 	return "application/octet-stream"
+}
+
+// Chooses to serve either a directory listing or tarball based on the 'format' parameter.
+func serveDirectory(w http.ResponseWriter, r *http.Request, path string) {
+	format, _ := r.URL.Query()["format"]
+	if len(format) == 1 && format[0] == "tar.gz" {
+		log.Println("Serving tarball of", path)
+		err := serveTarball(w, r, path)
+		if err != nil {
+			msg, code := toHTTPError(err)
+			http.Error(w, msg, code)
+			log.Println("Error", err)
+		}
+		return
+	}
+	log.Println("Serving directory listing of", path)
+	http.ServeFile(w, r, path)
+	return
 }
 
 // Streams a dynamically created tar.gz file with the contents of the given directory
