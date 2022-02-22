@@ -1,3 +1,12 @@
+1.6 (2022-02-22)
+================
+
+Features
+--------
+
+- Provide ?format=tar.gz option on directory listings to download tarball. ([\#53](https://github.com/matrix-org/rageshake/issues/53))
+
+
 1.5 (2022-02-08)
 ================
 
