@@ -84,6 +84,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 	// if it's a directory, serve a listing or a tarball
 	if d.IsDir() {
 		serveDirectory(w, r, path)
+		return
 	}
 
 	// if it's a gzipped log file, serve it as text
@@ -140,7 +141,6 @@ func serveDirectory(w http.ResponseWriter, r *http.Request, path string) {
 	}
 	log.Println("Serving directory listing of", path)
 	http.ServeFile(w, r, path)
-	return
 }
 
 // Streams a dynamically created tar.gz file with the contents of the given directory
