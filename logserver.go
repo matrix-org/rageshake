@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"archive/tar"
 	"compress/gzip"
 	"io"
 	"log"
@@ -68,6 +69,7 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serveFile(w, r, upath)
 }
 
+
 func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 	d, err := os.Stat(path)
 	if err != nil {
@@ -79,10 +81,9 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 	// for anti-XSS belt-and-braces, set a very restrictive CSP
 	w.Header().Set("Content-Security-Policy", "default-src: none")
 
-	// if it's a directory, serve a listing
+	// if it's a directory, serve a listing or a tarball
 	if d.IsDir() {
-		log.Println("Serving", path)
-		http.ServeFile(w, r, path)
+		serveDirectory(w, r, path)
 		return
 	}
 
@@ -123,6 +124,117 @@ func extensionToMimeType(path string) string {
 		return "application/json"
 	}
 	return "application/octet-stream"
+}
+
+// Chooses to serve either a directory listing or tarball based on the 'format' parameter.
+func serveDirectory(w http.ResponseWriter, r *http.Request, path string) {
+	format, _ := r.URL.Query()["format"]
+	if len(format) == 1 && format[0] == "tar.gz" {
+		log.Println("Serving tarball of", path)
+		err := serveTarball(w, r, path)
+		if err != nil {
+			msg, code := toHTTPError(err)
+			http.Error(w, msg, code)
+			log.Println("Error", err)
+		}
+		return
+	}
+	log.Println("Serving directory listing of", path)
+	http.ServeFile(w, r, path)
+}
+
+// Streams a dynamically created tar.gz file with the contents of the given directory
+// Will serve a partial, corrupted response if there is a error partway through the 
+// operation as we stream the response.
+// 
+// The resultant tarball will contain a single directory containing all the files
+// so it can unpack cleanly without overwriting other files.
+//
+// Errors are only returned if generated before the tarball has started being
+// written to the ResponseWriter
+func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
+	directory, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+
+	// Creates a "disposition filename"
+	// Take a URL.path like `/2022-01-10/184843-BZZXEGYH/`
+	// and removes leading and trailing `/` and replaces internal `/` with `_`
+	// to form a suitable filename for use in the content-disposition header
+	// dfilename would turn into `2022-01-10_184843-BZZXEGYH`
+	dfilename := strings.Trim(r.URL.Path,"/")
+	dfilename = strings.Replace(dfilename, "/","_",-1)
+
+	// There is no application/tgz or similar; return a gzip file as best option. 
+	// This tends to trigger archive type tools, which will then use the filename to 
+	// identify the contents correctly.
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", "attachment; filename=" + dfilename + ".tar.gz")
+
+	files, err := directory.Readdir(-1)
+	if err != nil {
+		return err
+	}
+
+	gzip := gzip.NewWriter(w)
+	defer gzip.Close()
+	targz := tar.NewWriter(gzip)
+	defer targz.Close()
+
+
+	for _, file := range files {
+		if file.IsDir() {
+			// We avoid including nested directories
+			// This will result in requests for directories with only directories in
+			// to return an empty tarball instead of recursively including directories.
+			// This helps the server remain performant as a download of 'everything' would be slow
+			continue
+		}
+		path := dir + "/" + file.Name()
+		// We use the existing disposition filename to create a base directory structure for the files
+		// so when they are unpacked, they are grouped in a unique folder on disk
+		err := addToArchive(targz, dfilename, path)
+		if err != nil {
+			// From this point we assume that data may have been sent to the client already.
+			// We therefore do not http.Error() after this point, instead closing the stream and
+			// allowing the client to deal with a partial file as if there was a network issue.
+			log.Println("Error streaming tarball", err)
+			return nil
+		}
+	}
+	return nil
+}
+
+// Add a single file into the archive. 
+func addToArchive(targz *tar.Writer, dfilename string, filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	header, err := tar.FileInfoHeader(info, info.Name())
+	if err != nil {
+		return err
+	}
+	header.Name = dfilename + "/" + info.Name()
+
+	err = targz.WriteHeader(header)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(targz, file)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func serveGzippedFile(w http.ResponseWriter, r *http.Request, path string, size int64) {
