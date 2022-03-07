@@ -794,7 +794,8 @@ func buildReportTitle(p parsedPayload) string {
 	if len(userID) == 0 {
 		userID = "unknown user"
 	}
-	title := fmt.Sprintf("Rageshake from %s: %s", userID, trimmedUserText)
+	userID = strings.TrimPrefix(strings.TrimSuffix(userID, ":beeper.com"), "@")
+	title := fmt.Sprintf("%s: %s", userID, trimmedUserText)
 	if len(title) > 200 {
 		title = title[:200]
 	}
