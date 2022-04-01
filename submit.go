@@ -85,6 +85,7 @@ type genericWebhookPayload struct {
 
 // the payload after parsing
 type parsedPayload struct {
+	ID         string            `json:"id"`
 	UserText   string            `json:"user_text"`
 	AppName    string            `json:"app"`
 	Data       map[string]string `json:"data"`
@@ -177,6 +178,11 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
+
+	// We use this prefix (eg, 2022-05-01/125223-abcde) as a unique identifier for this rageshake.
+	// This is going to be used to uniquely identify rageshakes, even if they are not submitted to
+	// an issue tracker for instance with automatic rageshakes that can be plentiful
+	p.ID = prefix
 
 	resp, err := s.saveReport(req.Context(), *p, reportDir, listingURL)
 	if err != nil {
