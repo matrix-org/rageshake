@@ -69,7 +69,6 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serveFile(w, r, upath)
 }
 
-
 func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 	d, err := os.Stat(path)
 	if err != nil {
@@ -144,9 +143,9 @@ func serveDirectory(w http.ResponseWriter, r *http.Request, path string) {
 }
 
 // Streams a dynamically created tar.gz file with the contents of the given directory
-// Will serve a partial, corrupted response if there is a error partway through the 
+// Will serve a partial, corrupted response if there is a error partway through the
 // operation as we stream the response.
-// 
+//
 // The resultant tarball will contain a single directory containing all the files
 // so it can unpack cleanly without overwriting other files.
 //
@@ -163,14 +162,14 @@ func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
 	// and removes leading and trailing `/` and replaces internal `/` with `_`
 	// to form a suitable filename for use in the content-disposition header
 	// dfilename would turn into `2022-01-10_184843-BZZXEGYH`
-	dfilename := strings.Trim(r.URL.Path,"/")
-	dfilename = strings.Replace(dfilename, "/","_",-1)
+	dfilename := strings.Trim(r.URL.Path, "/")
+	dfilename = strings.Replace(dfilename, "/", "_", -1)
 
-	// There is no application/tgz or similar; return a gzip file as best option. 
-	// This tends to trigger archive type tools, which will then use the filename to 
+	// There is no application/tgz or similar; return a gzip file as best option.
+	// This tends to trigger archive type tools, which will then use the filename to
 	// identify the contents correctly.
 	w.Header().Set("Content-Type", "application/gzip")
-	w.Header().Set("Content-Disposition", "attachment; filename=" + dfilename + ".tar.gz")
+	w.Header().Set("Content-Disposition", "attachment; filename="+dfilename+".tar.gz")
 
 	files, err := directory.Readdir(-1)
 	if err != nil {
@@ -181,7 +180,6 @@ func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
 	defer gzip.Close()
 	targz := tar.NewWriter(gzip)
 	defer targz.Close()
-
 
 	for _, file := range files {
 		if file.IsDir() {
@@ -206,7 +204,7 @@ func serveTarball(w http.ResponseWriter, r *http.Request, dir string) error {
 	return nil
 }
 
-// Add a single file into the archive. 
+// Add a single file into the archive.
 func addToArchive(targz *tar.Writer, dfilename string, filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {

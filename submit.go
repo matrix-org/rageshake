@@ -58,7 +58,7 @@ type submitServer struct {
 	slack *slackClient
 
 	genericWebhookClient *http.Client
-	cfg *config
+	cfg                  *config
 }
 
 // the type of payload which can be uploaded as JSON to the submit endpoint
@@ -77,11 +77,10 @@ type jsonLogEntry struct {
 	Lines string `json:"lines"`
 }
 
-
 type genericWebhookPayload struct {
 	parsedPayload
-	ReportURL string             `json:"report_url"`
-	ListingURL string            `json:"listing_url"`
+	ReportURL  string `json:"report_url"`
+	ListingURL string `json:"listing_url"`
 }
 
 // the payload after parsing
@@ -509,7 +508,7 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 
 // submitGenericWebhook submits a basic JSON body to an endpoint configured in the config
 //
-// The request does not include the log body, only the metadata in the parsedPayload, 
+// The request does not include the log body, only the metadata in the parsedPayload,
 // with the required listingURL to obtain the logs over http if required.
 //
 // If a github or gitlab issue was previously made, the reportURL will also be passed.
@@ -523,8 +522,8 @@ func (s *submitServer) submitGenericWebhook(p parsedPayload, listingURL string, 
 	}
 	genericHookPayload := genericWebhookPayload{
 		parsedPayload: p,
-		ReportURL: reportURL,
-		ListingURL: listingURL,
+		ReportURL:     reportURL,
+		ListingURL:    listingURL,
 	}
 	for _, url := range s.cfg.GenericWebhookURLs {
 		// Enrich the parsedPayload with a reportURL and listingURL, to convert a single struct
@@ -553,7 +552,6 @@ func (s *submitServer) sendGenericWebhook(req *http.Request) {
 		log.Println("Got response", resp.Status)
 	}
 }
-
 
 func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {
 	if s.ghClient == nil {

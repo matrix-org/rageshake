@@ -180,7 +180,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))
 }
 
-func configureGenericWebhookClient(cfg *config) (*http.Client) {
+func configureGenericWebhookClient(cfg *config) *http.Client {
 	if len(cfg.GenericWebhookURLs) == 0 {
 		fmt.Println("No generic_webhook_urls configured.")
 		return nil
