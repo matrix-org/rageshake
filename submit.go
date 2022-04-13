@@ -78,13 +78,13 @@ type jsonLogEntry struct {
 }
 
 type genericWebhookPayload struct {
-	parsedPayload
+	payload
 	ReportURL  string `json:"report_url"`
 	ListingURL string `json:"listing_url"`
 }
 
 // the payload after parsing
-type parsedPayload struct {
+type payload struct {
 	ID         string            `json:"id"`
 	UserText   string            `json:"user_text"`
 	AppName    string            `json:"app"`
@@ -96,7 +96,7 @@ type parsedPayload struct {
 	FileErrors []string          `json:"fileErrors"`
 }
 
-func (p parsedPayload) WriteTo(out io.Writer) {
+func (p payload) WriteTo(out io.Writer) {
 	fmt.Fprintf(
 		out,
 		"%s\n\nNumber of logs: %d\nApplication: %s\n",
@@ -198,7 +198,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // parseRequest attempts to parse a received request as a bug report. If
 // the request cannot be parsed, it responds with an error and returns nil.
-func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *parsedPayload {
+func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *payload {
 	length, err := strconv.Atoi(req.Header.Get("Content-Length"))
 	if err != nil {
 		log.Println("Couldn't parse content-length", err)
@@ -234,13 +234,13 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 	return p
 }
 
-func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*parsedPayload, error) {
+func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
 	var p jsonPayload
 	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
 		return nil, err
 	}
 
-	parsed := parsedPayload{
+	parsed := payload{
 		UserText: strings.TrimSpace(p.Text),
 		Data:     make(map[string]string),
 		Labels:   p.Labels,
@@ -295,13 +295,13 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string
 	return &parsed, nil
 }
 
-func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*parsedPayload, error) {
+func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
 	rdr, err := req.MultipartReader()
 	if err != nil {
 		return nil, err
 	}
 
-	p := parsedPayload{
+	p := payload{
 		Data: make(map[string]string),
 	}
 
@@ -320,7 +320,7 @@ func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir s
 	return &p, nil
 }
 
-func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) error {
+func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 	defer part.Close()
 	field := part.FormName()
 	partName := part.FileName()
@@ -381,7 +381,7 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 
 // formPartToPayload updates the relevant part of *p from a name/value pair
 // read from the form data.
-func formPartToPayload(field, data string, p *parsedPayload) {
+func formPartToPayload(field, data string, p *payload) {
 	if field == "text" {
 		p.UserText = data
 	} else if field == "app" {
@@ -481,7 +481,7 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 	return leafName, nil
 }
 
-func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDir, listingURL string) (*submitResponse, error) {
+func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, listingURL string) (*submitResponse, error) {
 	var summaryBuf bytes.Buffer
 	resp := submitResponse{}
 	p.WriteTo(&summaryBuf)
@@ -514,7 +514,7 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 
 // submitGenericWebhook submits a basic JSON body to an endpoint configured in the config
 //
-// The request does not include the log body, only the metadata in the parsedPayload,
+// The request does not include the log body, only the metadata in the payload,
 // with the required listingURL to obtain the logs over http if required.
 //
 // If a github or gitlab issue was previously made, the reportURL will also be passed.
@@ -522,17 +522,17 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 // Uses a goroutine to handle the http request asynchronously as by this point all critical
 // information has been stored.
 
-func (s *submitServer) submitGenericWebhook(p parsedPayload, listingURL string, reportURL string) error {
+func (s *submitServer) submitGenericWebhook(p payload, listingURL string, reportURL string) error {
 	if s.genericWebhookClient == nil {
 		return nil
 	}
 	genericHookPayload := genericWebhookPayload{
-		parsedPayload: p,
+		payload: p,
 		ReportURL:     reportURL,
 		ListingURL:    listingURL,
 	}
 	for _, url := range s.cfg.GenericWebhookURLs {
-		// Enrich the parsedPayload with a reportURL and listingURL, to convert a single struct
+		// Enrich the payload with a reportURL and listingURL, to convert a single struct
 		// to JSON easily
 
 		payloadBuffer := new(bytes.Buffer)
@@ -559,7 +559,7 @@ func (s *submitServer) sendGenericWebhook(req *http.Request) {
 	}
 }
 
-func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {
+func (s *submitServer) submitGithubIssue(ctx context.Context, p payload, listingURL string, resp *submitResponse) error {
 	if s.ghClient == nil {
 		return nil
 	}
@@ -590,7 +590,7 @@ func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, l
 	return nil
 }
 
-func (s *submitServer) submitGitlabIssue(p parsedPayload, listingURL string, resp *submitResponse) error {
+func (s *submitServer) submitGitlabIssue(p payload, listingURL string, resp *submitResponse) error {
 	if s.glClient == nil {
 		return nil
 	}
@@ -613,7 +613,7 @@ func (s *submitServer) submitGitlabIssue(p parsedPayload, listingURL string, res
 	return nil
 }
 
-func (s *submitServer) submitSlackNotification(p parsedPayload, listingURL string) error {
+func (s *submitServer) submitSlackNotification(p payload, listingURL string) error {
 	if s.slack == nil {
 		return nil
 	}
@@ -631,7 +631,7 @@ func (s *submitServer) submitSlackNotification(p parsedPayload, listingURL strin
 	return nil
 }
 
-func buildReportTitle(p parsedPayload) string {
+func buildReportTitle(p payload) string {
 	// set the title to the first (non-empty) line of the user's report, if any
 	trimmedUserText := strings.TrimSpace(p.UserText)
 	if trimmedUserText == "" {
@@ -645,7 +645,7 @@ func buildReportTitle(p parsedPayload) string {
 	return trimmedUserText
 }
 
-func buildReportBody(p parsedPayload, newline, quoteChar string) *bytes.Buffer {
+func buildReportBody(p payload, newline, quoteChar string) *bytes.Buffer {
 	var bodyBuf bytes.Buffer
 	fmt.Fprintf(&bodyBuf, "User message:\n\n%s\n\n", p.UserText)
 	var dataKeys []string
@@ -661,7 +661,7 @@ func buildReportBody(p parsedPayload, newline, quoteChar string) *bytes.Buffer {
 	return &bodyBuf
 }
 
-func buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body string) {
+func buildGenericIssueRequest(p payload, listingURL string) (title, body string) {
 	bodyBuf := buildReportBody(p, "  \n", "`")
 
 	// Add log links to the body
@@ -683,7 +683,7 @@ func buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body s
 	return
 }
 
-func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueRequest {
+func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
 	title, body := buildGenericIssueRequest(p, listingURL)
 
 	labels := p.Labels
@@ -698,7 +698,7 @@ func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueReq
 	}
 }
 
-func buildGitlabIssueRequest(p parsedPayload, listingURL string, labels []string, confidential bool) *gitlab.CreateIssueOptions {
+func buildGitlabIssueRequest(p payload, listingURL string, labels []string, confidential bool) *gitlab.CreateIssueOptions {
 	title, body := buildGenericIssueRequest(p, listingURL)
 
 	if p.Labels != nil {
@@ -713,7 +713,7 @@ func buildGitlabIssueRequest(p parsedPayload, listingURL string, labels []string
 	}
 }
 
-func (s *submitServer) sendEmail(p parsedPayload, reportDir string) error {
+func (s *submitServer) sendEmail(p payload, reportDir string) error {
 	if len(s.cfg.EmailAddresses) == 0 {
 		return nil
 	}
