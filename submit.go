@@ -80,21 +80,32 @@ type jsonLogEntry struct {
 // Stores additional information created during processing of a payload
 type genericWebhookPayload struct {
 	payload
-	ReportURL  string `json:"report_url"` // If a github/gitlab report is generated, this is set.
-	ListingURL string `json:"listing_url"` // Complete link to the listing URL that contains all uploaded logs
+	// If a github/gitlab report is generated, this is set.
+	ReportURL  string `json:"report_url"`
+	// Complete link to the listing URL that contains all uploaded logs
+	ListingURL string `json:"listing_url"`
 }
 
 // Stores information about a request made to this server
 type payload struct {
-	ID         string            `json:"id"` // A unique ID for this payload, generated within this server 
-	UserText   string            `json:"user_text"` // A multi-line string containing the user description of the fault. 
-	AppName    string            `json:"app"` // A short slug to identify the app making the report
-	Data       map[string]string `json:"data"` // Arbitrary data to annotate the report
-	Labels     []string          `json:"labels"` // Short labels to group reports
-	Logs       []string          `json:"logs"` // A list of names of logs recognised by the server
-	LogErrors  []string          `json:"logErrors"` // Set if there are log parsing errors
-	Files      []string          `json:"files"` // A list of other files (not logs) uploaded as part of the rageshake
-	FileErrors []string          `json:"fileErrors"` // Set if there are file parsing errors
+	// A unique ID for this payload, generated within this server 
+	ID         string            `json:"id"`
+	// A multi-line string containing the user description of the fault. 
+	UserText   string            `json:"user_text"`
+	// A short slug to identify the app making the report
+	AppName    string            `json:"app"`
+	// Arbitrary data to annotate the report
+	Data       map[string]string `json:"data"`
+	// Short labels to group reports
+	Labels     []string          `json:"labels"`
+	// A list of names of logs recognised by the server
+	Logs       []string          `json:"logs"`
+	// Set if there are log parsing errors
+	LogErrors  []string          `json:"logErrors"`
+	// A list of other files (not logs) uploaded as part of the rageshake
+	Files      []string          `json:"files"`
+	// Set if there are file parsing errors
+	FileErrors []string          `json:"fileErrors"`
 }
 
 func (p payload) WriteTo(out io.Writer) {
