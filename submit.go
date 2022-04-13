@@ -77,23 +77,24 @@ type jsonLogEntry struct {
 	Lines string `json:"lines"`
 }
 
+// Stores additional information created during processing of a payload
 type genericWebhookPayload struct {
 	payload
-	ReportURL  string `json:"report_url"`
-	ListingURL string `json:"listing_url"`
+	ReportURL  string `json:"report_url"` // If a github/gitlab report is generated, this is set.
+	ListingURL string `json:"listing_url"` // Complete link to the listing URL that contains all uploaded logs
 }
 
-// the payload after parsing
+// Stores information about a request made to this server
 type payload struct {
-	ID         string            `json:"id"`
-	UserText   string            `json:"user_text"`
-	AppName    string            `json:"app"`
-	Data       map[string]string `json:"data"`
-	Labels     []string          `json:"labels"`
-	Logs       []string          `json:"logs"`
-	LogErrors  []string          `json:"logErrors"`
-	Files      []string          `json:"files"`
-	FileErrors []string          `json:"fileErrors"`
+	ID         string            `json:"id"` // A unique ID for this payload, generated within this server 
+	UserText   string            `json:"user_text"` // A multi-line string containing the user description of the fault. 
+	AppName    string            `json:"app"` // A short slug to identify the app making the report
+	Data       map[string]string `json:"data"` // Arbitrary data to annotate the report
+	Labels     []string          `json:"labels"` // Short labels to group reports
+	Logs       []string          `json:"logs"` // A list of names of logs recognised by the server
+	LogErrors  []string          `json:"logErrors"` // Set if there are log parsing errors
+	Files      []string          `json:"files"` // A list of other files (not logs) uploaded as part of the rageshake
+	FileErrors []string          `json:"fileErrors"` // Set if there are file parsing errors
 }
 
 func (p payload) WriteTo(out io.Writer) {
