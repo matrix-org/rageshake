@@ -35,7 +35,7 @@ import (
 //
 // if tempDir is empty, a new temp dir is created, and deleted when the test
 // completes.
-func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*parsedPayload, *http.Response) {
+func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*payload, *http.Response) {
 	req, err := http.NewRequest("POST", "/api/submit", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -232,7 +232,7 @@ Content-Type: application/octet-stream
 	return
 }
 
-func checkParsedMultipartUpload(t *testing.T, p *parsedPayload) {
+func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	wanted := "test words."
 	if p.UserText != wanted {
 		t.Errorf("User text: got %s, want %s", p.UserText, wanted)
@@ -478,7 +478,7 @@ user_id: id
 	}
 	var buf bytes.Buffer
 	for _, v := range sample {
-		p := parsedPayload{Data: v.data}
+		p := payload{Data: v.data}
 		buf.Reset()
 		p.WriteTo(&buf)
 		got := strings.TrimSpace(buf.String())
@@ -488,7 +488,7 @@ user_id: id
 	}
 
 	for k, v := range sample {
-		p := parsedPayload{Data: v.data}
+		p := payload{Data: v.data}
 		res := buildGithubIssueRequest(p, "")
 		got := *res.Body
 		if k == 0 {
