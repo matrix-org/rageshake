@@ -1,3 +1,12 @@
+1.7 (2022-04-14)
+================
+
+Features
+--------
+
+- Pass the prefix as a unique ID for the rageshake to the generic webhook mechanism. ([\#54](https://github.com/matrix-org/rageshake/issues/54))
+
+
 1.6 (2022-02-22)
 ================
 
