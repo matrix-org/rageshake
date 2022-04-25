@@ -81,31 +81,31 @@ type jsonLogEntry struct {
 type genericWebhookPayload struct {
 	payload
 	// If a github/gitlab report is generated, this is set.
-	ReportURL  string `json:"report_url"`
+	ReportURL string `json:"report_url"`
 	// Complete link to the listing URL that contains all uploaded logs
 	ListingURL string `json:"listing_url"`
 }
 
 // Stores information about a request made to this server
 type payload struct {
-	// A unique ID for this payload, generated within this server 
-	ID         string            `json:"id"`
-	// A multi-line string containing the user description of the fault. 
-	UserText   string            `json:"user_text"`
+	// A unique ID for this payload, generated within this server
+	ID string `json:"id"`
+	// A multi-line string containing the user description of the fault.
+	UserText string `json:"user_text"`
 	// A short slug to identify the app making the report
-	AppName    string            `json:"app"`
+	AppName string `json:"app"`
 	// Arbitrary data to annotate the report
-	Data       map[string]string `json:"data"`
+	Data map[string]string `json:"data"`
 	// Short labels to group reports
-	Labels     []string          `json:"labels"`
+	Labels []string `json:"labels"`
 	// A list of names of logs recognised by the server
-	Logs       []string          `json:"logs"`
+	Logs []string `json:"logs"`
 	// Set if there are log parsing errors
-	LogErrors  []string          `json:"logErrors"`
+	LogErrors []string `json:"logErrors"`
 	// A list of other files (not logs) uploaded as part of the rageshake
-	Files      []string          `json:"files"`
+	Files []string `json:"files"`
 	// Set if there are file parsing errors
-	FileErrors []string          `json:"fileErrors"`
+	FileErrors []string `json:"fileErrors"`
 }
 
 func (p payload) WriteTo(out io.Writer) {
@@ -539,9 +539,9 @@ func (s *submitServer) submitGenericWebhook(p payload, listingURL string, report
 		return nil
 	}
 	genericHookPayload := genericWebhookPayload{
-		payload: p,
-		ReportURL:     reportURL,
-		ListingURL:    listingURL,
+		payload:    p,
+		ReportURL:  reportURL,
+		ListingURL: listingURL,
 	}
 	for _, url := range s.cfg.GenericWebhookURLs {
 		// Enrich the payload with a reportURL and listingURL, to convert a single struct
@@ -695,14 +695,30 @@ func buildGenericIssueRequest(p payload, listingURL string) (title, body string)
 	return
 }
 
+func getAdditionalLabels(p payload) []string {
+	labels := []string{}
+	if serverVersion, ok := p.Data["server_version"]; ok {
+		// TODO: It seems only Element Android sends server_version right now and
+		// that Element iOS doesn't, so we should do something about that.
+		switch {
+		case strings.Contains(serverVersion, "Dendrite"):
+			labels = append(labels, "Dendrite")
+		case strings.Contains(serverVersion, "Conduit"):
+			labels = append(labels, "Conduit")
+		}
+	}
+	return labels
+}
+
 func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
 	title, body := buildGenericIssueRequest(p, listingURL)
 
-	labels := p.Labels
+	labels := append(p.Labels, getAdditionalLabels(p)...)
 	// go-github doesn't like nils
 	if labels == nil {
 		labels = []string{}
 	}
+
 	return github.IssueRequest{
 		Title:  &title,
 		Body:   &body,
@@ -713,15 +729,11 @@ func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
 func buildGitlabIssueRequest(p payload, listingURL string, labels []string, confidential bool) *gitlab.CreateIssueOptions {
 	title, body := buildGenericIssueRequest(p, listingURL)
 
-	if p.Labels != nil {
-		labels = append(labels, p.Labels...)
-	}
-
 	return &gitlab.CreateIssueOptions{
 		Title:        &title,
 		Description:  &body,
 		Confidential: &confidential,
-		Labels:       labels,
+		Labels:       append(p.Labels, getAdditionalLabels(p)...),
 	}
 }
 
