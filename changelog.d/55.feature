@@ -1,0 +1,1 @@
+Add Dendrite and Conduit labels when detected in the `server_version` field of the rageshake payload
