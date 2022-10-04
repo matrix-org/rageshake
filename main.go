@@ -130,11 +130,6 @@ func main() {
 
 	if cfg.LinearToken == "" {
 		fmt.Println("No linear_token configured. Reporting bugs to Linear is disabled.")
-	} else {
-		err = fillLinearLabels(cfg.LinearToken)
-		if err != nil {
-			log.Fatalln("Failed to fetch label IDs from Linear:", err)
-		}
 	}
 
 	var slack *slackClient

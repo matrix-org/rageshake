@@ -92,25 +92,6 @@ type GraphQLResponse struct {
 	Data   json.RawMessage
 }
 
-type GetLabelsLabel struct {
-	ID   string
-	Name string
-}
-
-type GetLabelsTeam struct {
-	ID     string
-	Name   string
-	Labels struct {
-		Nodes []GetLabelsLabel
-	}
-}
-
-type GetLabelsResponse struct {
-	Teams struct {
-		Nodes []GetLabelsTeam
-	}
-}
-
 type CreateIssueResponse struct {
 	IssueCreate struct {
 		Success bool
@@ -122,23 +103,6 @@ type CreateIssueResponse struct {
 		}
 	}
 }
-
-const queryGetLabels = `
-query GetLabels {
-  teams {
-   nodes {
-     id
-     name
-     labels {
-       nodes {
-         id
-         name
-       }
-     }
-   }
-  }
-}
-`
 
 const mutationCreateIssue = `
 mutation CreateIssue($input: IssueCreateInput!) {
@@ -191,27 +155,6 @@ func LinearRequest(payload *GraphQLRequest, into interface{}) error {
 		err = json.Unmarshal(respData.Data, &into)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal response data: %w", err)
-		}
-	}
-	return nil
-}
-
-func fillLinearLabels(token string) error {
-	var labelResp GetLabelsResponse
-	err := LinearRequest(&GraphQLRequest{
-		Token: token,
-		Query: queryGetLabels,
-	}, &labelResp)
-	if err != nil {
-		return err
-	}
-	teamTolabelNameToID = make(map[string]map[string]string)
-	for _, team := range labelResp.Teams.Nodes {
-		labelNameToID := make(map[string]string)
-		teamTolabelNameToID[team.ID] = labelNameToID
-		for _, label := range team.Labels.Nodes {
-			labelNameToID[label.Name] = label.ID
-			fmt.Println(team.Name, label.Name, label.ID)
 		}
 	}
 	return nil
