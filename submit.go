@@ -659,32 +659,25 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 
 	title, body := buildGenericIssueRequest(p, listingURL)
 
-	labels := append(p.Labels, "Rageshake")
-	labels = append(labels, "Support: Review")
+	//labelIDs := p.Labels
+	var labelIDs []string
+	labelIDs = append(labelIDs, labelRageshake, labelSupportReview)
 	if bridge, ok := p.Data["bridge"]; ok && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
 		if bridge == "android-sms" || bridge == "androidsms" {
 			teamID = linearTeamAndroid
 		} else {
 			teamID = linearTeamBridges
 		}
-		if bridgeLabel, ok := bridgeToLabelName[bridge]; ok {
-			labels = append(labels, bridgeLabel)
+		if bridgeLabelID, ok := bridgeToLabelID[bridge]; ok {
+			labelIDs = append(labelIDs, bridgeLabelID)
 		}
 	}
 	if problem, ok := p.Data["problem"]; ok {
 		if problem == problemBridgeRequest {
 			teamID = linearTeamBridges
 		}
-		if problemLabel, ok := problemToLabelName[problem]; ok {
-			labels = append(labels, problemLabel)
-		}
-	}
-
-	labelIDs := make([]string, 0, len(labels))
-	for _, label := range labels {
-		labelID := teamTolabelNameToID[teamID][label]
-		if len(labelID) > 0 {
-			labelIDs = append(labelIDs, labelID)
+		if problemLabelID, ok := problemToLabelID[problem]; ok {
+			labelIDs = append(labelIDs, problemLabelID)
 		}
 	}
 
