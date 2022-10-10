@@ -64,6 +64,8 @@ type config struct {
 
 	HomeserverURLs map[string]string `yaml:"homeserver_url"`
 
+	APIServerURLs map[string]string `yaml:"api_server_url"`
+
 	WebhookURL string `yaml:"webhook_url"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`

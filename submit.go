@@ -87,6 +87,8 @@ type parsedPayload struct {
 	Files      []string          `json:"files"`
 	FileErrors []string          `json:"file_errors"`
 
+	Whoami *whoamiResponse `json:"-"`
+
 	VerifiedUserID   string `json:"verified_user_id"`
 	VerifiedDeviceID string `json:"verified_device_id"`
 }
@@ -189,53 +191,58 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 type whoamiResponse struct {
-	UserID   string `json:"user_id"`
-	DeviceID string `json:"device_id"`
-
-	ErrCode string `json:"errcode"`
-	Error   string `json:"error"`
+	UserInfo struct {
+		Hungryserv    bool   `json:"useHungryserv"`
+		Channel       string `json:"channel"`
+		SupportRoomID string `json:"supportRoomId"`
+	}
+	Matrix struct {
+		UserID   string `json:"user_id"`
+		DeviceID string `json:"device_id"`
+	} `json:"matrix"`
 }
 
-func (s *submitServer) verifyAccessToken(ctx context.Context, auth, userID string) (string, string, error) {
+func (s *submitServer) verifyAccessToken(ctx context.Context, auth, userID string) (*whoamiResponse, error) {
 	if len(auth) == 0 {
-		return "", "", fmt.Errorf("missing authorization header")
+		return nil, fmt.Errorf("missing authorization header")
 	} else if !strings.HasPrefix(auth, "Bearer ") {
-		return "", "", fmt.Errorf("invalid authorization header")
+		return nil, fmt.Errorf("invalid authorization header")
 	}
 
 	colonIndex := strings.IndexRune(userID, ':')
 	if colonIndex <= 0 || strings.IndexRune(userID, '@') != 0 {
-		return "", "", fmt.Errorf("invalid user ID")
+		return nil, fmt.Errorf("invalid user ID")
 	}
 
 	server := userID[colonIndex+1:]
-	homeserverURL, ok := s.cfg.HomeserverURLs[server]
+	apiServerURL, ok := s.cfg.APIServerURLs[server]
 	if !ok {
-		return "", "", fmt.Errorf("unsupported homeserver '%s'", server)
+		return nil, fmt.Errorf("unsupported homeserver '%s'", server)
 	}
 
-	baseURL, _ := url.Parse(homeserverURL)
-	baseURL.Path = "/_matrix/client/r0/account/whoami"
+	baseURL, _ := url.Parse(apiServerURL)
+	baseURL.Path = "/whoami"
+	baseURL.RawQuery = url.Values{"includeMatrix": []string{"1"}}.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create http request: %w", err)
+		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
 	req.Header.Set("Authorization", auth)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to make whoami request: %w", err)
-	}
 	var respData whoamiResponse
-	err = json.NewDecoder(resp.Body).Decode(&respData)
-	_ = resp.Body.Close()
-	if err != nil {
-		return "", "", fmt.Errorf("failed to parse whoami response body (status %d): %s", resp.StatusCode, err)
-	} else if resp.StatusCode != 200 {
-		return "", "", fmt.Errorf("whoami returned non-200 status code %d (data: %+v)", resp.StatusCode, respData)
-	} else if len(respData.ErrCode) > 0 {
-		return "", "", fmt.Errorf("whoami returned error code %s: %s", respData.ErrCode, respData.Error)
+	resp, err := http.DefaultClient.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
 	}
-	return respData.UserID, respData.DeviceID, nil
+	if err != nil {
+		return nil, fmt.Errorf("failed to make whoami request: %w", err)
+	} else if respBytes, err := io.ReadAll(resp.Body); err != nil {
+		return nil, fmt.Errorf("failed to read whoami response body (status %d): %w", resp.StatusCode, err)
+	} else if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("whoami returned non-200 status code %d (data: %s)", resp.StatusCode, respBytes)
+	} else if err = json.Unmarshal(respBytes, &respData); err != nil {
+		return nil, fmt.Errorf("failed to parse success whoami response body: %w", err)
+	}
+	return &respData, nil
 }
 
 func isMultipart(contentType string) bool {
@@ -285,10 +292,13 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 	delete(p.Data, "verified_device_id")
 	if ok {
 		p.Data["unverified_user_id"] = userID
-		p.VerifiedUserID, p.VerifiedDeviceID, err = s.verifyAccessToken(req.Context(), req.Header.Get("Authorization"), userID)
+		whoami, err := s.verifyAccessToken(req.Context(), req.Header.Get("Authorization"), userID)
 		if err != nil {
 			log.Printf("Error verifying user ID (%s): %v", userID, err)
 		} else {
+			p.Whoami = whoami
+			p.VerifiedUserID = whoami.Matrix.UserID
+			p.VerifiedDeviceID = whoami.Matrix.DeviceID
 			if p.VerifiedUserID != userID {
 				log.Printf("Mismatching user ID (verified: %s, input: %s), overriding...", p.VerifiedUserID, userID)
 			}
@@ -659,8 +669,10 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 
 	title, body := buildGenericIssueRequest(p, listingURL)
 
-	//labelIDs := p.Labels
 	var labelIDs []string
+	if p.Whoami != nil && p.Whoami.UserInfo.Hungryserv {
+		labelIDs = append(labelIDs, labelHungryUser)
+	}
 	labelIDs = append(labelIDs, labelRageshake, labelSupportReview)
 	if bridge, ok := p.Data["bridge"]; ok && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
 		if bridge == "android-sms" || bridge == "androidsms" {

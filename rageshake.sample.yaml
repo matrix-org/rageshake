@@ -28,6 +28,9 @@ gitlab_url: https://gitlab.com
 homeserver_url:
   example.com: http://localhost:8008
 
+api_server_url:
+  example.com: http://localhost:1234
+
 # mappings from app name (as submitted in the API) to the GitLab Project ID (not name!) for issue reporting.
 gitlab_project_mappings:
   my-app: 12345
