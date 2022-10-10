@@ -29,7 +29,6 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"net/smtp"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -38,24 +37,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/google/go-github/github"
-	"github.com/jordan-wright/email"
-	"github.com/xanzy/go-gitlab"
 )
 
 var maxPayloadSize = 1024 * 1024 * 55 // 55 MB
 
 type submitServer struct {
-	// github client for reporting bugs. may be nil, in which case,
-	// reporting is disabled.
-	ghClient *github.Client
-	glClient *gitlab.Client
-
 	// External URI to /api
 	apiPrefix string
-
-	slack *slackClient
 
 	cfg *config
 }
@@ -133,7 +121,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// if we attempt to return a response without reading the request body,
 	// apache gets upset and returns a 500. Let's try this.
 	defer req.Body.Close()
-	defer io.Copy(ioutil.Discard, req.Body)
+	defer io.Copy(io.Discard, req.Body)
 
 	if req.Method != "POST" && req.Method != "OPTIONS" {
 		respond(405, w)
@@ -480,10 +468,10 @@ func formPartToPayload(field, data string, p *parsedPayload) {
 
 // we use a quite restrictive regexp for the filenames; in particular:
 //
-// * a limited set of extensions. We are careful to limit the content-types
-//   we will serve the files with, but somebody might accidentally point an
-//   Apache or nginx at the upload directory, which would serve js files as
-//   application/javascript and open XSS vulnerabilities.
+//   - a limited set of extensions. We are careful to limit the content-types
+//     we will serve the files with, but somebody might accidentally point an
+//     Apache or nginx at the upload directory, which would serve js files as
+//     application/javascript and open XSS vulnerabilities.
 //
 // * no silly characters (/, ctrl chars, etc)
 //
@@ -559,27 +547,11 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 func (s *submitServer) saveReportBackground(p parsedPayload, reportDir, listingURL string) error {
 	var resp submitResponse
 
-	if err := s.submitGithubIssue(context.Background(), p, listingURL, &resp); err != nil {
-		return err
-	}
-
-	if err := s.submitGitlabIssue(p, listingURL, &resp); err != nil {
-		return err
-	}
-
 	if err := s.submitLinearIssue(p, listingURL, &resp); err != nil {
 		return err
 	}
 
 	if err := s.submitWebhook(context.Background(), p, listingURL, &resp); err != nil {
-		return err
-	}
-
-	if err := s.submitSlackNotification(p, listingURL); err != nil {
-		return err
-	}
-
-	if err := s.sendEmail(p, reportDir); err != nil {
 		return err
 	}
 
@@ -599,60 +571,6 @@ func (s *submitServer) saveReport(p parsedPayload, reportDir, listingURL string)
 			fmt.Println("Error submitting report in background:", err)
 		}
 	}()
-
-	return nil
-}
-
-func (s *submitServer) submitGithubIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {
-	if s.ghClient == nil {
-		return nil
-	}
-
-	// submit a github issue
-	ghProj := s.cfg.GithubProjectMappings[p.AppName]
-	if ghProj == "" {
-		log.Println("Not creating GH issue for unknown app", p.AppName)
-		return nil
-	}
-	splits := strings.SplitN(ghProj, "/", 2)
-	if len(splits) < 2 {
-		log.Println("Can't create GH issue for invalid repo", ghProj)
-	}
-	owner, repo := splits[0], splits[1]
-
-	issueReq := buildGithubIssueRequest(p, listingURL)
-
-	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
-	if err != nil {
-		return err
-	}
-
-	log.Println("Created issue:", *issue.HTMLURL)
-
-	resp.ReportURL = *issue.HTMLURL
-
-	return nil
-}
-
-func (s *submitServer) submitGitlabIssue(p parsedPayload, listingURL string, resp *submitResponse) error {
-	if s.glClient == nil {
-		return nil
-	}
-
-	glProj := s.cfg.GitlabProjectMappings[p.AppName]
-
-	issueReq := s.buildGitlabIssueRequest(p, listingURL)
-
-	issue, _, err := s.glClient.Issues.CreateIssue(glProj, issueReq)
-
-	if err != nil {
-		return err
-	}
-
-	log.Println("Created issue:", issue.WebURL)
-
-	resp.ReportURL = issue.WebURL
-	resp.IssueNumber = fmt.Sprintf("#%d", issue.IID)
 
 	return nil
 }
@@ -769,24 +687,6 @@ func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listi
 	}
 }
 
-func (s *submitServer) submitSlackNotification(p parsedPayload, listingURL string) error {
-	if s.slack == nil {
-		return nil
-	}
-
-	slackBuf := fmt.Sprintf(
-		"%s\nApplication: %s\nReport: %s",
-		p.UserText, p.AppName, listingURL,
-	)
-
-	err := s.slack.Notify(slackBuf)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func buildReportTitle(p parsedPayload) string {
 	// set the title to the first (non-empty) line of the user's report, if any
 	trimmedUserText := strings.TrimSpace(p.UserText)
@@ -857,96 +757,6 @@ func buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body s
 	return
 }
 
-func buildGithubIssueRequest(p parsedPayload, listingURL string) github.IssueRequest {
-	title, body := buildGenericIssueRequest(p, listingURL)
-
-	labels := p.Labels
-	// go-github doesn't like nils
-	if labels == nil {
-		labels = []string{}
-	}
-	return github.IssueRequest{
-		Title:  &title,
-		Body:   &body,
-		Labels: &labels,
-	}
-}
-
-func unorderedArrayDelete(data []string, value string) []string {
-	for i := len(data) - 1; i >= 0; i-- {
-		if data[i] == value {
-			data[i] = data[len(data)-1]
-			data = data[:len(data)-1]
-		}
-	}
-	return data
-}
-
-func (s *submitServer) buildGitlabIssueRequest(p parsedPayload, listingURL string) *gitlab.CreateIssueOptions {
-	title, body := buildGenericIssueRequest(p, listingURL)
-
-	labels := s.cfg.GitlabProjectLabels[p.AppName]
-	if p.Labels != nil {
-		labels = append(labels, p.Labels...)
-	}
-	if bridge, ok := p.Data["bridge"]; ok {
-		labels = append(labels, fmt.Sprintf("bridge::%s", bridge))
-
-		labels = unorderedArrayDelete(labels, "Desktop::Needs Triage")
-		labels = unorderedArrayDelete(labels, "Android::Needs Triage")
-		labels = unorderedArrayDelete(labels, "iOS::Needs Triage")
-		labels = append(labels, "Bridge Work::Needs Triage")
-	}
-	if problem, ok := p.Data["problem"]; ok {
-		if label, ok := s.cfg.GitlabProblemLabels[problem]; ok {
-			labels = append(labels, label)
-		}
-	}
-
-	return &gitlab.CreateIssueOptions{
-		Title:        &title,
-		Description:  &body,
-		Confidential: &s.cfg.GitlabIssueConfidential,
-		Labels:       labels,
-	}
-}
-
-func (s *submitServer) sendEmail(p parsedPayload, reportDir string) error {
-	if len(s.cfg.EmailAddresses) == 0 {
-		return nil
-	}
-
-	e := email.NewEmail()
-
-	e.From = "Rageshake <rageshake@matrix.org>"
-	if s.cfg.EmailFrom != "" {
-		e.From = s.cfg.EmailFrom
-	}
-
-	e.To = s.cfg.EmailAddresses
-
-	e.Subject = fmt.Sprintf("[%s] %s", p.AppName, buildReportTitle(p))
-
-	e.Text = buildReportBody(p).Bytes()
-
-	allFiles := append(p.Files, p.Logs...)
-	for _, file := range allFiles {
-		fullPath := filepath.Join(reportDir, file)
-		e.AttachFile(fullPath)
-	}
-
-	var auth smtp.Auth = nil
-	if s.cfg.SMTPPassword != "" || s.cfg.SMTPUsername != "" {
-		auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPServer)
-	}
-	err := e.Send(s.cfg.SMTPServer, auth)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func respond(code int, w http.ResponseWriter) {
 	w.WriteHeader(code)
 	w.Write([]byte("{}"))
@@ -969,7 +779,7 @@ func gzipAndSave(data []byte, dirname, fpath string) error {
 	if err := gz.Close(); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(fpath, b.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(fpath, b.Bytes(), 0644); err != nil {
 		return err
 	}
 	return nil

@@ -17,21 +17,14 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"crypto/subtle"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"strings"
-	"time"
-
-	"github.com/google/go-github/github"
-	"github.com/xanzy/go-gitlab"
-	"golang.org/x/oauth2"
 
 	"gopkg.in/yaml.v2"
 )
@@ -47,38 +40,11 @@ type config struct {
 	// External URI to /api
 	APIPrefix string `yaml:"api_prefix"`
 
-	// A GitHub personal access token, to create a GitHub issue for each report.
-	GithubToken string `yaml:"github_token"`
-
-	GithubProjectMappings map[string]string `yaml:"github_project_mappings"`
-
-	GitlabURL   string `yaml:"gitlab_url"`
-	GitlabToken string `yaml:"gitlab_token"`
-
-	GitlabProjectMappings   map[string]int      `yaml:"gitlab_project_mappings"`
-	GitlabProjectLabels     map[string][]string `yaml:"gitlab_project_labels"`
-	GitlabIssueConfidential bool                `yaml:"gitlab_issue_confidential"`
-	GitlabProblemLabels     map[string]string   `yaml:"gitlab_problem_labels"`
-
 	LinearToken string `yaml:"linear_token"`
-
-	HomeserverURLs map[string]string `yaml:"homeserver_url"`
 
 	APIServerURLs map[string]string `yaml:"api_server_url"`
 
 	WebhookURL string `yaml:"webhook_url"`
-
-	SlackWebhookURL string `yaml:"slack_webhook_url"`
-
-	EmailAddresses []string `yaml:"email_addresses"`
-
-	EmailFrom string `yaml:"email_from"`
-
-	SMTPServer string `yaml:"smtp_server"`
-
-	SMTPUsername string `yaml:"smtp_username"`
-
-	SMTPPassword string `yaml:"smtp_password"`
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -105,45 +71,8 @@ func main() {
 		log.Fatalf("Invalid config file: %s", err)
 	}
 
-	var ghClient *github.Client
-
-	if cfg.GithubToken == "" {
-		fmt.Println("No github_token configured. Reporting bugs to github is disabled.")
-	} else {
-		ctx := context.Background()
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: cfg.GithubToken},
-		)
-		tc := oauth2.NewClient(ctx, ts)
-		tc.Timeout = time.Duration(5) * time.Minute
-		ghClient = github.NewClient(tc)
-	}
-
-	var glClient *gitlab.Client
-	if cfg.GitlabToken == "" {
-		fmt.Println("No gitlab_token configured. Reporting bugs to gitlab is disaled.")
-	} else {
-		glClient, err = gitlab.NewClient(cfg.GitlabToken, gitlab.WithBaseURL(cfg.GitlabURL))
-		if err != nil {
-			// This probably only happens if the base URL is invalid
-			log.Fatalln("Failed to create GitLab client:", err)
-		}
-	}
-
 	if cfg.LinearToken == "" {
-		fmt.Println("No linear_token configured. Reporting bugs to Linear is disabled.")
-	}
-
-	var slack *slackClient
-
-	if cfg.SlackWebhookURL == "" {
-		fmt.Println("No slack_webhook_url configured. Reporting bugs to slack is disabled.")
-	} else {
-		slack = newSlackClient(cfg.SlackWebhookURL)
-	}
-
-	if len(cfg.EmailAddresses) > 0 && cfg.SMTPServer == "" {
-		log.Fatal("Email address(es) specified but no smtp_server configured. Wrong configuration, aborting...")
+		panic("No linear_token configured. Reporting bugs to Linear is disabled.")
 	}
 
 	apiPrefix := cfg.APIPrefix
@@ -159,7 +88,7 @@ func main() {
 	}
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
-	http.Handle("/api/submit", &submitServer{ghClient, glClient, apiPrefix, slack, cfg})
+	http.Handle("/api/submit", &submitServer{apiPrefix: apiPrefix, cfg: cfg})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)
@@ -184,7 +113,7 @@ func main() {
 }
 
 func loadConfig(configPath string) (*config, error) {
-	contents, err := ioutil.ReadFile(configPath)
+	contents, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}

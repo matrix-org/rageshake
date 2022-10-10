@@ -6,57 +6,10 @@ listings_auth_pass: secret
 
 # the external URL at which /api is accessible; it is used to add a link to the
 # report to the GitHub issue. If unspecified, based on the listen address.
-# api_prefix: https://riot.im/bugreports
-
-# a GitHub personal access token (https://github.com/settings/tokens), which
-# will be used to create a GitHub issue for each report. It requires
-# `public_repo` scope. If omitted, no issues will be created.
-github_token: secrettoken
-
-# mappings from app name (as submitted in the API) to github repo for issue reporting.
-github_project_mappings:
-   my-app: octocat/HelloWorld
-
-# a GitLab personal access token (https://gitlab.com/-/profile/personal_access_tokens), which
-# will be used to create a GitLab issue for each report. It requires
-# `api` scope. If omitted, no issues will be created.
-gitlab_token: secrettoken
-# the base URL of the GitLab instance to use
-gitlab_url: https://gitlab.com
-
-# Homeserver URLs to validate Matrix access tokens.
-homeserver_url:
-  example.com: http://localhost:8008
+api_prefix: https://rageshake.example.com/api
 
 api_server_url:
   example.com: http://localhost:1234
 
-# mappings from app name (as submitted in the API) to the GitLab Project ID (not name!) for issue reporting.
-gitlab_project_mappings:
-  my-app: 12345
-# mappings from app name to a list of GitLab label names for issue reporting.
-gitlab_project_labels:
-  my-app:
-    - client::my-app
-# whether GitLab issues should be created as confidential issues. Defaults to false.
-gitlab_issue_confidential: true
-
 # A custom webhook URL that receives all the relevant data about the rageshake.
 webhook_url: https://example.com/rageshake-webhook
-
-# a Slack personal webhook URL (https://api.slack.com/incoming-webhooks), which
-# will be used to post a notification on Slack for each report.
-slack_webhook_url: https://hooks.slack.com/services/TTTTTTT/XXXXXXXXXX/YYYYYYYYYYY
-
-# notification can also be pushed by email.
-# this param controls the target emails
-email_addresses:
-  - support@matrix.org
-
-# this is the from field that will be used in the email notifications
-email_from: Rageshake <rageshake@matrix.org>
-
-# SMTP server configuration
-smtp_server: localhost:25
-smtp_username: myemailuser
-smtp_password: myemailpass
