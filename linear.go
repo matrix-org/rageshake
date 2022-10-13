@@ -134,7 +134,7 @@ type GetUserEmailsResponse struct {
 
 // This will start missing users if we have more than 250 active linear accounts
 const queryGetUserEmails = `
-query GetUserEmails() {
+query {
 	users(first: 250) {
 		nodes {
 			id
