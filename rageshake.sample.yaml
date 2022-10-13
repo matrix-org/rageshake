@@ -8,6 +8,10 @@ listings_auth_pass: secret
 # report to the GitHub issue. If unspecified, based on the listen address.
 api_prefix: https://rageshake.example.com/api
 
+# Linear bot access token to create Linear issues
+linear_token:
+
+# API server URLs for rageshake to verify access tokens against
 api_server_url:
   example.com: http://localhost:1234
 

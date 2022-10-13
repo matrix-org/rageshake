@@ -74,6 +74,10 @@ func main() {
 	if cfg.LinearToken == "" {
 		panic("No linear_token configured. Reporting bugs to Linear is disabled.")
 	}
+	err = fillEmailCache(cfg.LinearToken)
+	if err != nil {
+		log.Fatalln("Failed to fetch internal user IDs from Linear:", err)
+	}
 
 	apiPrefix := cfg.APIPrefix
 	if apiPrefix == "" {

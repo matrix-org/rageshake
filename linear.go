@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -118,6 +119,95 @@ mutation CreateIssue($input: IssueCreateInput!) {
     }
 }
 `
+
+type UserEmail struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type GetUserEmailsResponse struct {
+	Users struct {
+		Nodes []UserEmail `json:"nodes"`
+	} `json:"users"`
+}
+
+// This will start missing users if we have more than 250 active linear accounts
+const queryGetUserEmails = `
+query GetUserEmails() {
+	users(first: 250) {
+		nodes {
+			id
+			name
+			email
+		}
+	}
+}
+`
+
+const queryFindUserByEmail = `
+query FindUserByEmail(filter: UserFilter!) {
+	users(filter: $filter) {
+		nodes {
+			id
+			name
+			email
+		}
+	}
+}
+`
+
+var emailToLinearIDCache = make(map[string]string)
+
+func getLinearID(email, token string) string {
+	// Ensure there's only one @ and the domain is beeper.com
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 || parts[1] != "beeper.com" {
+		return ""
+	}
+	// Remove anything after a +
+	parts = strings.Split(parts[0], "+")
+	email = fmt.Sprintf("%s@beeper.com", parts[0])
+	userID, ok := emailToLinearIDCache[email]
+	if ok {
+		return userID
+	}
+	fmt.Println("ID for", email, "not cached, fetching from Linear")
+	var userResp GetUserEmailsResponse
+	err := LinearRequest(&GraphQLRequest{
+		Token: token,
+		Query: queryFindUserByEmail,
+		Variables: map[string]any{
+			"filter": map[string]any{"email": map[string]any{"eq": email}},
+		},
+	}, &userResp)
+	if err != nil {
+		fmt.Printf("Error finding linear ID of %s: %v\n", email, err)
+		emailToLinearIDCache[email] = ""
+		return ""
+	}
+	for _, user := range userResp.Users.Nodes {
+		fmt.Printf("Found linear ID for %s (%s) -> %s\n", user.Email, user.Name, user.ID)
+		emailToLinearIDCache[user.Email] = user.ID
+	}
+	return emailToLinearIDCache[email]
+}
+
+func fillEmailCache(token string) error {
+	var userResp GetUserEmailsResponse
+	err := LinearRequest(&GraphQLRequest{
+		Token: token,
+		Query: queryGetUserEmails,
+	}, &userResp)
+	if err != nil {
+		return err
+	}
+	for _, user := range userResp.Users.Nodes {
+		fmt.Printf("Found linear ID for %s (%s) -> %s\n", user.Email, user.Name, user.ID)
+		emailToLinearIDCache[user.Email] = user.ID
+	}
+	return nil
+}
 
 func LinearRequest(payload *GraphQLRequest, into interface{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)

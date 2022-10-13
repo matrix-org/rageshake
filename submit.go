@@ -183,6 +183,7 @@ type whoamiResponse struct {
 		Hungryserv    bool   `json:"useHungryserv"`
 		Channel       string `json:"channel"`
 		SupportRoomID string `json:"supportRoomId"`
+		Email         string `json:"email"`
 	}
 	Matrix struct {
 		UserID   string `json:"user_id"`
@@ -586,11 +587,18 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 
 	title, body := buildGenericIssueRequest(p, listingURL)
 
-	var labelIDs []string
+	labelIDs := []string{labelRageshake, labelSupportReview}
 	if p.Whoami != nil && p.Whoami.UserInfo.Hungryserv {
 		labelIDs = append(labelIDs, labelHungryUser)
 	}
-	labelIDs = append(labelIDs, labelRageshake, labelSupportReview)
+	subscriberIDs := make([]string, 0)
+	if p.Whoami != nil && p.Whoami.UserInfo.Email != "" {
+		linearID := getLinearID(p.Whoami.UserInfo.Email, s.cfg.LinearToken)
+		if linearID != "" {
+			subscriberIDs = []string{linearID}
+		}
+	}
+
 	if bridge, ok := p.Data["bridge"]; ok && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
 		if bridge == "android-sms" || bridge == "androidsms" {
 			teamID = linearTeamAndroid
@@ -610,9 +618,10 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 	}
 
-	fmt.Println("Creating issue:", teamID)
-	fmt.Println(labelIDs)
-	fmt.Println(title)
+	fmt.Println("Creating issue in", teamID)
+	fmt.Println("  Labels:", labelIDs)
+	fmt.Println("  Subscribers:", subscriberIDs)
+	fmt.Println("  Title:", title)
 
 	var createResp CreateIssueResponse
 	err := LinearRequest(&GraphQLRequest{
@@ -620,10 +629,11 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		Query: mutationCreateIssue,
 		Variables: map[string]interface{}{
 			"input": map[string]interface{}{
-				"teamId":      teamID,
-				"title":       title,
-				"description": body,
-				"labelIds":    labelIDs,
+				"teamId":        teamID,
+				"title":         title,
+				"description":   body,
+				"labelIds":      labelIDs,
+				"subscriberIds": subscriberIDs,
 			},
 		},
 	}, &createResp)
@@ -636,8 +646,8 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 	resp.ReportURL = createResp.IssueCreate.Issue.URL
 	resp.IssueNumber = createResp.IssueCreate.Issue.Identifier
 
-	fmt.Printf("%+v\n", createResp.IssueCreate)
-	fmt.Println(resp)
+	fmt.Printf("  / %+v\n", createResp.IssueCreate)
+	fmt.Println("Rageshake response:", resp)
 
 	return nil
 }
