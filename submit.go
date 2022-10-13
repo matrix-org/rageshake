@@ -274,8 +274,7 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 	}
 
 	userID, ok := p.Data["user_id"]
-	// TODO delete unverified user IDs after clients start sending auth
-	//delete(p.Data, "user_id")
+	delete(p.Data, "user_id")
 	delete(p.Data, "verified_user_id")
 	delete(p.Data, "verified_device_id")
 	if ok {
@@ -697,7 +696,12 @@ func buildReportTitle(p parsedPayload) string {
 	}
 	userID := p.Data["user_id"]
 	if len(userID) == 0 {
-		userID = "unknown user"
+		userID = p.Data["unverified_user_id"]
+		if len(userID) == 0 {
+			userID = "unknown user"
+		} else {
+			userID = fmt.Sprintf("[unverified] %s", userID)
+		}
 	}
 	userID = strings.TrimPrefix(strings.TrimSuffix(userID, ":beeper.com"), "@")
 	title := fmt.Sprintf("%s: %s", userID, trimmedUserText)
