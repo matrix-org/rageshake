@@ -234,7 +234,7 @@ func LinearRequest(payload *GraphQLRequest, into interface{}) error {
 	err = json.Unmarshal(data, &respData)
 	//err = json.NewDecoder(resp.Body).Decode(&respData)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal response JSON (status %d): %w", resp.StatusCode, err)
+		return fmt.Errorf("failed to unmarshal response JSON (status %d): %w: %s", resp.StatusCode, err, respData.Data)
 	}
 	if len(respData.Errors) > 0 {
 		if len(respData.Errors[0].Extensions.UserPresentableMessage) > 0 {
