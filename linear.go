@@ -232,7 +232,7 @@ func LinearRequest(payload *GraphQLRequest, into interface{}) error {
 	var respData GraphQLResponse
 	data, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
-		log.Println("Got non-200 response %d: %s", resp.StatusCode, data)
+		log.Printf("Got non-200 response %d: %s", resp.StatusCode, data)
 	}
 	fmt.Printf("%s\n", data)
 	err = json.Unmarshal(data, &respData)
