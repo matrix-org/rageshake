@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -230,11 +231,14 @@ func LinearRequest(payload *GraphQLRequest, into interface{}) error {
 	defer resp.Body.Close()
 	var respData GraphQLResponse
 	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		log.Println("Got non-200 response %d: %s", resp.StatusCode, data)
+	}
 	fmt.Printf("%s\n", data)
 	err = json.Unmarshal(data, &respData)
 	//err = json.NewDecoder(resp.Body).Decode(&respData)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal response JSON (status %d): %w: %s", resp.StatusCode, err, respData.Data)
+		return fmt.Errorf("failed to unmarshal response JSON (status %d): %w: %s", resp.StatusCode, err, data)
 	}
 	if len(respData.Errors) > 0 {
 		if len(respData.Errors[0].Extensions.UserPresentableMessage) > 0 {
