@@ -7,6 +7,7 @@ on:
 
 jobs:
   changelog:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
@@ -15,6 +16,7 @@ jobs:
       - name: Run towncrier
         run: python -m towncrier.check
   lint:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
@@ -28,6 +30,7 @@ jobs:
       - name: lint
         run: ./scripts/lint.sh
   test:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         golang: ["1.17", "1.16"]
