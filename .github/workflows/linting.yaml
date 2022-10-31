@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all branches [we only need origin/master]
       - uses: actions/setup-python@v3
       - name: Install towncrier
         run: pip install 'towncrier>19.2'
@@ -26,7 +28,7 @@ jobs:
         run: |
           go get golang.org/x/lint/golint
           go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
-          go get github.com/gzipp/gocyclo/cmd/gocyclo
+          go get github.com/fzipp/gocyclo/cmd/gocyclo
       - name: lint
         run: ./scripts/lint.sh
   test:
