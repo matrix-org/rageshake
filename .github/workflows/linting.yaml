@@ -11,7 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # checkout all branches [we only need origin/master]
+          fetch-depth: 0
+          # checkout all branches; we only want origin/master, required to allow towncrier to diff
       - uses: actions/setup-python@v3
       - name: Install towncrier
         run: pip install 'towncrier>19.2'
@@ -41,9 +42,6 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: "${{ matrix.golang }}"
-      - name: go fmt (optional)
-        run: go fmt -l
-        continue-on-error: true
       - name: Build
         run: go build
       - name: Test
