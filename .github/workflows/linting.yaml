@@ -1,0 +1,48 @@
+name: Linting and checks
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          # do a full clone; we need to also get the branch master, required to allow towncrier to diff properly.
+      - uses: actions/setup-python@v3
+      - name: Install towncrier
+        run: pip install 'towncrier>19.2'
+      - name: Run towncrier
+        run: python -m towncrier.check
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.16
+      - name: Install lint deps
+        run: |
+          go get golang.org/x/lint/golint
+          go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
+          go get github.com/fzipp/gocyclo/cmd/gocyclo
+      - name: lint
+        run: ./scripts/lint.sh
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        golang: ["1.17", "1.16"]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: "${{ matrix.golang }}"
+      - name: Build
+        run: go build
+      - name: Test
+        run: go test
