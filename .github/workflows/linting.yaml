@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          # checkout all branches; we only want origin/master, required to allow towncrier to diff
+          # do a full clone; we need to also get the branch master, required to allow towncrier to diff properly.
       - uses: actions/setup-python@v3
       - name: Install towncrier
         run: pip install 'towncrier>19.2'
