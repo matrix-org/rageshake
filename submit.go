@@ -730,6 +730,10 @@ func buildReportBody(p parsedPayload) *bytes.Buffer {
 	}
 	userText := strings.Join(textLines, "\n")
 
+	if len(p.Data["user_id"]) == 0 && len(p.Data["unverified_user_id"]) > 0 {
+		fmt.Fprintf(&bodyBuf, "Rageshake server was unable to verify the access token used to send this report. It is possible the user's session is corrupted, or that rageshake failed to talk to api server. The support room notice was not sent.\n\n")
+	}
+
 	fmt.Fprintf(&bodyBuf, "### User message:\n\n%s\n\n", userText)
 	var dataKeys []string
 	for k := range p.Data {
