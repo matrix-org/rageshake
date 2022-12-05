@@ -39,9 +39,10 @@ var appToTeamID = map[string]string{
 }
 
 const (
-	labelRageshake     = "3fc786e7-b4f1-472e-8e27-4aa97c2eb27c"
-	labelSupportReview = "f1d19cb7-0839-4349-aa9a-f5eaec84a3a2"
-	labelHungryUser    = "b213456c-be3a-4838-8849-f009a0b92c52"
+	labelRageshake        = "3fc786e7-b4f1-472e-8e27-4aa97c2eb27c"
+	labelSupportReview    = "f1d19cb7-0839-4349-aa9a-f5eaec84a3a2"
+	labelHungryUser       = "b213456c-be3a-4838-8849-f009a0b92c52"
+	labelNonClusterHungry = "da3376cb-9ac4-44cb-8611-a5eb57656198"
 )
 
 var problemToLabelID = map[string]string{

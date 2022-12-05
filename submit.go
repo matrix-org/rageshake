@@ -183,6 +183,34 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	_, _ = w.Write([]byte("{}"))
 }
 
+type globalBridgeStateInfo struct {
+	IsHungry bool `json:"isHungry"`
+}
+
+type whoamiBridgeState struct {
+	StateEvent string                `json:"stateEvent"`
+	Info       globalBridgeStateInfo `json:"info"`
+	Reason     string                `json:"reason"`
+	Source     string                `json:"source"`
+	CreatedAt  time.Time             `json:"createdAt"`
+}
+
+//type whoamiRemoteState struct {
+//	StateEvent string         `json:"state_event"`
+//	Info       map[string]any `json:"info"`
+//	Reason     string         `json:"reason"`
+//	Timestamp  int64          `json:"timestamp"`
+//	RemoteID   string         `json:"remote_id"`
+//	RemoteName string         `json:"remote_name"`
+//}
+
+type whoamiBridgeInfo struct {
+	//Version     string                       `json:"version"`
+	//ConfigHash  string                       `json:"configHash"`
+	BridgeState whoamiBridgeState `json:"bridgeState"`
+	//RemoteState map[string]whoamiRemoteState `json:"remoteState"`
+}
+
 type whoamiResponse struct {
 	UserInfo struct {
 		Hungryserv    bool   `json:"useHungryserv"`
@@ -190,6 +218,9 @@ type whoamiResponse struct {
 		SupportRoomID string `json:"supportRoomId"`
 		Email         string `json:"email"`
 	}
+	User struct {
+		Bridges map[string]whoamiBridgeInfo `json:"bridges"`
+	} `json:"user"`
 	Matrix struct {
 		UserID   string `json:"user_id"`
 		DeviceID string `json:"device_id"`
@@ -591,10 +622,16 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 	}
 
 	title, body := buildGenericIssueRequest(p, listingURL)
+	bridge := p.Data["bridge"]
 
 	labelIDs := []string{labelRageshake, labelSupportReview}
-	if p.Whoami != nil && p.Whoami.UserInfo.Hungryserv {
-		labelIDs = append(labelIDs, labelHungryUser)
+	if p.Whoami != nil {
+		if p.Whoami.UserInfo.Hungryserv {
+			labelIDs = append(labelIDs, labelHungryUser)
+		}
+		if p.Whoami.User.Bridges[bridge].BridgeState.Info.IsHungry {
+			labelIDs = append(labelIDs, labelNonClusterHungry)
+		}
 	}
 	subscriberIDs := make([]string, 0)
 	if p.Whoami != nil && p.Whoami.UserInfo.Email != "" {
@@ -604,7 +641,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 	}
 
-	if bridge, ok := p.Data["bridge"]; ok && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
+	if bridge != "" && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
 		if bridge == "android-sms" || bridge == "androidsms" {
 			teamID = linearTeamAndroid
 		} else {
