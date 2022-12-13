@@ -50,7 +50,7 @@ type config struct {
 
 	// Allowed rageshake app names
 	AllowedAppNames   []string `yaml:"allowed_app_names"`
-	AllowedAppNameMap map[string]bool
+	allowedAppNameMap map[string]bool
 
 	// A GitHub personal access token, to create a GitHub issue for each report.
 	GithubToken string `yaml:"github_token"`
@@ -109,9 +109,9 @@ func main() {
 		fmt.Println("Warning: allowed_app_names is empty. Accepting requests from all app names")
 	} else {
 		// Convert list up to a map to make lookups easier
-		cfg.AllowedAppNameMap = make(map[string]bool)
+		cfg.allowedAppNameMap = make(map[string]bool)
 		for _, app := range cfg.AllowedAppNames {
-			cfg.AllowedAppNameMap[app] = true
+			cfg.allowedAppNameMap[app] = true
 		}
 	}
 
