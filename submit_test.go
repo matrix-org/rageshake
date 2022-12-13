@@ -108,36 +108,6 @@ func TestJsonUpload(t *testing.T) {
 	checkUploadedFile(t, reportDir, "logs-0000.log.gz", true, "line1\nline2")
 }
 
-// check that we can unpick the json submitted by the android clients
-func TestUnpickAndroidMangling(t *testing.T) {
-	body := `{"text": "test ylc 001",
-"version": "User : @ylc8001:matrix.org\nPhone : Lenovo P2a42\nVector version: 0:6:9\n",
-"user_agent": "Android"
-}`
-	p, _ := testParsePayload(t, body, "", "")
-	if p == nil {
-		t.Fatal("parseRequest returned nil")
-	}
-	if p.UserText != "test ylc 001" {
-		t.Errorf("user text: got %s, want %s", p.UserText, "test ylc 001")
-	}
-	if p.AppName != "riot-android" {
-		t.Errorf("appname: got %s, want %s", p.AppName, "riot-android")
-	}
-	if p.Data["Version"] != "" {
-		t.Errorf("version: got %s, want ''", p.Data["Version"])
-	}
-	if p.Data["User"] != "@ylc8001:matrix.org" {
-		t.Errorf("data.user: got %s, want %s", p.Data["User"], "@ylc8001:matrix.org")
-	}
-	if p.Data["Phone"] != "Lenovo P2a42" {
-		t.Errorf("data.phone: got %s, want %s", p.Data["Phone"], "Lenovo P2a42")
-	}
-	if p.Data["Vector version"] != "0:6:9" {
-		t.Errorf("data.version: got %s, want %s", p.Data["Version"], "0:6:9")
-	}
-}
-
 func TestMultipartUpload(t *testing.T) {
 	reportDir := mkTempDir(t)
 	defer os.RemoveAll(reportDir)

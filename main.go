@@ -48,6 +48,10 @@ type config struct {
 	// External URI to /api
 	APIPrefix string `yaml:"api_prefix"`
 
+	// Allowed rageshake app names
+	AllowedAppNames   []string `yaml:"allowed_app_names"`
+	AllowedAppNameMap map[string]bool
+
 	// A GitHub personal access token, to create a GitHub issue for each report.
 	GithubToken string `yaml:"github_token"`
 
@@ -100,6 +104,16 @@ func main() {
 	}
 
 	var ghClient *github.Client
+
+	if len(cfg.AllowedAppNames) == 0 {
+		fmt.Println("Warning: allowed_app_names is empty. Accepting requests from all app names")
+	} else {
+		// Convert list up to a map to make lookups easier
+		cfg.AllowedAppNameMap = make(map[string]bool)
+		for _, app := range cfg.AllowedAppNames {
+			cfg.AllowedAppNameMap[app] = true
+		}
+	}
 
 	if cfg.GithubToken == "" {
 		fmt.Println("No github_token configured. Reporting bugs to github is disabled.")
