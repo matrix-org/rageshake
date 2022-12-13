@@ -105,16 +105,6 @@ func main() {
 
 	var ghClient *github.Client
 
-	if len(cfg.AllowedAppNames) == 0 {
-		fmt.Println("Warning: allowed_app_names is empty. Accepting requests from all app names")
-	} else {
-		// Convert list up to a map to make lookups easier
-		cfg.allowedAppNameMap = make(map[string]bool)
-		for _, app := range cfg.AllowedAppNames {
-			cfg.allowedAppNameMap[app] = true
-		}
-	}
-
 	if cfg.GithubToken == "" {
 		fmt.Println("No github_token configured. Reporting bugs to github is disabled.")
 	} else {
@@ -214,5 +204,16 @@ func loadConfig(configPath string) (*config, error) {
 	if err = yaml.Unmarshal(contents, &cfg); err != nil {
 		return nil, err
 	}
+
+	if len(cfg.AllowedAppNames) == 0 {
+		fmt.Println("Warning: allowed_app_names is empty. Accepting requests from all app names")
+	} else {
+		// Convert list up to a map to make lookups easier
+		cfg.allowedAppNameMap = make(map[string]bool)
+		for _, app := range cfg.AllowedAppNames {
+			cfg.allowedAppNameMap[app] = true
+		}
+	}
+
 	return &cfg, nil
 }
