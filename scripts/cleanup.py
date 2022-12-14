@@ -22,6 +22,7 @@ class Cleanup(object):
         days_to_check: List[int],
         dry_run: bool,
         root_path: str,
+        mxids_to_exclude: List[str],
     ):
         self.dry_run = dry_run
         self.days_to_check = days_to_check
@@ -30,6 +31,10 @@ class Cleanup(object):
         self.deleted = 0
         self.checked = 0
         self.disk_saved = 0
+        self.mxids_to_exclude = mxids_to_exclude
+        self.excluded_by_user = {
+            mxids_to_exclude[i]: 0 for i in range(len(mxids_to_exclude))
+        }
 
     def check_date(self, folder_name: str, applications_to_delete: List[str]) -> None:
         if len(applications_to_delete) == 0:
@@ -59,16 +64,23 @@ class Cleanup(object):
         self, rageshake_folder_path: str, applications_to_delete: List[str]
     ) -> bool:
         try:
-
+            app_name = None
+            mxid = None
             with gzip.open(rageshake_folder_path + "/details.log.gz") as details:
                 for line in details.readlines():
-                    parts = line.decode("utf-8").split(":", 2)
-                    if (
-                        parts[0] == "Application"
-                        and parts[1].strip() in applications_to_delete
-                    ):
-                        self.delete(rageshake_folder_path)
-                        return True
+                    parts = line.decode("utf-8").split(":", maxsplit=1)
+                    if parts[0] == "Application":
+                        app_name = parts[1].strip()
+                    if parts[0] == "user_id":
+                        mxid = parts[1].strip()
+            print(f"app_name {app_name} user_id {mxid}")
+            if app_name in applications_to_delete:
+                if mxid in self.mxids_to_exclude:
+                    self.excluded_by_user[mxid] = self.excluded_by_user[mxid] + 1
+                else:
+                    self.delete(rageshake_folder_path)
+                    return True
+            return False
 
         except FileNotFoundError as e:
             print(
@@ -128,7 +140,12 @@ def main():
         type=str,
         help="Explicitly supply days in the past to check for deletion, eg '1,2,3,5'",
     )
-
+    parser.add_argument(
+        "--exclude-mxids",
+        dest="exclude_mxids",
+        type=str,
+        help="Supply a text file containing one mxid per line to exclude from cleanup. Blank lines and lines starting # are ignored.",
+    )
     parser.add_argument(
         "--dry-run", dest="dry_run", action="store_true", help="Dry run (do not delete)"
     )
@@ -151,13 +168,35 @@ def main():
     if args.days_to_check:
         days_to_check = map(lambda x: int(x), args.days_to_check.split(","))
 
-    cleanup = Cleanup(application_limits, days_to_check, args.dry_run, args.path)
+    mxids_to_exclude = []
+    if args.exclude_mxids:
+        with open(args.exclude_mxids) as file:
+            for lineno, data in enumerate(file):
+                data = data.strip()
+                if len(data) == 0:
+                    # blank line, ignore
+                    pass
+                elif data[0] == "#":
+                    # comment, ignore
+                    pass
+                elif data[0] == "@":
+                    # mxid
+                    mxids_to_exclude.append(data)
+                else:
+                    raise Exception(
+                        f"Unable to parse --exclude-mxids file on line {lineno + 1}: {data}"
+                    )
+
+    cleanup = Cleanup(
+        application_limits, days_to_check, args.dry_run, args.path, mxids_to_exclude
+    )
 
     cleanup.cleanup()
     print(
         f"I Deleted {cleanup.deleted} of {cleanup.checked} rageshakes. "
         f"saving {cleanup.disk_saved} bytes. Dry run? {cleanup.dry_run}"
     )
+    print(f"I excluded count by user {cleanup.excluded_by_user}")
 
 
 if __name__ == "__main__":
