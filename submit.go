@@ -58,6 +58,7 @@ type submitServer struct {
 	slack *slackClient
 
 	genericWebhookClient *http.Client
+	allowedAppNameMap    map[string]bool
 	cfg                  *config
 }
 
@@ -192,7 +193,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Filter out unwanted rageshakes, if a list is defined
-	if len(s.cfg.AllowedAppNames) != 0 && !s.cfg.allowedAppNameMap[p.AppName] {
+	if !s.allowedAppNameMap[p.AppName] {
 		log.Printf("Blocking rageshake because app name %s not in list", p.AppName)
 		if err := os.RemoveAll(reportDir); err != nil {
 			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",

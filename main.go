@@ -49,8 +49,7 @@ type config struct {
 	APIPrefix string `yaml:"api_prefix"`
 
 	// Allowed rageshake app names
-	AllowedAppNames   []string `yaml:"allowed_app_names"`
-	allowedAppNameMap map[string]bool
+	AllowedAppNames []string `yaml:"allowed_app_names"`
 
 	// A GitHub personal access token, to create a GitHub issue for each report.
 	GithubToken string `yaml:"github_token"`
@@ -153,10 +152,13 @@ func main() {
 		// remove trailing /
 		apiPrefix = strings.TrimRight(apiPrefix, "/")
 	}
+
+	appNameMap := configureAppNameMap(cfg)
+
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
 	rand.Seed(time.Now().UnixNano())
-	http.Handle("/api/submit", &submitServer{ghClient, glClient, apiPrefix, slack, genericWebhookClient, cfg})
+	http.Handle("/api/submit", &submitServer{ghClient, glClient, apiPrefix, slack, genericWebhookClient, appNameMap, cfg})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)
@@ -184,6 +186,16 @@ func main() {
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))
 }
 
+func configureAppNameMap(cfg *config) map[string]bool {
+	if len(cfg.AllowedAppNames) == 0 {
+		fmt.Println("Warning: allowed_app_names is empty. Accepting requests from all app names")
+	}
+	var allowedAppNameMap = make(map[string]bool)
+	for _, app := range cfg.AllowedAppNames {
+		allowedAppNameMap[app] = true
+	}
+	return allowedAppNameMap
+}
 func configureGenericWebhookClient(cfg *config) *http.Client {
 	if len(cfg.GenericWebhookURLs) == 0 {
 		fmt.Println("No generic_webhook_urls configured.")
@@ -204,16 +216,6 @@ func loadConfig(configPath string) (*config, error) {
 	if err = yaml.Unmarshal(contents, &cfg); err != nil {
 		return nil, err
 	}
-
-	if len(cfg.AllowedAppNames) == 0 {
-		fmt.Println("Warning: allowed_app_names is empty. Accepting requests from all app names")
-	} else {
-		// Convert list up to a map to make lookups easier
-		cfg.allowedAppNameMap = make(map[string]bool)
-		for _, app := range cfg.AllowedAppNames {
-			cfg.allowedAppNameMap[app] = true
-		}
-	}
-
 	return &cfg, nil
+
 }
