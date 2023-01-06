@@ -6,13 +6,17 @@ import os
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List
 
-# Stats for rageshake server output files
+# Stats script to look across all rageshakes and get data from them to determine
+# app type, matching for feedback messages, etc.
+#
+# Use of this is mentally to run it for specific sets of days and keep the results around in a file for
+# future use; rageshakes only write in the current days' folder so should be easy enough to process like this.
 #
 # Example usage:
 #
 # ./stats.py --path /home/rageshakes/store --max-days 100
 #
-# No dependencies required beyond a modern python3.
+# Explicitly written to not require dependencies beyond a modern python3, so no packaging infra exists around it.
 
 
 class Stats(object):
@@ -20,10 +24,12 @@ class Stats(object):
         self,
         days_to_check: List[int],
         root_path: str,
+        search_term: str,
     ):
         self.days_to_check = days_to_check
         self.root_path = root_path
         self.checked = 0
+        self.search_term = search_term
 
     def check_date(self, folder_name: str) -> None:
         # list folder_name for rageshakes:
@@ -33,7 +39,7 @@ class Stats(object):
         checked = 0
         for rageshake_name in files:
             checked = checked + 1
-            self.check_rageshake(rageshake_name):
+            self.check_rageshake(rageshake_name)
 
         print(
             f"I Checked {folder_name} for {checked} rageshakes"
@@ -41,19 +47,42 @@ class Stats(object):
 
         self.checked = self.checked + checked
 
+    def search_files(self, file_glob: str, gzipped: bool) -> bool:
+        if self.search_term is None:
+            return False
+
+        files = glob.iglob(file_glob)
+
+        for file in files:
+            if gzipped:
+                with gzip.open(file,'r') as filing:
+                    for line in filing.readlines():
+                        if self.search_term in line.decode("utf-8"):
+                            return True
+            else:
+                with open(file,'r') as filing:
+                    for line in filing.readlines():
+                        if self.search_term in line.decode("utf-8"):
+                            return True
+
+        return False
+
     def check_rageshake(
         self, rageshake_folder_path: str
     ) -> None:
         try:
             app_name = None
             mxid = None
-            with gzip.open(rageshake_folder_path + "/details.log.gz") as details:
+            with gzip.open(rageshake_folder_path + "/details.log.gz",'r') as details:
                 for line in details.readlines():
                     parts = line.decode("utf-8").split(":", maxsplit=1)
                     if parts[0] == "Application":
                         app_name = parts[1].strip()
                     if parts[0] == "user_id":
                         mxid = parts[1].strip()
+
+            matches = self.search_files(rageshake_folder_path + "/*.log.gz", True)
+            matches = matches or self.search_files(rageshake_folder_path + "/*.log", False)
             print(f"D {rageshake_folder_path},{app_name},{mxid},{matches}")
 
         except FileNotFoundError as e:
@@ -92,11 +121,17 @@ def main():
         dest="path",
         type=str,
         required=True,
-        help="Root path of rageshakes (eg /home/rageshakes/bugs/)",
+        help="root path of rageshakes (eg /home/rageshakes/bugs/)",
+    )
+    parser.add_argument(
+        "--search-term",
+        dest="search_term",
+        type=str,
+        help="search term to check for matches in files (eg 'feedback')",
     )
 
     args = parser.parse_args()
-    
+
     days_to_check: Iterable[int] = []
     if args.max_days:
         days_to_check = range(args.max_days)
@@ -104,7 +139,7 @@ def main():
         days_to_check = map(lambda x: int(x), args.days_to_check.split(","))
 
     stats = Stats(
-        days_to_check, args.path
+        days_to_check, args.path, args.search_term
     )
 
     stats.stats()
