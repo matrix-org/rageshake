@@ -27,7 +27,7 @@ There is generally a configuration file in your application that you can alter t
 
 The easiest solution to this error is to stop sending rageshakes entirely, which may require a code or configuration change in your client.
 
-However, if you wish to accept bug reports from your users applications; you will need to run your own copy of this rageshake server and update the URL appropriately.
+However, if you wish to accept bug reports from your users applications, you will need to run your own copy of this rageshake server and update the URL appropriately.
 
 ## Application specific config locations:
  * element-web: `bug_report_endpoint_url` in the [sample configuration for element web](https://github.com/vector-im/element-web/blob/develop/config.sample.json).
