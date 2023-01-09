@@ -42,6 +42,8 @@ const (
 	labelRageshake        = "3fc786e7-b4f1-472e-8e27-4aa97c2eb27c"
 	labelSupportReview    = "f1d19cb7-0839-4349-aa9a-f5eaec84a3a2"
 	labelHungryUser       = "b213456c-be3a-4838-8849-f009a0b92c52"
+	labelLegacyUser       = "3a9a5403-339f-48ec-87e1-e472dfbefeea"
+	labelHungryiMCUser    = "94dfba99-7b65-4542-8dfd-c6df716361ea"
 	labelNonClusterHungry = "da3376cb-9ac4-44cb-8611-a5eb57656198"
 )
 

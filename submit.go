@@ -628,9 +628,14 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 	if p.Whoami != nil {
 		if p.Whoami.UserInfo.Hungryserv {
 			labelIDs = append(labelIDs, labelHungryUser)
+		} else {
+			labelIDs = append(labelIDs, labelLegacyUser)
 		}
 		if p.Whoami.User.Bridges[bridge].BridgeState.Info.IsHungry {
 			labelIDs = append(labelIDs, labelNonClusterHungry)
+		}
+		if p.Whoami.User.Bridges["imessagecloud"].BridgeState.Info.IsHungry {
+			labelIDs = append(labelIDs, labelHungryiMCUser)
 		}
 	}
 	subscriberIDs := make([]string, 0)
