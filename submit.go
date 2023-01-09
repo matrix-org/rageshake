@@ -624,7 +624,17 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 	title, body := buildGenericIssueRequest(p, listingURL)
 	bridge := p.Data["bridge"]
 
-	labelIDs := []string{labelRageshake, labelSupportReview}
+	labelIDs := []string{labelRageshake}
+	subscriberIDs := make([]string, 0)
+	if p.Whoami != nil && p.Whoami.UserInfo.Email != "" {
+		linearID := getLinearID(p.Whoami.UserInfo.Email, s.cfg.LinearToken)
+		if linearID != "" {
+			subscriberIDs = []string{linearID}
+		}
+	}
+	if len(subscriberIDs) == 0 {
+		labelIDs = append(labelIDs, labelSupportReview)
+	}
 	if p.Whoami != nil {
 		if p.Whoami.UserInfo.Hungryserv {
 			labelIDs = append(labelIDs, labelHungryUser)
@@ -636,13 +646,6 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 		if p.Whoami.User.Bridges["imessagecloud"].BridgeState.Info.IsHungry {
 			labelIDs = append(labelIDs, labelHungryiMCUser)
-		}
-	}
-	subscriberIDs := make([]string, 0)
-	if p.Whoami != nil && p.Whoami.UserInfo.Email != "" {
-		linearID := getLinearID(p.Whoami.UserInfo.Email, s.cfg.LinearToken)
-		if linearID != "" {
-			subscriberIDs = []string{linearID}
 		}
 	}
 
