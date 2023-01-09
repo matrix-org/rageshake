@@ -632,7 +632,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 			subscriberIDs = []string{linearID}
 		}
 	}
-	if len(subscriberIDs) == 0 {
+	if len(subscriberIDs) == 0 && !strings.HasSuffix(p.VerifiedUserID, ":beeper-dev.com") && !strings.HasSuffix(p.VerifiedUserID, ":beeper-staging.com") {
 		labelIDs = append(labelIDs, labelSupportReview)
 	}
 	if p.Whoami != nil {
