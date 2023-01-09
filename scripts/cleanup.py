@@ -109,7 +109,7 @@ class Cleanup(object):
         today = datetime.today()
         for days_ago in self.days_to_check:
             target = today - timedelta(days=days_ago)
-            folder_name = target.strftime("%Y%m%d")
+            folder_name = target.strftime("%Y-%m-%d")
             applications = []
             for name in self.limits.keys():
                 if self.limits[name] < days_ago:
