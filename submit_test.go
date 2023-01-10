@@ -56,6 +56,56 @@ func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*
 	return p, rr.Result()
 }
 
+
+func submitSimpleRequestToServer(t *testing.T, allowedAppNameMap map[string]bool, body string) int {
+        // Submit a request without files to the server and return statusCode
+        // Could be extended with more complicated config; aimed here just to
+        // test options for allowedAppNameMap
+
+	req, err := http.NewRequest("POST", "/api/submit", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	w := httptest.NewRecorder()
+
+	var cfg config
+	s := &submitServer{nil, nil, "/", nil, nil, allowedAppNameMap, &cfg}
+
+	s.ServeHTTP(w, req)
+	rsp := w.Result()
+	return rsp.StatusCode
+}
+
+func TestAppNames(t *testing.T) {
+	body := `{
+    "app": "alice",
+    "logs": [ ],
+    "text": "test message",
+    "user_agent": "Mozilla/0.9",
+    "version": "0.9.9"
+}`
+	validAppNameMap := map[string]bool{
+		"alice": true,
+	}
+	if submitSimpleRequestToServer(t, validAppNameMap, body) != 200 {
+		t.Fatal("matching app was not accepted")
+	}
+
+	invalidAppNameMap := map[string]bool{
+		"bob": true,
+	}
+	if submitSimpleRequestToServer(t, invalidAppNameMap, body) != 400 {
+		t.Fatal("nonmatching app was not rejected")
+	}
+
+	emptyAppNameMap := make(map[string]bool)
+	if submitSimpleRequestToServer(t, emptyAppNameMap, body) != 200 {
+		t.Fatal("empty map did not allow all")
+	}
+
+}
+
 func TestEmptyJson(t *testing.T) {
 	body := "{}"
 

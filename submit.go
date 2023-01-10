@@ -193,7 +193,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Filter out unwanted rageshakes, if a list is defined
-	if !s.allowedAppNameMap[p.AppName] {
+	if len(s.allowedAppNameMap) != 0 && !s.allowedAppNameMap[p.AppName] {
 		log.Printf("Blocking rageshake because app name %s not in list", p.AppName)
 		if err := os.RemoveAll(reportDir); err != nil {
 			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",
