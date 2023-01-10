@@ -196,6 +196,7 @@ func configureAppNameMap(cfg *config) map[string]bool {
 	}
 	return allowedAppNameMap
 }
+
 func configureGenericWebhookClient(cfg *config) *http.Client {
 	if len(cfg.GenericWebhookURLs) == 0 {
 		fmt.Println("No generic_webhook_urls configured.")
