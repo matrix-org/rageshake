@@ -217,5 +217,4 @@ func loadConfig(configPath string) (*config, error) {
 		return nil, err
 	}
 	return &cfg, nil
-
 }
