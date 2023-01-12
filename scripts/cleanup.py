@@ -62,15 +62,23 @@ class Cleanup(object):
             print(f"W Not checking {folder_name}, no applications would be removed")
             return
 
-        # list folder_name for rageshakes:
-        files = glob.iglob(folder_name + "/[0-9]*")
+        if not os.path.exists(folder_name):
+            print(f"W Not checking {folder_name}, not present or not a directory")
+            return
 
         checked = 0
         deleted = 0
-        for rageshake_name in files:
-            checked += 1
-            if self._check_rageshake(rageshake_name, applications_to_delete):
-                deleted += 1
+        with os.scandir(folder_name) as rageshakes:
+            for rageshake in rageshakes:
+                rageshake_path = folder_name + os.pathsep + rageshake.name
+                if rageshake.is_dir():
+                    checked += 1
+                    if self._check_rageshake(rageshake_path, applications_to_delete):
+                        deleted += 1
+                else:
+                    print(
+                        f"W File in rageshake tree {rageshake_path} is not a directory"
+                    )
 
         print(
             f"I Checked {folder_name} for {applications_to_delete}, "
