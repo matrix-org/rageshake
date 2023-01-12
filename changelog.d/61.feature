@@ -1,1 +1,1 @@
-zero-dependency python script to cleanup old rageshakes.
+Add a zero-dependency python script to cleanup old rageshakes.

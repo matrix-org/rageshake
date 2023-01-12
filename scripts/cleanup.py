@@ -33,7 +33,7 @@ class Cleanup(object):
         self.disk_saved = 0
         self.mxids_to_exclude = mxids_to_exclude
         self.excluded_by_user = {
-            mxids_to_exclude[i]: 0 for i in range(len(mxids_to_exclude))
+            mxid: 0 for mxid in mxids_to_exclude
         }
 
     def check_date(self, folder_name: str, applications_to_delete: List[str]) -> None:
@@ -42,22 +42,21 @@ class Cleanup(object):
             return
 
         # list folder_name for rageshakes:
-        # foreach:
         files = glob.iglob(folder_name + "/[0-9]*")
 
         checked = 0
         deleted = 0
         for rageshake_name in files:
-            checked = checked + 1
+            checked += 1
             if self.check_rageshake(rageshake_name, applications_to_delete):
-                deleted = deleted + 1
+                deleted += 1
 
         print(
-            f"I Checked {folder_name} for {applications_to_delete},  deleted {deleted}/{checked} rageshakes"
+            f"I Checked {folder_name} for {applications_to_delete}, {'would delete' if self.dryrun else 'deleted'} {deleted}/{checked} rageshakes"
         )
 
-        self.deleted = self.deleted + deleted
-        self.checked = self.checked + checked
+        self.deleted += deleted
+        self.checked += checked
         # optionally delete folder if we deleted 100% of rageshakes, but for now it' s fine.
 
     def check_rageshake(
@@ -76,11 +75,10 @@ class Cleanup(object):
             print(f"app_name {app_name} user_id {mxid}")
             if app_name in applications_to_delete:
                 if mxid in self.mxids_to_exclude:
-                    self.excluded_by_user[mxid] = self.excluded_by_user[mxid] + 1
+                    self.excluded_by_user[mxid] += 1
                 else:
                     self.delete(rageshake_folder_path)
                     return True
-            return False
 
         except FileNotFoundError as e:
             print(
@@ -96,7 +94,7 @@ class Cleanup(object):
             if self.dry_run:
                 print(f"I would delete {file}")
             else:
-                print(f"I deleted {file}")
+                print(f"I deleting {file}")
                 os.unlink(file)
 
         if self.dry_run:
@@ -110,12 +108,11 @@ class Cleanup(object):
         for days_ago in self.days_to_check:
             target = today - timedelta(days=days_ago)
             folder_name = target.strftime("%Y-%m-%d")
-            applications = []
+            applications = set()
             for name in self.limits.keys():
                 if self.limits[name] < days_ago:
-                    applications.append(name)
+                    applications.add(name)
             self.check_date(self.root_path + "/" + folder_name, applications)
-        pass
 
 
 def main():
@@ -193,7 +190,7 @@ def main():
 
     cleanup.cleanup()
     print(
-        f"I Deleted {cleanup.deleted} of {cleanup.checked} rageshakes. "
+        f"I Deleted {cleanup.deleted} of {cleanup.checked} rageshakes, "
         f"saving {cleanup.disk_saved} bytes. Dry run? {cleanup.dry_run}"
     )
     print(f"I excluded count by user {cleanup.excluded_by_user}")
