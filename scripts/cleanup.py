@@ -4,7 +4,7 @@ import glob
 import gzip
 import os
 from datetime import datetime, timedelta
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Set
 
 # Cleanup for rageshake server output files
 #
@@ -36,7 +36,7 @@ class Cleanup(object):
             mxid: 0 for mxid in mxids_to_exclude
         }
 
-    def check_date(self, folder_name: str, applications_to_delete: List[str]) -> None:
+    def check_date(self, folder_name: str, applications_to_delete: Set[str]) -> None:
         if len(applications_to_delete) == 0:
             print(f"W Not checking {folder_name}, no applications would be removed")
             return
@@ -52,7 +52,7 @@ class Cleanup(object):
                 deleted += 1
 
         print(
-            f"I Checked {folder_name} for {applications_to_delete}, {'would delete' if self.dryrun else 'deleted'} {deleted}/{checked} rageshakes"
+            f"I Checked {folder_name} for {applications_to_delete}, {'would delete' if self.dry_run else 'deleted'} {deleted}/{checked} rageshakes"
         )
 
         self.deleted += deleted
@@ -60,7 +60,7 @@ class Cleanup(object):
         # optionally delete folder if we deleted 100% of rageshakes, but for now it' s fine.
 
     def check_rageshake(
-        self, rageshake_folder_path: str, applications_to_delete: List[str]
+        self, rageshake_folder_path: str, applications_to_delete: Set[str]
     ) -> bool:
         try:
             app_name = None
