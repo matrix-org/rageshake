@@ -103,7 +103,6 @@ func TestAppNames(t *testing.T) {
 	if submitSimpleRequestToServer(t, emptyAppNameMap, body) != 200 {
 		t.Fatal("empty map did not allow all")
 	}
-
 }
 
 func TestEmptyJson(t *testing.T) {
