@@ -58,6 +58,7 @@ type submitServer struct {
 	slack *slackClient
 
 	genericWebhookClient *http.Client
+	allowedAppNameMap    map[string]bool
 	cfg                  *config
 }
 
@@ -191,6 +192,17 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Filter out unwanted rageshakes, if a list is defined
+	if len(s.allowedAppNameMap) != 0 && !s.allowedAppNameMap[p.AppName] {
+		log.Printf("Blocking rageshake because app name %s not in list", p.AppName)
+		if err := os.RemoveAll(reportDir); err != nil {
+			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",
+				reportDir, err)
+		}
+		http.Error(w, "This server does not accept rageshakes from your application. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", 400)
+		return
+	}
+
 	// We use this prefix (eg, 2022-05-01/125223-abcde) as a unique identifier for this rageshake.
 	// This is going to be used to uniquely identify rageshakes, even if they are not submitted to
 	// an issue tracker for instance with automatic rageshakes that can be plentiful
@@ -243,6 +255,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 		http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
 		return nil
 	}
+
 	return p
 }
 
@@ -273,35 +286,13 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string
 		}
 	}
 
-	// backwards-compatibility hack: current versions of riot-android
-	// don't set 'app', so we don't correctly file github issues.
-	if p.AppName == "" && p.UserAgent == "Android" {
-		parsed.AppName = "riot-android"
+	parsed.AppName = p.AppName
 
-		// they also shove lots of stuff into 'Version' which we don't really
-		// want in the github report
-		for _, line := range strings.Split(p.Version, "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			parts := strings.SplitN(line, ":", 2)
-			key := strings.TrimSpace(parts[0])
-			val := ""
-			if len(parts) > 1 {
-				val = strings.TrimSpace(parts[1])
-			}
-			parsed.Data[key] = val
-		}
-	} else {
-		parsed.AppName = p.AppName
-
-		if p.UserAgent != "" {
-			parsed.Data["User-Agent"] = p.UserAgent
-		}
-		if p.Version != "" {
-			parsed.Data["Version"] = p.Version
-		}
+	if p.UserAgent != "" {
+		parsed.Data["User-Agent"] = p.UserAgent
+	}
+	if p.Version != "" {
+		parsed.Data["Version"] = p.Version
 	}
 
 	return &parsed, nil

@@ -8,6 +8,10 @@ listings_auth_pass: secret
 # report to the GitHub issue. If unspecified, based on the listen address.
 # api_prefix: https://riot.im/bugreports
 
+# List of approved AppNames we accept. Names not in the list or missing an application name will be rejected.
+# An empty or missing list will retain legacy behaviour and permit reports from any application name.
+allowed_app_names: []
+
 # a GitHub personal access token (https://github.com/settings/tokens), which
 # will be used to create a GitHub issue for each report. It requires
 # `public_repo` scope. If omitted, no issues will be created.

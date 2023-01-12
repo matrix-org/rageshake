@@ -56,6 +56,55 @@ func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*
 	return p, rr.Result()
 }
 
+
+func submitSimpleRequestToServer(t *testing.T, allowedAppNameMap map[string]bool, body string) int {
+        // Submit a request without files to the server and return statusCode
+        // Could be extended with more complicated config; aimed here just to
+        // test options for allowedAppNameMap
+
+	req, err := http.NewRequest("POST", "/api/submit", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	w := httptest.NewRecorder()
+
+	var cfg config
+	s := &submitServer{nil, nil, "/", nil, nil, allowedAppNameMap, &cfg}
+
+	s.ServeHTTP(w, req)
+	rsp := w.Result()
+	return rsp.StatusCode
+}
+
+func TestAppNames(t *testing.T) {
+	body := `{
+    "app": "alice",
+    "logs": [ ],
+    "text": "test message",
+    "user_agent": "Mozilla/0.9",
+    "version": "0.9.9"
+}`
+	validAppNameMap := map[string]bool{
+		"alice": true,
+	}
+	if submitSimpleRequestToServer(t, validAppNameMap, body) != 200 {
+		t.Fatal("matching app was not accepted")
+	}
+
+	invalidAppNameMap := map[string]bool{
+		"bob": true,
+	}
+	if submitSimpleRequestToServer(t, invalidAppNameMap, body) != 400 {
+		t.Fatal("nonmatching app was not rejected")
+	}
+
+	emptyAppNameMap := make(map[string]bool)
+	if submitSimpleRequestToServer(t, emptyAppNameMap, body) != 200 {
+		t.Fatal("empty map did not allow all")
+	}
+}
+
 func TestEmptyJson(t *testing.T) {
 	body := "{}"
 
@@ -106,36 +155,6 @@ func TestJsonUpload(t *testing.T) {
 	}
 
 	checkUploadedFile(t, reportDir, "logs-0000.log.gz", true, "line1\nline2")
-}
-
-// check that we can unpick the json submitted by the android clients
-func TestUnpickAndroidMangling(t *testing.T) {
-	body := `{"text": "test ylc 001",
-"version": "User : @ylc8001:matrix.org\nPhone : Lenovo P2a42\nVector version: 0:6:9\n",
-"user_agent": "Android"
-}`
-	p, _ := testParsePayload(t, body, "", "")
-	if p == nil {
-		t.Fatal("parseRequest returned nil")
-	}
-	if p.UserText != "test ylc 001" {
-		t.Errorf("user text: got %s, want %s", p.UserText, "test ylc 001")
-	}
-	if p.AppName != "riot-android" {
-		t.Errorf("appname: got %s, want %s", p.AppName, "riot-android")
-	}
-	if p.Data["Version"] != "" {
-		t.Errorf("version: got %s, want ''", p.Data["Version"])
-	}
-	if p.Data["User"] != "@ylc8001:matrix.org" {
-		t.Errorf("data.user: got %s, want %s", p.Data["User"], "@ylc8001:matrix.org")
-	}
-	if p.Data["Phone"] != "Lenovo P2a42" {
-		t.Errorf("data.phone: got %s, want %s", p.Data["Phone"], "Lenovo P2a42")
-	}
-	if p.Data["Vector version"] != "0:6:9" {
-		t.Errorf("data.version: got %s, want %s", p.Data["Version"], "0:6:9")
-	}
 }
 
 func TestMultipartUpload(t *testing.T) {

@@ -7,6 +7,9 @@
 
 set -eu
 
+echo "golint:"
 golint -set_exit_status
+echo "go vet:"
 go vet -vettool=$(which shadow)
+echo "gocyclo:"
 gocyclo -over 12 .
