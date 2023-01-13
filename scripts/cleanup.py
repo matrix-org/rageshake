@@ -17,7 +17,7 @@ from typing import Dict, Iterable, List, Set
 # No dependencies required beyond a modern python3.
 
 
-class Cleanup(object):
+class Cleanup:
     def __init__(
         self,
         limits: Dict[str, int],
@@ -93,7 +93,11 @@ class Cleanup(object):
         self, rageshake_folder_path: str, applications_to_delete: Set[str]
     ) -> bool:
         """
-        Checks a given rageshake folder, returning True if the rageshake was deleted
+        Checks a given rageshake folder against the application and userid lists.
+
+        If the folder matches, and dryrun mode is disabled, the folder is deleted.
+        
+        @returns: True if the rageshake matched, False if it was skipped.
         """
         try:
             app_name = None
@@ -121,7 +125,7 @@ class Cleanup(object):
 
     def _delete(self, rageshake_folder_path: str) -> None:
         """
-        Delete a given rageshake folder
+        Delete a given rageshake folder, unless dryrun mode is enabled
         """
         files = glob.glob(rageshake_folder_path + "/*")
         for file in files:
