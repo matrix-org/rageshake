@@ -18,6 +18,11 @@ from typing import Dict, Iterable, List, Set
 
 
 class Cleanup:
+    """
+    Cleanup a rageshake bug repository.
+
+    Once created, call cleanup() to begin the actual operation. Statistics are available after cleanup completes.
+    """
     def __init__(
         self,
         limits: Dict[str, int],
@@ -26,6 +31,15 @@ class Cleanup:
         root_path: str,
         mxids_to_exclude: List[str],
     ):
+        """
+        Set options for a cleanup run of a rageshake repository.
+
+        @param limits: Map of app name to integer number of days that application's rageshakes should be retained
+        @param days_to_check: List of ints each representing "days ago" that should be checked for rageshakes to delete
+        @param dry_run: If set, perform all actions but do not complete deletion of files
+        @param root_path: Base path to rageshake bug repository
+        @param mxids_to_exclude: Rageshakes sent by this list of mxids should always be preserved.
+        """
         self._limits = limits
         self._days_to_check = days_to_check
         self._dry_run = dry_run
@@ -42,7 +56,9 @@ class Cleanup:
 
     def cleanup(self) -> None:
         """
-        Check for rageshakes to remove according to settings
+        Check for rageshakes to remove according to settings.
+
+        Do not run multiple times as statistics are generated internally during each call.
         """
         today = datetime.today()
         for days_ago in self._days_to_check:
@@ -99,9 +115,10 @@ class Cleanup:
         
         @returns: True if the rageshake matched, False if it was skipped.
         """
+        app_name = None
+        mxid = None
+
         try:
-            app_name = None
-            mxid = None
             with gzip.open(rageshake_folder_path + "/details.log.gz") as details:
                 for line in details.readlines():
                     parts = line.decode("utf-8").split(":", maxsplit=1)
@@ -109,17 +126,18 @@ class Cleanup:
                         app_name = parts[1].strip()
                     if parts[0] == "user_id":
                         mxid = parts[1].strip()
-            if app_name in applications_to_delete:
-                if mxid in self._mxids_to_exclude:
-                    self.excluded_count_by_user[mxid] += 1
-                else:
-                    self._delete(rageshake_folder_path)
-                    return True
-
         except FileNotFoundError as e:
             print(
                 f"W Unable to open {e.filename} to check for application name. Ignoring this folder."
             )
+            return False
+
+        if app_name in applications_to_delete:
+            if mxid in self._mxids_to_exclude:
+                self.excluded_count_by_user[mxid] += 1
+            else:
+                self._delete(rageshake_folder_path)
+                return True
 
         return False
 
@@ -184,8 +202,8 @@ def main():
 
     args = parser.parse_args()
     application_limits: Dict[str, int] = {}
-    for x in args.limits:
-        parts = x.rsplit(":", 1)
+    for l in args.limits:
+        parts = l.rsplit(":", 1)
         try:
             if len(parts) < 2:
                 raise ValueError("missing :")
