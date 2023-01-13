@@ -1,3 +1,18 @@
+1.8 (2023-01-13)
+================
+
+Features
+--------
+
+- Add config option to block unknown appplication names. ([\#67](https://github.com/matrix-org/rageshake/issues/67))
+
+
+Internal Changes
+----------------
+
+- Reimplement buildkite linting and changelog in GHA. ([\#64](https://github.com/matrix-org/rageshake/issues/64))
+
+
 1.7 (2022-04-14)
 ================
 
