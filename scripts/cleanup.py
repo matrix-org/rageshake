@@ -86,7 +86,7 @@ class Cleanup:
         deleted = 0
         with os.scandir(folder_name) as rageshakes:
             for rageshake in rageshakes:
-                rageshake_path = folder_name + os.pathsep + rageshake.name
+                rageshake_path = folder_name + "/" + rageshake.name
                 if rageshake.is_dir():
                     checked += 1
                     if self._check_rageshake(rageshake_path, applications_to_delete):
