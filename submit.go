@@ -621,7 +621,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		return nil
 	}
 
-	title, body := buildGenericIssueRequest(p, listingURL)
+	title, body := s.buildGenericIssueRequest(p, listingURL)
 	bridge := p.Data["bridge"]
 
 	labelIDs := []string{labelRageshake}
@@ -778,7 +778,7 @@ func buildReportTitle(p parsedPayload) string {
 	return title
 }
 
-func buildReportBody(p parsedPayload) *bytes.Buffer {
+func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *bytes.Buffer {
 	var bodyBuf bytes.Buffer
 
 	textLines := strings.Split(p.UserText, "\n")
@@ -792,6 +792,29 @@ func buildReportBody(p parsedPayload) *bytes.Buffer {
 	}
 
 	fmt.Fprintf(&bodyBuf, "### User message:\n\n%s\n\n", userText)
+
+	var authedListingURL string
+	if len(p.Files) > 0 {
+		parsed, _ := url.Parse(listingURL)
+		parsed.User = url.UserPassword(s.cfg.BugsUser, s.cfg.BugsPass)
+		authedListingURL = parsed.String()
+	}
+	for _, file := range p.Files {
+		imageifier := ""
+		fileURL := listingURL + "/" + file
+		if strings.HasSuffix(file, ".mp4") || strings.HasSuffix(file, ".jpg") || strings.HasSuffix(file, ".png") {
+			imageifier = "!"
+			fileURL = authedListingURL + "/" + file
+		}
+		fmt.Fprintf(
+			&bodyBuf,
+			"%s[%s](%s)\n",
+			imageifier,
+			file,
+			fileURL,
+		)
+	}
+
 	var dataKeys []string
 	for k := range p.Data {
 		dataKeys = append(dataKeys, k)
@@ -810,20 +833,11 @@ func buildReportBody(p parsedPayload) *bytes.Buffer {
 	return &bodyBuf
 }
 
-func buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body string) {
-	bodyBuf := buildReportBody(p)
+func (s *submitServer) buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body string) {
+	bodyBuf := s.buildReportBody(p, listingURL)
 
 	// Add log links to the body
 	fmt.Fprintf(bodyBuf, "\n### [Logs](%s)", listingURL)
-
-	for _, file := range p.Files {
-		fmt.Fprintf(
-			bodyBuf,
-			" / [%s](%s)",
-			file,
-			listingURL+"/"+file,
-		)
-	}
 
 	title = buildReportTitle(p)
 
