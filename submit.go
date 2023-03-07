@@ -512,7 +512,7 @@ func formPartToPayload(field, data string, p *parsedPayload) {
 // * no silly characters (/, ctrl chars, etc)
 //
 // * nothing starting with '.'
-var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|txt)$`)
+var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|mp4|txt)$`)
 
 // saveFormPart saves a file upload to the report directory.
 //
@@ -646,6 +646,8 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 		if p.Whoami.User.Bridges["imessagecloud"].BridgeState.Info.IsHungry {
 			labelIDs = append(labelIDs, labelHungryiMCUser)
+		} else if p.Whoami.User.Bridges["imessagecloud"].BridgeState.StateEvent != "" {
+			labelIDs = append(labelIDs, labelLegacyiMCUser)
 		}
 	}
 
@@ -665,6 +667,11 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 		if problemLabelID, ok := problemToLabelID[problem]; ok {
 			labelIDs = append(labelIDs, problemLabelID)
+		}
+	}
+	if userPriority, ok := p.Data["user_priority"]; ok {
+		if userPriorityLabelID, ok := userPriorityToLabelID[userPriority]; ok {
+			labelIDs = append(labelIDs, userPriorityLabelID)
 		}
 	}
 

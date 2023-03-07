@@ -32,11 +32,11 @@ const (
 	problemOther          = "Other"
 )
 
-var appToTeamID = map[string]string{
-	"beeper-android": linearTeamAndroid,
-	"beeper-ios":     linearTeamiOS,
-	"beeper-desktop": linearTeamDesktop,
-}
+const (
+	userPriorityLow    = "Low"
+	userPriorityMedium = "Medium"
+	userPriorityHigh   = "High"
+)
 
 const (
 	labelRageshake        = "3fc786e7-b4f1-472e-8e27-4aa97c2eb27c"
@@ -44,8 +44,15 @@ const (
 	labelHungryUser       = "b213456c-be3a-4838-8849-f009a0b92c52"
 	labelLegacyUser       = "3a9a5403-339f-48ec-87e1-e472dfbefeea"
 	labelHungryiMCUser    = "94dfba99-7b65-4542-8dfd-c6df716361ea"
+	labelLegacyiMCUser    = "214405b4-2e37-4748-9be7-bfd3d598ad00"
 	labelNonClusterHungry = "da3376cb-9ac4-44cb-8611-a5eb57656198"
 )
+
+var appToTeamID = map[string]string{
+	"beeper-android": linearTeamAndroid,
+	"beeper-ios":     linearTeamiOS,
+	"beeper-desktop": linearTeamDesktop,
+}
 
 var problemToLabelID = map[string]string{
 	problemSend:           "02805b84-e966-49ee-8c8b-ac5b3350a9e4",
@@ -58,6 +65,12 @@ var problemToLabelID = map[string]string{
 	problemFeatureRequest: "32c7fb7d-a155-4857-9333-2c203e7b731f",
 	problemBridgeRequest:  "eed94025-eae7-4e02-9abf-870519f7369b",
 	problemOther:          "0b40c728-66af-4ca9-b1fb-62c0bcda81ba",
+}
+
+var userPriorityToLabelID = map[string]string{
+	userPriorityLow:    "31f988df-5abf-465c-80ba-99c9de78e877",
+	userPriorityMedium: "a0a54aaa-20a4-475f-9085-362c0de94ffa",
+	userPriorityHigh:   "658296b7-5d59-4963-8dbd-0bd0e48d65c1",
 }
 
 var bridgeToLabelID = map[string]string{
