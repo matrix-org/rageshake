@@ -802,7 +802,7 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 	for _, file := range p.Files {
 		imageifier := ""
 		fileURL := listingURL + "/" + file
-		if strings.HasSuffix(file, ".mp4") || strings.HasSuffix(file, ".jpg") || strings.HasSuffix(file, ".png") {
+		if strings.HasSuffix(file, ".jpg") || strings.HasSuffix(file, ".png") {
 			imageifier = "!"
 			fileURL = authedListingURL + "/" + file
 		}
