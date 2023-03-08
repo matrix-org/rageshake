@@ -77,7 +77,7 @@ var userPriorityToLabelID = map[string]string{
 var bridgeToLabelID = map[string]string{
 	"android-sms":    "23b9c42b-eb91-424a-9810-181748f98543",
 	"androidsms":     "23b9c42b-eb91-424a-9810-181748f98543",
-	"discord":        "e5191313-88e1-4a9d-b5ed-b67a9b2de861",
+	"discord":        "6ce5f0c2-13ec-48ca-b4d8-e3f170fcfb8c",
 	"discordgo":      "6ce5f0c2-13ec-48ca-b4d8-e3f170fcfb8c",
 	"facebook":       "076cce46-9efb-463d-9cce-3726945091d9",
 	"googlechat":     "f2fcfb8e-15ba-41f0-bd7e-6080660aa4fc",
@@ -87,7 +87,7 @@ var bridgeToLabelID = map[string]string{
 	"instagram":      "e4b3fa54-c9da-462e-a680-6946fd5ba1fb",
 	"linkedin":       "d0d8b87b-6058-4093-946a-b395f31aba1e",
 	"signal":         "8ea186ae-c3da-4c57-b50e-b5b82d2c32f0",
-	"slack":          "3c692f5a-dd73-4969-ac03-fc2ec15abd95",
+	"slack":          "306ca483-10e8-4da3-b24b-e7696466e5a9",
 	"slackgo":        "306ca483-10e8-4da3-b24b-e7696466e5a9",
 	"telegram":       "95089bee-0341-4363-bdf0-d420c968bb73",
 	"twitter":        "35f6be99-f9f0-480e-b3e9-be29e74fa8cf",
