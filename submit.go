@@ -213,10 +213,11 @@ type whoamiBridgeInfo struct {
 
 type whoamiResponse struct {
 	UserInfo struct {
-		Hungryserv    bool   `json:"useHungryserv"`
-		Channel       string `json:"channel"`
-		SupportRoomID string `json:"supportRoomId"`
-		Email         string `json:"email"`
+		Hungryserv    bool      `json:"useHungryserv"`
+		Channel       string    `json:"channel"`
+		SupportRoomID string    `json:"supportRoomId"`
+		Email         string    `json:"email"`
+		CreatedAt     time.Time `json:"createdAt"`
 	}
 	User struct {
 		Bridges map[string]whoamiBridgeInfo `json:"bridges"`
@@ -640,6 +641,9 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 			labelIDs = append(labelIDs, labelHungryUser)
 		} else {
 			labelIDs = append(labelIDs, labelLegacyUser)
+		}
+		if p.Whoami.UserInfo.CreatedAt.Add(24 * time.Hour).After(time.Now()) {
+			labelIDs = append(labelIDs, labelNewUser)
 		}
 		if p.Whoami.User.Bridges[bridge].BridgeState.Info.IsHungry {
 			labelIDs = append(labelIDs, labelNonClusterHungry)
