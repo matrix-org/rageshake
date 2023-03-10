@@ -13,10 +13,12 @@ import (
 )
 
 const (
-	linearTeamAndroid = "39dc6884-3753-4b41-ad19-a166a0f2f51d"
-	linearTeamiOS     = "6d2402bc-d4bc-4d3d-8f5e-96df51cafe22"
-	linearTeamDesktop = "4c83bd23-2236-40b5-a250-88bbc8cc446a"
-	linearTeamBridges = "a5b96b19-c49e-4f2a-8372-206eefeba471"
+	linearTeamAndroid      = "39dc6884-3753-4b41-ad19-a166a0f2f51d"
+	linearTeamiOS          = "6d2402bc-d4bc-4d3d-8f5e-96df51cafe22"
+	linearTeamDesktop      = "4c83bd23-2236-40b5-a250-88bbc8cc446a"
+	linearTeamBackend      = "a5b96b19-c49e-4f2a-8372-206eefeba471"
+	linearTeamArchitecture = "fd2966d8-5d9a-445f-bbf9-b366b2e5951b"
+	linearTeamProduct      = "bcc6420f-b63d-4e44-b7de-004ee8338d80"
 )
 
 const (
@@ -30,6 +32,7 @@ const (
 	problemFeatureRequest = "Feature request"
 	problemBridgeRequest  = "Bridge Request"
 	problemOther          = "Other"
+	problemSuggestion     = "Suggestion"
 )
 
 const (
@@ -66,6 +69,7 @@ var problemToLabelID = map[string]string{
 	problemFeatureRequest: "32c7fb7d-a155-4857-9333-2c203e7b731f",
 	problemBridgeRequest:  "eed94025-eae7-4e02-9abf-870519f7369b",
 	problemOther:          "0b40c728-66af-4ca9-b1fb-62c0bcda81ba",
+	problemSuggestion:     "5c03e405-dcfe-4472-97e4-65fd225dbc5b",
 }
 
 var userPriorityToLabelID = map[string]string{

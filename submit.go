@@ -659,15 +659,15 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		if bridge == "android-sms" || bridge == "androidsms" {
 			teamID = linearTeamAndroid
 		} else {
-			teamID = linearTeamBridges
+			teamID = linearTeamBackend
 		}
 		if bridgeLabelID, ok := bridgeToLabelID[bridge]; ok {
 			labelIDs = append(labelIDs, bridgeLabelID)
 		}
 	}
 	if problem, ok := p.Data["problem"]; ok {
-		if problem == problemBridgeRequest {
-			teamID = linearTeamBridges
+		if problem == problemBridgeRequest || problem == problemFeatureRequest || problem == problemSuggestion {
+			teamID = linearTeamProduct
 		}
 		if problemLabelID, ok := problemToLabelID[problem]; ok {
 			labelIDs = append(labelIDs, problemLabelID)
