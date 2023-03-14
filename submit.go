@@ -633,7 +633,8 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 			subscriberIDs = []string{linearID}
 		}
 	}
-	if len(subscriberIDs) == 0 && !strings.HasSuffix(p.VerifiedUserID, ":beeper-dev.com") && !strings.HasSuffix(p.VerifiedUserID, ":beeper-staging.com") {
+	isInternal := len(subscriberIDs) > 0 || strings.HasSuffix(p.VerifiedUserID, ":beeper-dev.com") || strings.HasSuffix(p.VerifiedUserID, ":beeper-staging.com")
+	if !isInternal {
 		labelIDs = append(labelIDs, labelSupportReview)
 	}
 	if p.Whoami != nil {
@@ -642,7 +643,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		} else {
 			labelIDs = append(labelIDs, labelLegacyUser)
 		}
-		if p.Whoami.UserInfo.CreatedAt.Add(24 * time.Hour).After(time.Now()) {
+		if !isInternal && p.Whoami.UserInfo.CreatedAt.Add(24 * time.Hour).After(time.Now()) {
 			labelIDs = append(labelIDs, labelNewUser)
 		}
 		if p.Whoami.User.Bridges[bridge].BridgeState.Info.IsHungry {
