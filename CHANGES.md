@@ -1,3 +1,20 @@
+1.9.0 (2023-03-22)
+==================
+
+VERSIONING NOTE: From this release onwards rageshake will be versioned in `x.y.z` format, not `x.y`.
+
+Features
+--------
+
+- Add a zero-dependency python script to cleanup old rageshakes. ([\#61](https://github.com/matrix-org/rageshake/issues/61))
+
+
+Internal Changes
+----------------
+
+- Update deployment process to automatically build docker containers and binaries. ([\#70](https://github.com/matrix-org/rageshake/issues/70))
+
+
 1.8 (2023-01-13)
 ================
 
