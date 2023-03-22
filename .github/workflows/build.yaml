@@ -1,9 +1,18 @@
-name: Linting and checks
+name: Linting, build, test and release
+
+# Runs on each PR to lint and test
+
+# Runs on each release (via github UI) to lint and test, then upload binary to the release
 
 on:
   pull_request:
   push:
     branches: [master]
+  release: 
+    types: [created]
+
+permissions:
+  contents: write
 
 jobs:
   changelog:
@@ -46,3 +55,14 @@ jobs:
         run: go build
       - name: Test
         run: go test
+      - name: Create tarball for release
+        if: github.event.release
+        run: tar -czf rageshake.tar.gz rageshake
+      - name: Upload tarball to matching release
+        if: github.event.release
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
+        with:
+          files: rageshake.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
