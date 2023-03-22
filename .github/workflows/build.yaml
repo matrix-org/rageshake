@@ -60,7 +60,7 @@ jobs:
         run: tar -czf rageshake.tar.gz rageshake
       - name: Upload tarball to matching release
         if: github.event.release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
         with:
           files: rageshake.tar.gz
         env:
