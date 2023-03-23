@@ -32,6 +32,8 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha
+          flavor: |
+            latest=auto
 
       - name: Docker meta (debug variant)
         id: meta-debug
@@ -40,11 +42,14 @@ jobs:
           images: "${{ env.IMAGE }}"
           bake-target: docker-metadata-action-debug
           tags: |
-            type=ref,event=branch,suffix=-debug
-            type=semver,pattern={{version}},suffix=-debug
-            type=semver,pattern={{major}}.{{minor}},suffix=-debug
-            type=semver,pattern={{major}},suffix=-debug
-            type=sha,suffix=-debug
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+          flavor: |
+            latest=false
+            suffix=-debug
       
       - name: Docker meta (scripts variant)
         id: meta-scripts
@@ -58,6 +63,8 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha
+          flavor: |
+            latest=auto
 
       - name: Merge buildx bake files
         run: |
