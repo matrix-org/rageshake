@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o rageshake
 
 ## Runtime stage, python scripts ##
 FROM python:3-slim AS scripts
-COPY scripts/cleanup.py .
+COPY scripts/cleanup.py /cleanup.py
 WORKDIR /
 
 ## Runtime stage, debug variant ##
