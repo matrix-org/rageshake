@@ -45,11 +45,25 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},suffix=-debug
             type=semver,pattern={{major}},suffix=-debug
             type=sha,suffix=-debug
+      
+      - name: Docker meta (scripts variant)
+        id: meta-scripts
+        uses: docker/metadata-action@v3
+        with:
+          images: "${{ env.IMAGE }}/scripts"
+          bake-target: docker-metadata-action-scripts
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
 
       - name: Merge buildx bake files
         run: |
-            jq -s '.[0] * .[1]' ${{ steps.meta.outputs.bake-file }} ${{ steps.meta-debug.outputs.bake-file }} > docker-bake.override.json
-
+            jq -s '.[0] * .[1] * .[2]' ${{ steps.meta.outputs.bake-file }} ${{ steps.meta-debug.outputs.bake-file }} ${{ steps.meta-scripts.outputs.bake-file }} > docker-bake.override.json
+      - name: Debug bake override file
+        run: cat docker-bake.override.json
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
         with:
