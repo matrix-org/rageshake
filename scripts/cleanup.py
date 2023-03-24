@@ -4,9 +4,9 @@ import glob
 import gzip
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Set
-
 
 # Cleanup for rageshake server output files
 #
@@ -23,6 +23,7 @@ class Cleanup:
 
     Once created, call cleanup() to begin the actual operation. Statistics are available after cleanup completes.
     """
+
     def __init__(
         self,
         limits: Dict[str, int],
@@ -112,7 +113,7 @@ class Cleanup:
         Checks a given rageshake folder against the application and userid lists.
 
         If the folder matches, and dryrun mode is disabled, the folder is deleted.
-        
+
         @returns: True if the rageshake matched, False if it was skipped.
         """
         app_name = None
@@ -200,7 +201,33 @@ def main():
         help="Root path of rageshakes (eg /home/rageshakes/bugs/)",
     )
 
+    parser.add_argument(
+        "--repeat-delay-hours",
+        dest="repeat_delay_hours",
+        type=int,
+        help="After each execution, wait this number of hours then run again. An alternative to configuring a cronjob for ongoing cleanup.",
+    )
+
     args = parser.parse_args()
+
+    if args.repeat_after:
+        while True:
+            execute(args)
+            print("I =====================================================")
+            print(f"I waiting {args.repeat_delay_hours}h for next execution")
+            print("I =====================================================")
+            time.sleep(args.repeat_delay_hours * 60 * 60)
+    else:
+        execute(args)
+
+
+def execute(args) -> None:
+    """
+    Creation, configuration and execution of a cleanup task based on args.
+
+    Allows exceptions to propigate to the caller for handling.
+    """
+
     application_limits: Dict[str, int] = {}
     for l in args.limits:
         parts = l.rsplit(":", 1)
