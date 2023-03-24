@@ -32,6 +32,8 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha
+          flavor: |
+            latest=auto
 
       - name: Docker meta (debug variant)
         id: meta-debug
@@ -40,15 +42,29 @@ jobs:
           images: "${{ env.IMAGE }}"
           bake-target: docker-metadata-action-debug
           tags: |
-            type=ref,event=branch,suffix=-debug
-            type=semver,pattern={{version}},suffix=-debug
-            type=semver,pattern={{major}}.{{minor}},suffix=-debug
-            type=semver,pattern={{major}},suffix=-debug
-            type=sha,suffix=-debug
-
-      - name: Merge buildx bake files
-        run: |
-            jq -s '.[0] * .[1]' ${{ steps.meta.outputs.bake-file }} ${{ steps.meta-debug.outputs.bake-file }} > docker-bake.override.json
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+          flavor: |
+            latest=false
+            suffix=-debug
+      
+      - name: Docker meta (scripts variant)
+        id: meta-scripts
+        uses: docker/metadata-action@v3
+        with:
+          images: "${{ env.IMAGE }}/scripts"
+          bake-target: docker-metadata-action-scripts
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+          flavor: |
+            latest=auto
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
@@ -68,16 +84,26 @@ jobs:
       # For pull-requests, only read from the cache, do not try to push to the
       # cache or the image itself
       - name: Build
-        uses: docker/bake-action@v1
+        uses: docker/bake-action@v2
         if: github.event_name == 'pull_request'
         with:
+          files: |
+            docker-bake.hcl
+            ${{ steps.meta.outputs.bake-file }}
+            ${{ steps.meta-debug.outputs.bake-file }}
+            ${{ steps.meta-scripts.outputs.bake-file }}
           set: |
             base.cache-from=type=registry,ref=${{ env.IMAGE }}:buildcache
 
       - name: Build and push
-        uses: docker/bake-action@v1
+        uses: docker/bake-action@v2
         if: github.event_name != 'pull_request'
         with:
+          files: |
+            docker-bake.hcl
+            ${{ steps.meta.outputs.bake-file }}
+            ${{ steps.meta-debug.outputs.bake-file }}
+            ${{ steps.meta-scripts.outputs.bake-file }}
           set: |
             base.output=type=image,push=true
             base.cache-from=type=registry,ref=${{ env.IMAGE }}:buildcache

@@ -1,9 +1,10 @@
 // This is what is baked by GitHub Actions
-group "default" { targets = ["regular", "debug"] }
+group "default" { targets = ["regular", "debug", "scripts"] }
 
-// Targets filled by GitHub Actions: one for the regular tag, one for the debug tag
+// Targets filled by GitHub Actions for each tag
 target "docker-metadata-action" {}
 target "docker-metadata-action-debug" {}
+target "docker-metadata-action-scripts" {}
 
 // This sets the platforms and is further extended by GitHub Actions to set the
 // output and the cache locations
@@ -22,4 +23,9 @@ target "regular" {
 target "debug" {
   inherits = ["base", "docker-metadata-action-debug"]
   target = "debug"
+}
+
+target "scripts" {
+  inherits = ["base", "docker-metadata-action-scripts"]
+  target = "scripts"
 }

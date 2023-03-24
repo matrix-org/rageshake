@@ -12,6 +12,11 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o rageshake
 
+## Runtime stage, python scripts ##
+FROM python:3-slim AS scripts
+COPY scripts/cleanup.py /cleanup.py
+WORKDIR /
+
 ## Runtime stage, debug variant ##
 FROM --platform=${TARGETPLATFORM} gcr.io/distroless/static-debian${DEBIAN_VERSION}:debug-nonroot AS debug
 COPY --from=builder /build/rageshake /rageshake
