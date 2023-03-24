@@ -204,13 +204,13 @@ def main():
     parser.add_argument(
         "--repeat-delay-hours",
         dest="repeat_delay_hours",
-        type=int,
+        type=float,
         help="After each execution, wait this number of hours then run again. An alternative to configuring a cronjob for ongoing cleanup.",
     )
 
     args = parser.parse_args()
 
-    if args.repeat_after:
+    if args.repeat_delay_hours:
         while True:
             execute(args)
             print("I =====================================================")
