@@ -127,5 +127,4 @@ It can either be run via a cronjob at appropriate intervals (typically daily), o
 be set to run in a continual mode with something like `--repeat-delay-hours 24`
 to repeat running after approximately 24 hours.
 
-Be aware that each run will scan all files between --max-days and the smallest retention period set,
-ensuring we always have up to date information, however this may be an intensive process.
+Note that this script will scan all logs older than the smallest configured retention period, up to the limit specified by --max-days. This can be an IO and CPU intensive process. 
