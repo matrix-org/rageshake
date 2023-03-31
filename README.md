@@ -120,11 +120,15 @@ Details on the request and expected response are [available](docs/generic\_webho
 
 ## Cleanup script
 
-A python script is provided in scripts/cleanup.py and in a docker container. It can be configured
-using the commandline options to filter rageshakes in a given date range.
+A python script is provided in scripts/cleanup.py and in a
+[docker container](https://github.com/orgs/matrix-org/packages/container/package/rageshake%2Fscripts).
+It can be configured using the commandline options available via `cleaup.py --help`.
 
 It can either be run via a cronjob at appropriate intervals (typically daily), or
 be set to run in a continual mode with something like `--repeat-delay-hours 24`
 to repeat running after approximately 24 hours.
 
-Note that this script will scan all logs older than the smallest configured retention period, up to the limit specified by --max-days. This can be an IO and CPU intensive process. 
+Note that this script will scan all logs older than the smallest configured retention period,
+up to the limit specified by `--max-days` or each of the days in `--days-to-check`.
+This can be an IO and CPU intensive process if a large number of files are scanned.
+
