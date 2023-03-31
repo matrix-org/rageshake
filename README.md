@@ -121,11 +121,10 @@ Details on the request and expected response are [available](docs/generic\_webho
 ## Cleanup script
 
 A python script is provided in scripts/cleanup.py and in a docker container. It can be configured
-using the commandline options to filter rageshakes in a given date range. It is expected to be
-run as a cronjob on a daily basis.
+using the commandline options to filter rageshakes in a given date range.
 
-The script is idempotent enough to be re-runnable on a more frequent basis if required. If a cronjob
-cannot be configured, it can be run in a continual mode with something like `--repeat-delay-hours 24`
+It can either be run via a cronjob at appropriate intervals (typically daily), or
+be set to run in a continual mode with something like `--repeat-delay-hours 24`
 to repeat running after approximately 24 hours.
 
 Be aware that each run will scan all files between --max-days and the smallest retention period set,
