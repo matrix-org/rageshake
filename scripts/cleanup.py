@@ -205,7 +205,10 @@ def main():
         "--repeat-delay-hours",
         dest="repeat_delay_hours",
         type=float,
-        help="After each execution, wait this number of hours then run again. An alternative to configuring a cronjob for ongoing cleanup.",
+        help="""
+            Instead of exiting after execution, run repeatedly, waiting this number of hours between each execution.
+            An alternative to configuring a cronjob for ongoing cleanup.
+            """,
     )
 
     args = parser.parse_args()
