@@ -228,7 +228,7 @@ def execute(args) -> None:
     """
     Creation, configuration and execution of a cleanup task based on args.
 
-    Allows exceptions to propigate to the caller for handling.
+    Allows exceptions to propagate to the caller for handling.
     """
 
     application_limits: Dict[str, int] = {}
