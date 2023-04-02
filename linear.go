@@ -50,6 +50,8 @@ const (
 	labelLegacyiMCUser    = "214405b4-2e37-4748-9be7-bfd3d598ad00"
 	labelNonClusterHungry = "da3376cb-9ac4-44cb-8611-a5eb57656198"
 	labelNewUser          = "440de7a1-3082-4180-9990-19f0f5aa6efd" // onboarding-spring-2023
+	labelInternalUser     = "f72b7249-393f-46a2-9e44-62f0300aed2e"
+	labelNightlyUser      = "74d1438d-eb93-4352-8efe-c6f3b291874f" // external-alpha-tester
 )
 
 var appToTeamID = map[string]string{

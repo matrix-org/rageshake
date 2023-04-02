@@ -634,8 +634,13 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 	}
 	isInternal := len(subscriberIDs) > 0 || strings.HasSuffix(p.VerifiedUserID, ":beeper-dev.com") || strings.HasSuffix(p.VerifiedUserID, ":beeper-staging.com")
-	if !isInternal {
+	if isInternal {
+		labelIDs = append(labelIDs, labelInternalUser)
+	} else {
 		labelIDs = append(labelIDs, labelSupportReview)
+		if p.Whoami.UserInfo.Channel == "NIGHTLY" {
+			labelIDs = append(labelIDs, labelNightlyUser)
+		}
 	}
 	if p.Whoami != nil {
 		if p.Whoami.UserInfo.Hungryserv {
