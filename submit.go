@@ -405,12 +405,13 @@ func formPartToPayload(field, data string, p *payload) {
 // * a limited set of extensions. We are careful to limit the content-types
 //   we will serve the files with, but somebody might accidentally point an
 //   Apache or nginx at the upload directory, which would serve js files as
-//   application/javascript and open XSS vulnerabilities.
+//   application/javascript and open XSS vulnerabilities. We also allow gzipped
+//   text and json on the same basis (there's really no sense allowing gzipped images).
 //
 // * no silly characters (/, ctrl chars, etc)
 //
 // * nothing starting with '.'
-var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|txt|json)$`)
+var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|txt|json|txt\.gz|json\.gz)$`)
 
 // saveFormPart saves a file upload to the report directory.
 //
