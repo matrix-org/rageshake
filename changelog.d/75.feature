@@ -1,1 +1,1 @@
-Allow gzipped json & txt.
+Allow gzipped json & txt files to be uploaded.
