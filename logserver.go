@@ -241,11 +241,9 @@ func addToArchive(targz *tar.Writer, dfilename string, filename string) error {
 func serveGzippedFile(w http.ResponseWriter, r *http.Request, path string, size int64) {
 	cType := "text/plain; charset=utf-8"
 	if strings.HasSuffix(path, ".gz") {
-		// Guess the mime type fro mthe extension as we do in serveFile, but without
+		// Guess the mime type from the extension as we do in serveFile, but without
 		// the .gz header (in practice, either plain text or application/json).
 		cType = extensionToMimeType(path[:len(path)-len(".gz")])
-	} else {
-
 	}
 	w.Header().Set("Content-Type", cType)
 
