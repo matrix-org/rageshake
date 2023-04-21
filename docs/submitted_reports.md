@@ -88,7 +88,7 @@ Log 1-7 are logs from a round-robin buffer and are ordered but the start point i
 
 ## Third Room
 
-Third Room uses `logs.json` file to submit logs.
+Third Room submits logs as a single `logs.json` file.
 
 `logs.json` file format:
 ```
