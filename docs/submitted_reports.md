@@ -85,3 +85,36 @@ log-[1-7].log
 ```
 
 Log 1-7 are logs from a round-robin buffer and are ordered but the start point is undefined
+
+## Third Room
+
+Third Room uses `logs.json` file to submit logs.
+
+`logs.json` file format:
+```json
+{
+  "formatVersion": 1,
+  "appVersion": "0.0.0",
+  "platform": "<UserAgent Info>",
+  "items": [LogItem, LogItem, ...]
+}
+```
+
+`LogItem` interface:
+```typescript
+interface LogItem {
+  s: number; // start time
+  d?: number; // duration time
+  v: { // log item value
+    [key: string]: any;
+  };
+  l: number; // log level
+  e?: { // error
+      stack?: string;
+      name: string;
+      message: string;
+  };
+  f?: boolean; // forced
+  c?: LogItem[]; // children
+}
+```
