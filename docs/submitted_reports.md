@@ -100,21 +100,13 @@ Third Room submits logs as a single `logs.json` file.
 }
 ```
 
-`LogItem` interface:
-```typescript
-interface LogItem {
-  s: number; // start time
-  d?: number; // duration time
-  v: { // log item value
-    [key: string]: any;
-  };
-  l: number; // log level
-  e?: { // error
-      stack?: string;
-      name: string;
-      message: string;
-  };
-  f?: boolean; // forced
-  c?: LogItem[]; // children
-}
-```
+Each `LogItem` is an object with the following properties:
+| Name | Type      | Description                                                                                                   |
+|------|-----------|---------------------------------------------------------------------------------------------------------------|
+| `s`  | `number`  | **Required**: Start timestamp (in milliseconds since the unix epoch) on client when this log item is created. |
+| `d`  | `number`  | Log item active duration (in milliseconds).                                                                   |
+| `v`  | `object`  | **Required**: Value of log item.                                                                              |
+| `l`  | `number`  | **Required**: Log level assigned to by the client.                                                            |
+| `f`  | `boolean` | Force flag.                                                                                                   |
+| `c`  | `array`   | An array containing children log items.                                                                       |
+| `e`  | `object`  | Error object with **required** `name`, `message` and *optional* `stack` properties of `string` type.          |
