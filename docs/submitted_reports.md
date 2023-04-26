@@ -85,3 +85,28 @@ log-[1-7].log
 ```
 
 Log 1-7 are logs from a round-robin buffer and are ordered but the start point is undefined
+
+## Third Room
+
+Third Room submits logs as a single `logs.json` file.
+
+`logs.json` file format:
+```
+{
+  "formatVersion": 1,
+  "appVersion": "0.0.0",
+  "platform": "<UserAgent Info>",
+  "items": [LogItem, LogItem, ...]
+}
+```
+
+Each `LogItem` is an object with the following properties:
+| Name | Type      | Description                                                                                                   |
+|------|-----------|---------------------------------------------------------------------------------------------------------------|
+| `s`  | `number`  | **Required**: Start timestamp (in milliseconds since the unix epoch) on client when this log item is created. |
+| `d`  | `number`  | Log item active duration (in milliseconds).                                                                   |
+| `v`  | `object`  | **Required**: Value of log item.                                                                              |
+| `l`  | `number`  | **Required**: Log level assigned to by the client.                                                            |
+| `f`  | `boolean` | Force flag.                                                                                                   |
+| `c`  | `array`   | An array containing child log items.                                                                          |
+| `e`  | `object`  | Error object with **required** `name`, `message` and *optional* `stack` properties of `string` type.          |
