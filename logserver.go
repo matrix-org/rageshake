@@ -104,9 +104,10 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 //
 // Unlike mime.TypeByExtension, the results are limited to a set of types which
 // should be safe to serve to a browser without introducing XSS vulnerabilities.
-// These match file file extensions we allow on upload, plus 'log' which we do
-// not allow to be submitted but we use as the extension when logs are submitted
-// (eg. 'compressed-log' entries are saved to .log.gz).
+//
+// We handle all of the extensions we allow on files uploaded as attachments to a rageshake,
+// plus 'log' which we do not allow as an attachment, but is used as the extension when serving
+// the logs submitted as `logs` or `compressed-log`.
 func extensionToMimeType(path string) string {
 	if strings.HasSuffix(path, ".txt") || strings.HasSuffix(path, ".log") {
 		// anyone uploading text in anything other than utf-8 needs to be
