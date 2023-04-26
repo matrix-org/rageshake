@@ -1,1 +1,1 @@
-Allow gzipped json & txt files to be uploaded.
+Allow gzipped json & txt files to be uploaded as attachments to rageshakes.
