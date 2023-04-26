@@ -108,5 +108,5 @@ Each `LogItem` is an object with the following properties:
 | `v`  | `object`  | **Required**: Value of log item.                                                                              |
 | `l`  | `number`  | **Required**: Log level assigned to by the client.                                                            |
 | `f`  | `boolean` | Force flag.                                                                                                   |
-| `c`  | `array`   | An array containing children log items.                                                                       |
+| `c`  | `array`   | An array containing child log items.                                                                          |
 | `e`  | `object`  | Error object with **required** `name`, `message` and *optional* `stack` properties of `string` type.          |
