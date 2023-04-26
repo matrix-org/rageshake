@@ -104,8 +104,12 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 //
 // Unlike mime.TypeByExtension, the results are limited to a set of types which
 // should be safe to serve to a browser without introducing XSS vulnerabilities.
+//
+// We handle all of the extensions we allow on files uploaded as attachments to a rageshake,
+// plus 'log' which we do not allow as an attachment, but is used as the extension when serving
+// the logs submitted as `logs` or `compressed-log`.
 func extensionToMimeType(path string) string {
-	if strings.HasSuffix(path, ".txt") {
+	if strings.HasSuffix(path, ".txt") || strings.HasSuffix(path, ".log") {
 		// anyone uploading text in anything other than utf-8 needs to be
 		// re-educated.
 		return "text/plain; charset=utf-8"
@@ -236,7 +240,13 @@ func addToArchive(targz *tar.Writer, dfilename string, filename string) error {
 }
 
 func serveGzippedFile(w http.ResponseWriter, r *http.Request, path string, size int64) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	cType := "text/plain; charset=utf-8"
+	if strings.HasSuffix(path, ".gz") {
+		// Guess the mime type from the extension as we do in serveFile, but without
+		// the .gz header (in practice, either plain text or application/json).
+		cType = extensionToMimeType(path[:len(path)-len(".gz")])
+	}
+	w.Header().Set("Content-Type", cType)
 
 	acceptsGzip := false
 	splitRune := func(s rune) bool { return s == ' ' || s == '\t' || s == '\n' || s == ',' }
