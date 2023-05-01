@@ -170,7 +170,7 @@ query {
 `
 
 const queryFindUserByEmail = `
-query FindUserByEmail(filter: UserFilter!) {
+query FindUserByEmail($filter: UserFilter!) {
 	users(filter: $filter) {
 		nodes {
 			id
