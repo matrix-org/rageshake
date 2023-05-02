@@ -9,7 +9,7 @@ on:
   push:
     branches: [master]
   release: 
-    types: [created]
+    types: [published]
 
 permissions:
   contents: write
