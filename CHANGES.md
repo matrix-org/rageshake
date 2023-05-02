@@ -1,3 +1,20 @@
+1.10.0 (2023-05-02)
+===================
+
+Features
+--------
+
+- Add --repeat-delay-hours option to cleanup script to run persistently outside of a cronjob. ([\#72](https://github.com/matrix-org/rageshake/issues/72))
+- Allow gzipped json & txt files to be uploaded as attachments to rageshakes. ([\#75](https://github.com/matrix-org/rageshake/issues/75))
+
+
+Internal Changes
+----------------
+
+- Creates a new `rageshake/scripts` image with cleanup script, ensure `latest` tag is correctly applied. ([\#71](https://github.com/matrix-org/rageshake/issues/71))
+- Update README.md to include json as a valid extension for file uploads. ([\#74](https://github.com/matrix-org/rageshake/issues/74))
+
+
 1.9.0 (2023-03-22)
 ==================
 
