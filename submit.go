@@ -513,7 +513,7 @@ func formPartToPayload(field, data string, p *parsedPayload) {
 // * no silly characters (/, ctrl chars, etc)
 //
 // * nothing starting with '.'
-var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|mp4|txt)$`)
+var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|heic|gif|mp4|txt)$`)
 
 // saveFormPart saves a file upload to the report directory.
 //
