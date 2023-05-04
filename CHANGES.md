@@ -1,3 +1,12 @@
+1.10.1 (2023-05-04)
+===================
+
+Bugfixes
+--------
+
+- cleanup.py: Handle --repeat-delay-hours not being passed correctly, introduced in 1.10.0 ([\#78](https://github.com/matrix-org/rageshake/issues/78))
+
+
 1.10.0 (2023-05-02)
 ===================
 
