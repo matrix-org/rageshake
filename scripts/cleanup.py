@@ -213,7 +213,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.repeat_delay_hours is defined:
+    if args.repeat_delay_hours is not None:
         while True:
             execute(args)
             print("I =====================================================")
