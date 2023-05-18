@@ -847,7 +847,7 @@ func printDataKeys(p parsedPayload, output io.Writer, title string, keys []strin
 	if len(keys) == 0 {
 		return
 	}
-	fmt.Fprintf(output, "### %s:\n\n```yaml", title)
+	fmt.Fprintf(output, "### %s:\n\n```yaml\n", title)
 
 	for _, k := range keys {
 		v := p.Data[k]
