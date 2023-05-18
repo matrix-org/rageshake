@@ -648,7 +648,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		} else {
 			labelIDs = append(labelIDs, labelLegacyUser)
 		}
-		if !isInternal && p.Whoami.UserInfo.CreatedAt.Add(24 * time.Hour).After(time.Now()) {
+		if !isInternal && p.Whoami.UserInfo.CreatedAt.Add(24*time.Hour).After(time.Now()) {
 			labelIDs = append(labelIDs, labelNewUser)
 		}
 		if p.Whoami.User.Bridges[bridge].BridgeState.Info.IsHungry {
@@ -825,22 +825,36 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 		)
 	}
 
-	var dataKeys []string
+	var dataKeys, eventDataKeys []string
 	for k := range p.Data {
-		dataKeys = append(dataKeys, k)
+		switch k {
+		case "event_id", "room_id":
+			eventDataKeys = append(eventDataKeys, k)
+		default:
+			dataKeys = append(dataKeys, k)
+		}
 	}
 	sort.Strings(dataKeys)
+	sort.Strings(eventDataKeys)
 
-	fmt.Fprintf(&bodyBuf, "### Data from app:\n\n```yaml")
-
-	for _, k := range dataKeys {
-		v := p.Data[k]
-		fmt.Fprintf(&bodyBuf, "%s: %s\n", k, v)
-	}
-
-	fmt.Fprintf(&bodyBuf, "```\n")
+	printDataKeys(p, &bodyBuf, "Event data", eventDataKeys)
+	printDataKeys(p, &bodyBuf, "Data from app", dataKeys)
 
 	return &bodyBuf
+}
+
+func printDataKeys(p parsedPayload, output io.Writer, title string, keys []string) {
+	if len(keys) == 0 {
+		return
+	}
+	fmt.Fprintf(output, "### %s:\n\n```yaml", title)
+
+	for _, k := range keys {
+		v := p.Data[k]
+		fmt.Fprintf(output, "%s: %s\n", k, v)
+	}
+
+	fmt.Fprintf(output, "```\n")
 }
 
 func (s *submitServer) buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body string) {
