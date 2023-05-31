@@ -622,7 +622,6 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		return nil
 	}
 
-	title, body := s.buildGenericIssueRequest(p, listingURL)
 	bridge := p.Data["bridge"]
 
 	labelIDs := []string{labelRageshake}
@@ -659,6 +658,9 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		} else if p.Whoami.User.Bridges["imessagecloud"].BridgeState.StateEvent != "" {
 			labelIDs = append(labelIDs, labelLegacyiMCUser)
 		}
+		if roomID, ok := p.Data["room_id"]; ok && strings.HasSuffix(roomID, ":beeper.com") {
+			p.Data["is_support_room"] = strconv.FormatBool(roomID == p.Whoami.UserInfo.SupportRoomID)
+		}
 	}
 
 	if bridge != "" && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
@@ -684,6 +686,8 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 			labelIDs = append(labelIDs, userPriorityLabelID)
 		}
 	}
+
+	title, body := s.buildGenericIssueRequest(p, listingURL)
 
 	fmt.Println("Creating issue in", teamID)
 	fmt.Println("  Labels:", labelIDs)
@@ -828,7 +832,7 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 	var dataKeys, eventDataKeys []string
 	for k := range p.Data {
 		switch k {
-		case "event_id", "room_id":
+		case "event_id", "room_id", "is_support_room":
 			eventDataKeys = append(eventDataKeys, k)
 		default:
 			dataKeys = append(dataKeys, k)
