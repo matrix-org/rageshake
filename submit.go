@@ -816,7 +816,8 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 	for _, file := range p.Files {
 		imageifier := ""
 		fileURL := listingURL + "/" + file
-		if strings.HasSuffix(file, ".jpg") || strings.HasSuffix(file, ".png") {
+		ext := strings.ToLower(filepath.Ext(file))
+		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" {
 			imageifier = "!"
 			fileURL = authedListingURL + "/" + file
 		}
