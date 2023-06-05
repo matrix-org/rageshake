@@ -36,9 +36,9 @@ const (
 )
 
 const (
-	userPriorityLow    = "Low"
-	userPriorityMedium = "Medium"
-	userPriorityHigh   = "High"
+	userPriorityLow    = "low"
+	userPriorityMedium = "medium"
+	userPriorityHigh   = "high"
 )
 
 const (

@@ -682,7 +682,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 	}
 	if userPriority, ok := p.Data["user_priority"]; ok {
-		if userPriorityLabelID, ok := userPriorityToLabelID[userPriority]; ok {
+		if userPriorityLabelID, ok := userPriorityToLabelID[strings.ToLower(userPriority)]; ok {
 			labelIDs = append(labelIDs, userPriorityLabelID)
 		}
 	}
