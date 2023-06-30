@@ -642,21 +642,8 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 	}
 	if p.Whoami != nil {
-		if p.Whoami.UserInfo.Hungryserv {
-			labelIDs = append(labelIDs, labelHungryUser)
-		} else {
-			labelIDs = append(labelIDs, labelLegacyUser)
-		}
 		if !isInternal && p.Whoami.UserInfo.CreatedAt.Add(24*time.Hour).After(time.Now()) {
 			labelIDs = append(labelIDs, labelNewUser)
-		}
-		if p.Whoami.User.Bridges[bridge].BridgeState.Info.IsHungry {
-			labelIDs = append(labelIDs, labelNonClusterHungry)
-		}
-		if p.Whoami.User.Bridges["imessagecloud"].BridgeState.Info.IsHungry {
-			labelIDs = append(labelIDs, labelHungryiMCUser)
-		} else if p.Whoami.User.Bridges["imessagecloud"].BridgeState.StateEvent != "" {
-			labelIDs = append(labelIDs, labelLegacyiMCUser)
 		}
 		if roomID, ok := p.Data["room_id"]; ok && strings.HasSuffix(roomID, ":beeper.com") {
 			p.Data["is_support_room"] = strconv.FormatBool(roomID == p.Whoami.UserInfo.SupportRoomID)
