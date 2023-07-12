@@ -818,10 +818,13 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 	}
 
 	var dataKeys, eventDataKeys []string
+	var eventSource string
 	for k := range p.Data {
 		switch k {
 		case "event_id", "room_id", "is_support_room":
 			eventDataKeys = append(eventDataKeys, k)
+		case "decrypted_event_source":
+			eventSource = p.Data[k]
 		default:
 			dataKeys = append(dataKeys, k)
 		}
@@ -830,6 +833,9 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 	sort.Strings(eventDataKeys)
 
 	printDataKeys(p, &bodyBuf, "Event data", eventDataKeys)
+	if eventSource != "" {
+		_, _ = fmt.Fprintf(&bodyBuf, "### Event source:\n\n```json\n%s\n```", eventSource)
+	}
 	printDataKeys(p, &bodyBuf, "Data from app", dataKeys)
 
 	return &bodyBuf
