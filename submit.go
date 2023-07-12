@@ -834,7 +834,7 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 
 	printDataKeys(p, &bodyBuf, "Event data", eventDataKeys)
 	if eventSource != "" {
-		_, _ = fmt.Fprintf(&bodyBuf, "### Event source:\n\n```json\n%s\n```", eventSource)
+		_, _ = fmt.Fprintf(&bodyBuf, "### Event source:\n\n```json\n%s\n```\n", eventSource)
 	}
 	printDataKeys(p, &bodyBuf, "Data from app", dataKeys)
 
