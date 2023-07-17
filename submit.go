@@ -313,7 +313,6 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 
 	userID, ok := p.Data["user_id"]
 	delete(p.Data, "user_id")
-	delete(p.Data, "verified_user_id")
 	delete(p.Data, "verified_device_id")
 	if ok {
 		p.Data["unverified_user_id"] = userID
@@ -327,7 +326,6 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 			if p.VerifiedUserID != userID {
 				log.Printf("Mismatching user ID (verified: %s, input: %s), overriding...", p.VerifiedUserID, userID)
 			}
-			p.Data["verified_user_id"] = p.VerifiedUserID
 			p.Data["verified_device_id"] = p.VerifiedDeviceID
 			p.Data["user_id"] = p.VerifiedUserID
 		}
@@ -645,9 +643,6 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		if !isInternal && p.Whoami.UserInfo.CreatedAt.Add(24*time.Hour).After(time.Now()) {
 			labelIDs = append(labelIDs, labelNewUser)
 		}
-		if roomID, ok := p.Data["room_id"]; ok && strings.HasSuffix(roomID, ":beeper.com") {
-			p.Data["is_support_room"] = strconv.FormatBool(roomID == p.Whoami.UserInfo.SupportRoomID)
-		}
 	}
 
 	if bridge != "" && bridge != "all" && bridge != "matrix" && bridge != "beeper" {
@@ -821,7 +816,7 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 	var eventSource string
 	for k := range p.Data {
 		switch k {
-		case "event_id", "room_id", "is_support_room":
+		case "event_id", "room_id":
 			eventDataKeys = append(eventDataKeys, k)
 		case "decrypted_event_source":
 			eventSource = p.Data[k]

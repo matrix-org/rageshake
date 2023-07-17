@@ -82,6 +82,7 @@ var bridgeToLabelID = map[string]string{
 	"discordgo":      "6ce5f0c2-13ec-48ca-b4d8-e3f170fcfb8c",
 	"facebook":       "076cce46-9efb-463d-9cce-3726945091d9",
 	"googlechat":     "f2fcfb8e-15ba-41f0-bd7e-6080660aa4fc",
+	"gmessages":      "475775b3-3f5b-4e20-bdc1-ac4107530c0d",
 	"imessage-cloud": "10ac3928-b657-409d-a1eb-4f9ec7df870e",
 	"imessagecloud":  "10ac3928-b657-409d-a1eb-4f9ec7df870e",
 	"imessage":       "e0f45fd9-a8ed-43db-8866-d79ef8622ab2",
