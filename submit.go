@@ -315,10 +315,10 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 	delete(p.Data, "user_id")
 	delete(p.Data, "verified_device_id")
 	if ok {
-		p.Data["unverified_user_id"] = userID
 		whoami, err := s.verifyAccessToken(req.Context(), req.Header.Get("Authorization"), userID)
 		if err != nil {
 			log.Printf("Error verifying user ID (%s): %v", userID, err)
+			p.Data["unverified_user_id"] = userID
 		} else {
 			p.Whoami = whoami
 			p.VerifiedUserID = whoami.Matrix.UserID
