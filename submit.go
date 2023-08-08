@@ -670,6 +670,7 @@ func buildGenericIssueRequest(p payload, listingURL string) (title, body string)
 
 	// Add log links to the body
 	fmt.Fprintf(bodyBuf, "\n[Logs](%s)", listingURL)
+	fmt.Fprintf(bodyBuf, " ([archive](%s))", listingURL+"?format=tar.gz")
 
 	for _, file := range p.Files {
 		fmt.Fprintf(
