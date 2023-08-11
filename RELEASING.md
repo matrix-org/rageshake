@@ -4,8 +4,8 @@
    ```
 1. Update the changelog:
    ```sh
-   pip3 install --pre 'towncrier~=21.2'
-   towncrier --version=$ver
+   pip3 install --pre 'towncrier~=21.9'
+   towncrier build --version=$ver
    ```
 1. Push your changes:
    ```sh
@@ -19,13 +19,13 @@
    xdg-open https://github.com/matrix-org/rageshake/releases/new
    ```
    Set the tag to be the new version (eg v2.2.1).
-   
+
    Ensure you selected "create tag" if it doesn't already exist.
-   
+
    Release name will be autocompleted to the tag name
-   
+
    Describe the release based on the changelog
-   
+
    This will trigger a docker image to be built as well as a binary to be uploaded to the release
 1. Check that the docker image has been created and tagged (a few mins)
    ```
