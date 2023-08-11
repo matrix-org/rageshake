@@ -1,3 +1,12 @@
+1.11.0 (2023-08-11)
+===================
+
+Features
+--------
+
+- Add a link to the archive containing all the logs in the issue body. ([\#81](https://github.com/matrix-org/rageshake/issues/81))
+
+
 1.10.1 (2023-05-04)
 ===================
 
