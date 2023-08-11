@@ -16,15 +16,9 @@
    and update if need be.
 1. Create release on GH project page:
    ```sh
-   xdg-open https://github.com/matrix-org/rageshake/releases/new
+   xdg-open https://github.com/matrix-org/rageshake/releases/new?tag=v$ver&title=v$ver
    ```
-   Set the tag to be the new version (eg v2.2.1).
-
-   Ensure you selected "create tag" if it doesn't already exist.
-
-   Release name will be autocompleted to the tag name
-
-   Describe the release based on the changelog
+   Describe the release based on the changelog.
 
    This will trigger a docker image to be built as well as a binary to be uploaded to the release
 1. Check that the docker image has been created and tagged (a few mins)
