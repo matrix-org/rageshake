@@ -79,6 +79,8 @@ type parsedPayload struct {
 
 	Whoami *whoamiResponse `json:"-"`
 
+	IsInternal bool `json:"-"`
+
 	VerifiedUserID   string `json:"verified_user_id"`
 	VerifiedDeviceID string `json:"verified_device_id"`
 }
@@ -632,6 +634,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 	}
 	isInternal := len(subscriberIDs) > 0 || strings.HasSuffix(p.VerifiedUserID, ":beeper-dev.com") || strings.HasSuffix(p.VerifiedUserID, ":beeper-staging.com")
 	if isInternal {
+		p.IsInternal = true
 		labelIDs = append(labelIDs, labelInternalUser)
 	} else {
 		labelIDs = append(labelIDs, labelSupportReview)
@@ -785,6 +788,10 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 
 	if len(p.Data["user_id"]) == 0 && len(p.Data["unverified_user_id"]) > 0 {
 		fmt.Fprintf(&bodyBuf, "Rageshake server was unable to verify the access token used to send this report. It is possible the user's session is corrupted, or that rageshake failed to talk to api server. The support room notice was not sent.\n\n")
+	}
+
+	if p.AppName == "beeper-desktop" && !strings.Contains(p.Data["User-Agent"], "Electron") && !p.IsInternal {
+		fmt.Fprintf(&bodyBuf, "## User may be using unsupported environment like chat.beeper.com\n\n`User-Agent` field doesn't contain \"Electron\".")
 	}
 
 	fmt.Fprintf(&bodyBuf, "### User message:\n\n%s\n\n", userText)
