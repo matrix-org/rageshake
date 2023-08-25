@@ -791,7 +791,7 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 	}
 
 	if p.AppName == "beeper-desktop" && !strings.Contains(p.Data["User-Agent"], "Electron") && !p.IsInternal {
-		fmt.Fprintf(&bodyBuf, "## User may be using unsupported environment like chat.beeper.com\n\n`User-Agent` field doesn't contain \"Electron\".")
+		fmt.Fprintf(&bodyBuf, "## User may be using unsupported environment like chat.beeper.com\n\n`User-Agent` field doesn't contain \"Electron\".\n\n")
 	}
 
 	fmt.Fprintf(&bodyBuf, "### User message:\n\n%s\n\n", userText)
