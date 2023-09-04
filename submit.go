@@ -29,6 +29,7 @@ import (
 	"math/rand"
 	"mime"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/smtp"
 	"os"
@@ -744,7 +745,8 @@ func (s *submitServer) sendEmail(p payload, reportDir string) error {
 
 	var auth smtp.Auth = nil
 	if s.cfg.SMTPPassword != "" || s.cfg.SMTPUsername != "" {
-		auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPServer)
+		host, _, _ := net.SplitHostPort(s.cfg.SMTPServer)
+		auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, host)
 	}
 	err := e.Send(s.cfg.SMTPServer, auth)
 	if err != nil {
