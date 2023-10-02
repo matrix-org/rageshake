@@ -313,6 +313,11 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 		}
 	}
 
+	if p.AppName == "booper" {
+		// Don't verify tokens for booper
+		return p
+	}
+
 	userID, ok := p.Data["user_id"]
 	delete(p.Data, "user_id")
 	delete(p.Data, "verified_device_id")
@@ -588,8 +593,10 @@ func (s *submitServer) saveReportBackground(p parsedPayload, reportDir, listingU
 		return err
 	}
 
-	if err := s.submitWebhook(context.Background(), p, listingURL, &resp); err != nil {
-		return err
+	if p.AppName != "booper" {
+		if err := s.submitWebhook(context.Background(), p, listingURL, &resp); err != nil {
+			return err
+		}
 	}
 
 	return nil
