@@ -121,6 +121,8 @@ type submitResponse struct {
 	IssueNumber string `json:"issue_number,omitempty"`
 }
 
+var gplaySpamEmailRegex = regexp.MustCompile(`^[a-z]+.\d{5}@gmail\.com$`)
+
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// if we attempt to return a response without reading the request body,
 	// apache gets upset and returns a 500. Let's try this.
@@ -314,6 +316,13 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 	}
 
 	if p.AppName == "booper" {
+		if gplaySpamEmailRegex.MatchString(p.Data["user_id"]) {
+			log.Println("Dropping report from", p.Data["user_id"])
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte("{}"))
+			return nil
+		}
 		// Don't verify tokens for booper
 		return p
 	}
