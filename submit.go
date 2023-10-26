@@ -649,7 +649,12 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 	}
 	if p.AppName == "booper" {
-		labelIDs = append(labelIDs, labeliMessageOnAnd)
+		labelIDs = append(labelIDs, labelBooperApp)
+
+		linearID := getLinearID(p.Data["user_id"], s.cfg.LinearToken)
+		if linearID != "" {
+			subscriberIDs = []string{linearID}
+		}
 	}
 	isInternal := len(subscriberIDs) > 0 || strings.HasSuffix(p.VerifiedUserID, ":beeper-dev.com") || strings.HasSuffix(p.VerifiedUserID, ":beeper-staging.com")
 	if isInternal {

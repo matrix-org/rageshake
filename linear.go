@@ -47,7 +47,7 @@ const (
 	labelNewUser       = "440de7a1-3082-4180-9990-19f0f5aa6efd" // onboarding-spring-2023
 	labelInternalUser  = "f72b7249-393f-46a2-9e44-62f0300aed2e"
 	labelNightlyUser   = "74d1438d-eb93-4352-8efe-c6f3b291874f" // external-alpha-tester
-	labeliMessageOnAnd = "67871d86-ef4b-45bc-9144-0368e70ec9bb" // im-on-and
+	labelBooperApp     = "67871d86-ef4b-45bc-9144-0368e70ec9bb" // booper-app
 )
 
 var appToTeamID = map[string]string{
@@ -182,7 +182,19 @@ query FindUserByEmail($filter: UserFilter!) {
 
 var emailToLinearIDCache = make(map[string]string)
 
+func isValidEmailLocalpart(localpart string) bool {
+	for _, ch := range localpart {
+		if (ch < 'a' || ch > 'z') && ch != '.' && ch != '-' {
+			return false
+		}
+	}
+	return true
+}
+
 func getLinearID(email, token string) string {
+	if len(email) > 100 {
+		return ""
+	}
 	// Ensure there's only one @ and the domain is beeper.com
 	parts := strings.Split(email, "@")
 	if len(parts) != 2 || parts[1] != "beeper.com" {
@@ -190,6 +202,9 @@ func getLinearID(email, token string) string {
 	}
 	// Remove anything after a +
 	parts = strings.Split(parts[0], "+")
+	if !isValidEmailLocalpart(parts[0]) {
+		return ""
+	}
 	email = fmt.Sprintf("%s@beeper.com", parts[0])
 	userID, ok := emailToLinearIDCache[email]
 	if ok {
