@@ -847,7 +847,7 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 	var eventSource string
 	for k := range p.Data {
 		switch k {
-		case "event_id", "room_id":
+		case "event_id", "room_id", "event_timestamp":
 			eventDataKeys = append(eventDataKeys, k)
 		case "decrypted_event_source":
 			eventSource = p.Data[k]
