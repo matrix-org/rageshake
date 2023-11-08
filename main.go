@@ -31,7 +31,8 @@ import (
 	"time"
 
 	"github.com/google/go-github/github"
-	"github.com/xanzy/go-gitlab"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+        "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 
 	"gopkg.in/yaml.v2"
@@ -39,6 +40,8 @@ import (
 
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
+
+var metricsBindAddr = flag.String("metrics", "", "The port to listen on for metrics.")
 
 type config struct {
 	// Username and password required to access the bug report listings
@@ -180,7 +183,14 @@ func main() {
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "ok")
 	})
-
+        if *metricsBindAddr != "" {
+                metricsMux := http.NewServeMux()
+                metricsMux.Handle("/metrics", promhttp.Handler())
+		go func() {
+	                log.Println("Metrics Listening on", *metricsBindAddr)
+			http.ListenAndServe(*metricsBindAddr, metricsMux)
+		}()
+        }
 	log.Println("Listening on", *bindAddr)
 
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))
