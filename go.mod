@@ -8,5 +8,6 @@ require (
 	github.com/prometheus/client_golang v1.17.0 // indirect
 	github.com/xanzy/go-gitlab v0.50.2
 	golang.org/x/oauth2 v0.8.0
+	golang.org/x/tools v0.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )
