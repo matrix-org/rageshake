@@ -36,6 +36,7 @@ jobs:
           go-version: 1.20
       - name: Install lint deps
         run: |
+          go env GOPATH
           go install golang.org/x/lint/golint
           go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
           go install github.com/fzipp/gocyclo/cmd/gocyclo
