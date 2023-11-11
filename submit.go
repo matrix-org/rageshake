@@ -20,14 +20,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
-	"io/ioutil"
 	"log"
-	"math/rand"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -77,7 +76,8 @@ type parsedPayload struct {
 	Files      []string          `json:"files"`
 	FileErrors []string          `json:"file_errors"`
 
-	Whoami *whoamiResponse `json:"-"`
+	MatrixWhoami *matrixWhoamiResponse `json:"-"`
+	IMAWhoami    *imaWhoamiResponse    `json:"-"`
 
 	IsInternal bool `json:"-"`
 
@@ -215,7 +215,7 @@ type whoamiBridgeInfo struct {
 	//RemoteState map[string]whoamiRemoteState `json:"remoteState"`
 }
 
-type whoamiResponse struct {
+type matrixWhoamiResponse struct {
 	UserInfo struct {
 		Hungryserv    bool      `json:"useHungryserv"`
 		Channel       string    `json:"channel"`
@@ -232,7 +232,59 @@ type whoamiResponse struct {
 	} `json:"matrix"`
 }
 
-func (s *submitServer) verifyAccessToken(ctx context.Context, auth, userID string) (*whoamiResponse, error) {
+type imaWhoamiResponse struct {
+	IMAUserToken string `json:"ima_user_token"`
+	AnalyticsID  string `json:"analytics_id"`
+	Email        string `json:"email"`
+	Subscription struct {
+		ExpiresAt string `json:"expires_at"`
+		Active    bool   `json:"active"`
+	} `json:"subscription"`
+}
+
+func (s *submitServer) verifyIMAToken(ctx context.Context, auth, userID string) (*imaWhoamiResponse, error) {
+	if len(auth) == 0 {
+		return nil, fmt.Errorf("missing authorization header")
+	} else if !strings.HasPrefix(auth, "Bearer ") {
+		return nil, fmt.Errorf("invalid authorization header")
+	}
+
+	// The user ID in this case should be an email
+	atIndex := strings.IndexRune(userID, '@')
+	if atIndex <= 0 {
+		return nil, fmt.Errorf("invalid user ID")
+	}
+
+	// All of iMessage on Android is on beeper.com
+	apiServerURL, ok := s.cfg.APIServerURLs["beeper.com"]
+	if !ok {
+		return nil, fmt.Errorf("beeper.com server API server URL not configured")
+	}
+
+	baseURL, _ := url.Parse(apiServerURL)
+	baseURL.Path = "/ima/whoami"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create http request: %w", err)
+	}
+	req.Header.Set("Authorization", auth)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make whoami request: %w", err)
+	}
+	defer resp.Body.Close()
+	var respData imaWhoamiResponse
+	if respBytes, err := io.ReadAll(resp.Body); err != nil {
+		return nil, fmt.Errorf("failed to read whoami response body (status %d): %w", resp.StatusCode, err)
+	} else if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("whoami returned non-200 status code %d (data: %s)", resp.StatusCode, respBytes)
+	} else if err = json.Unmarshal(respBytes, &respData); err != nil {
+		return nil, fmt.Errorf("failed to parse success whoami response body: %w", err)
+	}
+	return &respData, nil
+}
+
+func (s *submitServer) verifyMatrixAccessToken(ctx context.Context, auth, userID string) (*matrixWhoamiResponse, error) {
 	if len(auth) == 0 {
 		return nil, fmt.Errorf("missing authorization header")
 	} else if !strings.HasPrefix(auth, "Bearer ") {
@@ -258,7 +310,7 @@ func (s *submitServer) verifyAccessToken(ctx context.Context, auth, userID strin
 		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
 	req.Header.Set("Authorization", auth)
-	var respData whoamiResponse
+	var respData matrixWhoamiResponse
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
@@ -289,12 +341,12 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 	length, err := strconv.Atoi(req.Header.Get("Content-Length"))
 	if err != nil {
 		log.Println("Couldn't parse content-length", err)
-		http.Error(w, "Bad content-length", 400)
+		http.Error(w, "Bad content-length", http.StatusBadRequest)
 		return nil
 	}
 	if length > maxPayloadSize {
 		log.Println("Content-length", length, "too large")
-		http.Error(w, fmt.Sprintf("Content too large (max %d)", maxPayloadSize), 413)
+		http.Error(w, fmt.Sprintf("Content too large (max %d)", maxPayloadSize), http.StatusRequestEntityTooLarge)
 		return nil
 	}
 
@@ -303,19 +355,24 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 		p, err = parseMultipartRequest(w, req, reportDir)
 		if err != nil {
 			log.Println("Error parsing multipart data:", err)
-			http.Error(w, "Bad multipart data", 400)
+			http.Error(w, "Bad multipart data", http.StatusBadRequest)
 			return nil
 		}
 	} else {
 		p, err = parseJSONRequest(w, req, reportDir)
 		if err != nil {
 			log.Println("Error parsing JSON body", err)
-			http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
+			http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), http.StatusBadRequest)
 			return nil
 		}
 	}
 
-	if p.AppName == "booper" {
+	userID, hasUserID := p.Data["user_id"]
+	delete(p.Data, "user_id")
+	delete(p.Data, "verified_device_id")
+	if !hasUserID {
+		return p
+	} else if p.AppName == "booper" {
 		if gplaySpamEmailRegex.MatchString(p.Data["user_id"]) {
 			log.Println("Dropping report from", p.Data["user_id"])
 			w.Header().Set("Content-Type", "application/json")
@@ -323,20 +380,26 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 			_, _ = w.Write([]byte("{}"))
 			return nil
 		}
-		// Don't verify tokens for booper
-		return p
-	}
 
-	userID, ok := p.Data["user_id"]
-	delete(p.Data, "user_id")
-	delete(p.Data, "verified_device_id")
-	if ok {
-		whoami, err := s.verifyAccessToken(req.Context(), req.Header.Get("Authorization"), userID)
+		whoami, err := s.verifyIMAToken(req.Context(), req.Header.Get("Authorization"), userID)
 		if err != nil {
 			log.Printf("Error verifying user ID (%s): %v", userID, err)
 			p.Data["unverified_user_id"] = userID
 		} else {
-			p.Whoami = whoami
+			p.IMAWhoami = whoami
+			p.VerifiedUserID = whoami.Email
+			if p.VerifiedUserID != userID {
+				log.Printf("Mismatching user ID (verified: %s, input: %s), overriding...", p.VerifiedUserID, userID)
+			}
+			p.Data["user_id"] = p.VerifiedUserID
+		}
+	} else {
+		whoami, err := s.verifyMatrixAccessToken(req.Context(), req.Header.Get("Authorization"), userID)
+		if err != nil {
+			log.Printf("Error verifying user ID (%s): %v", userID, err)
+			p.Data["unverified_user_id"] = userID
+		} else {
+			p.MatrixWhoami = whoami
 			p.VerifiedUserID = whoami.Matrix.UserID
 			p.VerifiedDeviceID = whoami.Matrix.DeviceID
 			if p.VerifiedUserID != userID {
@@ -485,7 +548,7 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 		return nil
 	}
 
-	b, err := ioutil.ReadAll(partReader)
+	b, err := io.ReadAll(partReader)
 	if err != nil {
 		return err
 	}
@@ -642,32 +705,37 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 
 	labelIDs := []string{labelRageshake}
 	subscriberIDs := make([]string, 0)
-	if p.Whoami != nil && p.Whoami.UserInfo.Email != "" {
-		linearID := getLinearID(p.Whoami.UserInfo.Email, s.cfg.LinearToken)
-		if linearID != "" {
+
+	// Determine if the user has a Linear ID and add them to the subscriber
+	// list if they do have an ID.
+	var email string
+	if p.MatrixWhoami != nil && p.MatrixWhoami.UserInfo.Email != "" {
+		email = p.MatrixWhoami.UserInfo.Email
+	} else if p.IMAWhoami != nil && p.IMAWhoami.Email != "" {
+		email = p.IMAWhoami.Email
+	}
+	if email != "" {
+		if linearID := getLinearID(email, s.cfg.LinearToken); linearID != "" {
 			subscriberIDs = []string{linearID}
 		}
 	}
+
 	if p.AppName == "booper" {
 		labelIDs = append(labelIDs, labelBooperApp)
-
-		linearID := getLinearID(p.Data["user_id"], s.cfg.LinearToken)
-		if linearID != "" {
-			subscriberIDs = []string{linearID}
-		}
 	}
+
 	isInternal := len(subscriberIDs) > 0 || strings.HasSuffix(p.VerifiedUserID, ":beeper-dev.com") || strings.HasSuffix(p.VerifiedUserID, ":beeper-staging.com")
 	if isInternal {
 		p.IsInternal = true
 		labelIDs = append(labelIDs, labelInternalUser)
 	} else if p.AppName != "booper" {
 		labelIDs = append(labelIDs, labelSupportReview)
-		if p.Whoami != nil && p.Whoami.UserInfo.Channel == "NIGHTLY" {
+		if p.MatrixWhoami != nil && p.MatrixWhoami.UserInfo.Channel == "NIGHTLY" {
 			labelIDs = append(labelIDs, labelNightlyUser)
 		}
 	}
-	if p.Whoami != nil {
-		if !isInternal && p.Whoami.UserInfo.CreatedAt.Add(24*time.Hour).After(time.Now()) {
+	if p.MatrixWhoami != nil {
+		if !isInternal && p.MatrixWhoami.UserInfo.CreatedAt.Add(24*time.Hour).After(time.Now()) {
 			labelIDs = append(labelIDs, labelNewUser)
 		}
 	}
