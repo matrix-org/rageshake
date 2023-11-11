@@ -665,10 +665,8 @@ func (s *submitServer) saveReportBackground(p parsedPayload, reportDir, listingU
 		return err
 	}
 
-	if p.AppName != "booper" {
-		if err := s.submitWebhook(context.Background(), p, listingURL, &resp); err != nil {
-			return err
-		}
+	if err := s.submitWebhook(context.Background(), p, listingURL, &resp); err != nil {
+		return err
 	}
 
 	return nil
