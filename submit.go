@@ -728,7 +728,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 	if isInternal {
 		p.IsInternal = true
 		labelIDs = append(labelIDs, labelInternalUser)
-	} else if p.AppName != "booper" {
+	} else {
 		labelIDs = append(labelIDs, labelSupportReview)
 		if p.MatrixWhoami != nil && p.MatrixWhoami.UserInfo.Channel == "NIGHTLY" {
 			labelIDs = append(labelIDs, labelNightlyUser)
