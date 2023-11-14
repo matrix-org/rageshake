@@ -367,12 +367,7 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 		}
 	}
 
-	userID, hasUserID := p.Data["user_id"]
-	delete(p.Data, "user_id")
-	delete(p.Data, "verified_device_id")
-	if !hasUserID {
-		return p
-	} else if p.AppName == "booper" {
+	if p.AppName == "booper" {
 		if gplaySpamEmailRegex.MatchString(p.Data["user_id"]) {
 			log.Println("Dropping report from", p.Data["user_id"])
 			w.Header().Set("Content-Type", "application/json")
@@ -380,7 +375,14 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 			_, _ = w.Write([]byte("{}"))
 			return nil
 		}
+	}
 
+	userID, hasUserID := p.Data["user_id"]
+	delete(p.Data, "user_id")
+	delete(p.Data, "verified_device_id")
+	if !hasUserID {
+		return p
+	} else if p.AppName == "booper" {
 		whoami, err := s.verifyIMAToken(req.Context(), req.Header.Get("Authorization"), userID)
 		if err != nil {
 			log.Printf("Error verifying user ID (%s): %v", userID, err)
