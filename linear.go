@@ -20,6 +20,7 @@ const (
 	linearTeamArchitecture = "fd2966d8-5d9a-445f-bbf9-b366b2e5951b"
 	linearTeamProduct      = "bcc6420f-b63d-4e44-b7de-004ee8338d80"
 	linearTeamBooperBugz   = "6f30428e-b614-4753-93da-d64107d6ff91"
+	linearTeamBooperEng    = "f477325d-646a-49f4-9d69-bf0e81be71c9"
 )
 
 const (
@@ -53,7 +54,7 @@ const (
 
 var appToTeamID = map[string]string{
 	"beeper-android": linearTeamAndroid,
-	"booper":         linearTeamBooperBugz,
+	"booper":         linearTeamBooperEng,
 	"beeper-ios":     linearTeamiOS,
 	"beeper-desktop": linearTeamDesktop,
 }
