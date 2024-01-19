@@ -372,7 +372,7 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 	delete(p.Data, "verified_device_id")
 	if !hasUserID {
 		return p
-	} else if p.AppName == "booper" || p.AppName == "bleeper" {
+	} else if p.AppName == "booper" {
 		if gplaySpamEmailRegex.MatchString(userID) {
 			log.Println("Dropping report from", userID)
 			w.Header().Set("Content-Type", "application/json")
