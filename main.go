@@ -26,6 +26,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/golang-jwt/jwt/v5"
 	"gopkg.in/yaml.v2"
 )
 
@@ -34,8 +35,9 @@ var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
 
 type config struct {
 	// Username and password required to access the bug report listings
-	BugsUser string `yaml:"listings_auth_user"`
-	BugsPass string `yaml:"listings_auth_pass"`
+	BugsUser      string `yaml:"listings_auth_user"`
+	BugsPass      string `yaml:"listings_auth_pass"`
+	BugsJWTSecret string `yaml:"listings_jwt_secret"`
 
 	// External URI to /api
 	APIPrefix string `yaml:"api_prefix"`
@@ -47,15 +49,59 @@ type config struct {
 	WebhookURL string `yaml:"webhook_url"`
 }
 
-func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
+const (
+	rageshakeIssuer = "com.beeper.rageshake"
+	apiServerIssuer = "com.beeper.api-server"
+)
+
+func basicAuthOrJWTAuthenticated(handler http.Handler, username, password, realm string, jwtSecret []byte) http.Handler {
+	if (username == "" || password == "") && len(jwtSecret) == 0 {
+		panic("Either username or password for basic auth must be set, or JWT secret must be set, or both")
+	}
+
+	unauthorized := func(w http.ResponseWriter) {
+		w.WriteHeader(401)
+		w.Write([]byte("Unauthorised.\n"))
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth() // pull creds from the request
+		if !ok && len(jwtSecret) == 0 { // if no basic auth and no JWT auth, return unauthorized
+			unauthorized(w)
+			return
+		} else if !ok { // if no basic auth, try to do JWT auth
+			token, err := jwt.ParseWithClaims(r.URL.Query().Get("tok"), &jwt.RegisteredClaims{}, func(token *jwt.Token) (any, error) {
+				// Don't forget to validate the alg is what you expect:
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				}
+				return jwtSecret, nil
+			})
+			if err != nil {
+				log.Printf("Error parsing JWT: %v", err)
+				unauthorized(w)
+				return
+			}
 
-		// check user and pass securely
-		if !ok || subtle.ConstantTimeCompare([]byte(user), []byte(username)) != 1 || subtle.ConstantTimeCompare([]byte(pass), []byte(password)) != 1 {
+			claims, ok := token.Claims.(*jwt.RegisteredClaims)
+			if !token.Valid || !ok {
+				log.Printf("Token invalid or claims not RegisteredClaims: %v", err)
+				unauthorized(w)
+				return
+			} else if claims.Issuer != rageshakeIssuer && claims.Issuer != apiServerIssuer {
+				log.Printf("Token issuer not rageshake or API server: %s", claims.Issuer)
+				unauthorized(w)
+				return
+			} else if claims.Subject != r.URL.Path {
+				log.Printf("Token subject (%s) not the request path (%s)", claims.Subject, r.URL.Path)
+				unauthorized(w)
+				return
+			}
+
+			log.Printf("Valid token from %s for accessing %s", claims.Issuer, claims.Subject)
+		} else if subtle.ConstantTimeCompare([]byte(user), []byte(username)) != 1 || subtle.ConstantTimeCompare([]byte(pass), []byte(password)) != 1 { // check user and pass securely
 			w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
-			w.WriteHeader(401)
-			w.Write([]byte("Unauthorised.\n"))
+			unauthorized(w)
 			return
 		}
 
@@ -99,19 +145,10 @@ func main() {
 
 	// serve files under "bugs"
 	ls := &logServer{"bugs"}
-	fs := http.StripPrefix("/api/listing/", ls)
+	fs := basicAuthOrJWTAuthenticated(ls, cfg.BugsUser, cfg.BugsPass, "Riot bug reports", []byte(cfg.BugsJWTSecret))
+	http.Handle("/api/listing/", http.StripPrefix("/api/listing/", fs))
 
-	// set auth if env vars exist
-	usr := cfg.BugsUser
-	pass := cfg.BugsPass
-	if usr == "" || pass == "" {
-		fmt.Println("No listings_auth_user/pass configured. No authentication is running for /api/listing")
-	} else {
-		fs = basicAuth(fs, usr, pass, "Riot bug reports")
-	}
-	http.Handle("/api/listing/", fs)
-
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, "ok")
 	})
 

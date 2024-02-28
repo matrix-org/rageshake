@@ -3,6 +3,7 @@
 # *no* authentication on this access!
 listings_auth_user: alice
 listings_auth_pass: secret
+listings_jwt_secret: secret
 
 # the external URL at which /api is accessible; it is used to add a link to the
 # report to the GitHub issue. If unspecified, based on the listen address.
