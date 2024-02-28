@@ -85,7 +85,7 @@ type parsedPayload struct {
 	VerifiedDeviceID string `json:"verified_device_id"`
 }
 
-func (p parsedPayload) WriteTo(out io.Writer) {
+func (p parsedPayload) WriteToBuffer(out *bytes.Buffer) {
 	fmt.Fprintf(
 		out,
 		"%s\n\nNumber of logs: %d\nApplication: %s\n",
@@ -129,7 +129,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	defer io.Copy(io.Discard, req.Body)
 
-	if req.Method != "POST" && req.Method != "OPTIONS" {
+	if req.Method != http.MethodPost && req.Method != http.MethodOptions {
 		respond(405, w)
 		return
 	}
@@ -138,7 +138,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
-	if req.Method == "OPTIONS" {
+	if req.Method == http.MethodOptions {
 		respond(200, w)
 		return
 	}
@@ -352,14 +352,14 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 
 	var p *parsedPayload
 	if isMultipart(req.Header.Get("Content-Type")) {
-		p, err = parseMultipartRequest(w, req, reportDir)
+		p, err = parseMultipartRequest(req, reportDir)
 		if err != nil {
 			log.Println("Error parsing multipart data:", err)
 			http.Error(w, "Bad multipart data", http.StatusBadRequest)
 			return nil
 		}
 	} else {
-		p, err = parseJSONRequest(w, req, reportDir)
+		p, err = parseJSONRequest(req, reportDir)
 		if err != nil {
 			log.Println("Error parsing JSON body", err)
 			http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), http.StatusBadRequest)
@@ -412,7 +412,7 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 	return p
 }
 
-func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*parsedPayload, error) {
+func parseJSONRequest(req *http.Request, reportDir string) (*parsedPayload, error) {
 	var p jsonPayload
 	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
 		return nil, err
@@ -473,7 +473,7 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string
 	return &parsed, nil
 }
 
-func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*parsedPayload, error) {
+func parseMultipartRequest(req *http.Request, reportDir string) (*parsedPayload, error) {
 	rdr, err := req.MultipartReader()
 	if err != nil {
 		return nil, err
@@ -483,7 +483,7 @@ func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir s
 		Data: make(map[string]string),
 	}
 
-	for true {
+	for {
 		part, err := rdr.NextPart()
 		if err == io.EOF {
 			break
@@ -560,22 +560,23 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 // formPartToPayload updates the relevant part of *p from a name/value pair
 // read from the form data.
 func formPartToPayload(field, data string, p *parsedPayload) {
-	if field == "text" {
+	switch field {
+	case "text":
 		p.UserText = data
-	} else if field == "app" {
+	case "app":
 		p.AppName = data
-	} else if field == "version" {
+	case "version":
 		p.Data["Version"] = data
-	} else if field == "user_agent" {
+	case "user_agent":
 		p.Data["User-Agent"] = data
-	} else if field == "label" {
+	case "label":
 		p.Labels = append(p.Labels, data)
 		if len(p.Data[field]) == 0 {
 			p.Data[field] = data
 		} else {
 			p.Data[field] = fmt.Sprintf("%s, %s", p.Data[field], data)
 		}
-	} else {
+	default:
 		p.Data[field] = data
 	}
 }
@@ -597,7 +598,7 @@ var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|heic|gif
 // Returns the leafname of the saved file.
 func saveFormPart(leafName string, reader io.Reader, reportDir string) (string, error) {
 	if !filenameRegexp.MatchString(leafName) {
-		return "", fmt.Errorf("Invalid upload filename")
+		return "", fmt.Errorf("invalid upload filename")
 	}
 
 	fullName := filepath.Join(reportDir, leafName)
@@ -674,7 +675,7 @@ func (s *submitServer) saveReportBackground(p parsedPayload, reportDir, listingU
 
 func (s *submitServer) saveReport(p parsedPayload, reportDir, listingURL string) error {
 	var summaryBuf bytes.Buffer
-	p.WriteTo(&summaryBuf)
+	p.WriteToBuffer(&summaryBuf)
 	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
 		return err
 	}

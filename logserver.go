@@ -51,7 +51,7 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// the check for '..' is a sanity-check because my understanding of `path.Clean` is that it should never return
 	// a value including '..' for input starting with '/'. It's taken from the code for http.ServeFile
 	// (https://golang.org/src/net/http/fs.go#L637).
-	if containsDotDot(upath) || strings.Contains(upath, "\x00") || (filepath.Separator != '/' && strings.IndexRune(upath, filepath.Separator) >= 0) {
+	if containsDotDot(upath) || strings.Contains(upath, "\x00") || (filepath.Separator != '/' && strings.ContainsRune(upath, filepath.Separator)) {
 		http.Error(w, "invalid URL path", http.StatusBadRequest)
 		return
 	}
@@ -137,14 +137,14 @@ func serveGzippedFile(w http.ResponseWriter, r *http.Request, path string, size 
 	}
 
 	if acceptsGzip {
-		serveGzip(w, r, path, size)
+		serveGzip(w, path, size)
 	} else {
-		serveUngzipped(w, r, path)
+		serveUngzipped(w, path)
 	}
 }
 
 // serveGzip serves a gzipped file with gzip content-encoding
-func serveGzip(w http.ResponseWriter, r *http.Request, path string, size int64) {
+func serveGzip(w http.ResponseWriter, path string, size int64) {
 	f, err := os.Open(path)
 	if err != nil {
 		msg, code := toHTTPError(err)
@@ -161,7 +161,7 @@ func serveGzip(w http.ResponseWriter, r *http.Request, path string, size int64) 
 }
 
 // serveUngzipped ungzips a gzipped file and serves it
-func serveUngzipped(w http.ResponseWriter, r *http.Request, path string) {
+func serveUngzipped(w http.ResponseWriter, path string) {
 	f, err := os.Open(path)
 	if err != nil {
 		msg, code := toHTTPError(err)
