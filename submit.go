@@ -38,6 +38,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var maxPayloadSize = 1024 * 1024 * 55 // 55 MB
@@ -659,7 +661,7 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 	return leafName, nil
 }
 
-func (s *submitServer) saveReportBackground(p parsedPayload, reportDir, listingURL string) error {
+func (s *submitServer) saveReportBackground(p parsedPayload, listingURL string) error {
 	var resp submitResponse
 
 	if err := s.submitLinearIssue(p, listingURL, &resp); err != nil {
@@ -681,7 +683,7 @@ func (s *submitServer) saveReport(p parsedPayload, reportDir, listingURL string)
 	}
 
 	go func() {
-		err := s.saveReportBackground(p, reportDir, listingURL)
+		err := s.saveReportBackground(p, listingURL)
 		if err != nil {
 			fmt.Println("Error submitting report in background:", err)
 		}
@@ -868,6 +870,16 @@ func buildReportTitle(p parsedPayload) string {
 	return title
 }
 
+func (s *submitServer) createToken(path string) (string, error) {
+	claims := &jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		Issuer:    rageshakeIssuer,
+		Subject:   path,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.cfg.BugsJWTSecret))
+}
+
 func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *bytes.Buffer {
 	var bodyBuf bytes.Buffer
 
@@ -887,19 +899,18 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 
 	fmt.Fprintf(&bodyBuf, "### User message:\n\n%s\n\n", userText)
 
-	var authedListingURL string
-	if len(p.Files) > 0 {
-		parsed, _ := url.Parse(listingURL)
-		parsed.User = url.UserPassword(s.cfg.BugsUser, s.cfg.BugsPass)
-		authedListingURL = parsed.String()
-	}
 	for _, file := range p.Files {
 		imageifier := ""
 		fileURL := listingURL + "/" + file
 		ext := strings.ToLower(filepath.Ext(file))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" {
-			imageifier = "!"
-			fileURL = authedListingURL + "/" + file
+			jwtTok, err := s.createToken(strings.TrimPrefix(fileURL, s.apiPrefix+"/listing/"))
+			if err != nil {
+				log.Printf("Error creating token for image URL: %v", err)
+			} else {
+				imageifier = "!"
+				fileURL = fileURL + "?tok=" + jwtTok
+			}
 		}
 		fmt.Fprintf(
 			&bodyBuf,
