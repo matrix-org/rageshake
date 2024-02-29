@@ -60,6 +60,7 @@ func basicAuthOrJWTAuthenticated(handler http.Handler, username, password, realm
 	}
 
 	unauthorized := func(w http.ResponseWriter) {
+		w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
 		w.WriteHeader(401)
 		w.Write([]byte("Unauthorised.\n"))
 	}
@@ -100,7 +101,6 @@ func basicAuthOrJWTAuthenticated(handler http.Handler, username, password, realm
 
 			log.Printf("Valid token from %s for accessing %s", claims.Issuer, claims.Subject)
 		} else if subtle.ConstantTimeCompare([]byte(user), []byte(username)) != 1 || subtle.ConstantTimeCompare([]byte(pass), []byte(password)) != 1 { // check user and pass securely
-			w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
 			unauthorized(w)
 			return
 		}
