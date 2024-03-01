@@ -42,7 +42,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var maxPayloadSize = 1024 * 1024 * 55 // 55 MB
+var maxPayloadSize = 1024 * 1024 * 105 // 105 MB
 
 type submitServer struct {
 	// External URI to /api
