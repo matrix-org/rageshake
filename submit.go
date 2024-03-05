@@ -37,6 +37,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/google/go-github/github"
@@ -47,6 +48,9 @@ import (
 var maxPayloadSize = 1024 * 1024 * 55 // 55 MB
 
 type submitServer struct {
+	// Template for building github and gitlab issues
+	issueTemplate *template.Template
+
 	// github client for reporting bugs. may be nil, in which case,
 	// reporting is disabled.
 	ghClient *github.Client
@@ -78,6 +82,15 @@ type jsonLogEntry struct {
 	Lines string `json:"lines"`
 }
 
+// `issueBodyTemplatePayload` contains the data made available to the `issue_body_template`.
+//
+// !!! Keep in step with the documentation in `README.md` !!!
+type issueBodyTemplatePayload struct {
+	payload
+	// Complete link to the listing URL that contains all uploaded logs
+	ListingURL string
+}
+
 // Stores additional information created during processing of a payload
 type genericWebhookPayload struct {
 	payload
@@ -87,7 +100,10 @@ type genericWebhookPayload struct {
 	ListingURL string `json:"listing_url"`
 }
 
-// Stores information about a request made to this server
+// `payload` stores information about a request made to this server.
+//
+// !!! Since this is inherited by `issueBodyTemplatePayload`, remember to keep it in step
+// with the documentation in `README.md` !!!
 type payload struct {
 	// A unique ID for this payload, generated within this server 
 	ID         string            `json:"id"`
@@ -580,7 +596,7 @@ func (s *submitServer) submitGithubIssue(ctx context.Context, p payload, listing
 	}
 	owner, repo := splits[0], splits[1]
 
-	issueReq, err := buildGithubIssueRequest(p, listingURL)
+	issueReq, err := buildGithubIssueRequest(p, listingURL, s.issueTemplate)
 	if err != nil {
 		return err
 	}
@@ -605,7 +621,7 @@ func (s *submitServer) submitGitlabIssue(p payload, listingURL string, resp *sub
 	glProj := s.cfg.GitlabProjectMappings[p.AppName]
 	glLabels := s.cfg.GitlabProjectLabels[p.AppName]
 
-	issueReq, err := buildGitlabIssueRequest(p, listingURL, glLabels, s.cfg.GitlabIssueConfidential)
+	issueReq, err := buildGitlabIssueRequest(p, listingURL, s.issueTemplate, glLabels, s.cfg.GitlabIssueConfidential)
 	if err != nil {
 		return err
 	}
@@ -671,31 +687,26 @@ func buildReportBody(p payload, newline, quoteChar string) *bytes.Buffer {
 	return &bodyBuf
 }
 
-func buildGenericIssueRequest(p payload, listingURL string) (title, body string, err error) {
-	bodyBuf := buildReportBody(p, "  \n", "`")
+func buildGenericIssueRequest(p payload, listingURL string, bodyTemplate *template.Template) (title, body string, err error) {
+	var bodyBuf bytes.Buffer
 
-	// Add log links to the body
-	fmt.Fprintf(bodyBuf, "\n[Logs](%s)", listingURL)
-	fmt.Fprintf(bodyBuf, " ([archive](%s))", listingURL+"?format=tar.gz")
+	issuePayload := issueBodyTemplatePayload{
+		payload:    p,
+		ListingURL: listingURL,
+	}
 
-	for _, file := range p.Files {
-		fmt.Fprintf(
-			bodyBuf,
-			" / [%s](%s)",
-			file,
-			listingURL+"/"+file,
-		)
+	if err = bodyTemplate.Execute(&bodyBuf, issuePayload); err != nil {
+		return
 	}
 
 	title = buildReportTitle(p)
-
 	body = bodyBuf.String()
 
 	return
 }
 
-func buildGithubIssueRequest(p payload, listingURL string) (*github.IssueRequest, error) {
-	title, body, err := buildGenericIssueRequest(p, listingURL)
+func buildGithubIssueRequest(p payload, listingURL string, bodyTemplate *template.Template) (*github.IssueRequest, error) {
+	title, body, err := buildGenericIssueRequest(p, listingURL, bodyTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -712,8 +723,8 @@ func buildGithubIssueRequest(p payload, listingURL string) (*github.IssueRequest
 	}, nil
 }
 
-func buildGitlabIssueRequest(p payload, listingURL string, labels []string, confidential bool) (*gitlab.CreateIssueOptions, error) {
-	title, body, err := buildGenericIssueRequest(p, listingURL)
+func buildGitlabIssueRequest(p payload, listingURL string, bodyTemplate *template.Template, labels []string, confidential bool) (*gitlab.CreateIssueOptions, error) {
+	title, body, err := buildGenericIssueRequest(p, listingURL, bodyTemplate)
 	if err != nil {
 		return nil, err
 	}

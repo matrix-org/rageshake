@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/google/go-github/github"
@@ -36,6 +37,20 @@ import (
 
 	"gopkg.in/yaml.v2"
 )
+
+// DefaultIssueBodyTemplate is the default template used for `issue_body_template` in the config.
+//
+// !!! Keep in step with the documentation in `rageshake.sample.yaml` !!!
+const DefaultIssueBodyTemplate = `User message:
+{{ .UserText }}
+
+{{ range $key, $val := .Data -}}
+{{ $key }}: ` + "`{{ $val }}`" + `
+{{ end }}
+[Logs]({{ .ListingURL }}) ([archive]({{ .ListingURL }}?format=tar.gz))
+{{- range $file := .Files}} / [{{ $file }}]({{ $.ListingURL }}/{{ $file }})
+{{- end }}
+`
 
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
@@ -62,6 +77,8 @@ type config struct {
 	GitlabProjectMappings   map[string]int      `yaml:"gitlab_project_mappings"`
 	GitlabProjectLabels     map[string][]string `yaml:"gitlab_project_labels"`
 	GitlabIssueConfidential bool                `yaml:"gitlab_issue_confidential"`
+
+	IssueBodyTemplate string `yaml:"issue_body_template"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`
 
@@ -158,7 +175,16 @@ func main() {
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
 	rand.Seed(time.Now().UnixNano())
-	http.Handle("/api/submit", &submitServer{ghClient, glClient, apiPrefix, slack, genericWebhookClient, appNameMap, cfg})
+	http.Handle("/api/submit", &submitServer{
+		issueTemplate:        parseIssueTemplate(cfg),
+		ghClient:             ghClient,
+		glClient:             glClient,
+		apiPrefix:            apiPrefix,
+		slack:                slack,
+		genericWebhookClient: genericWebhookClient,
+		allowedAppNameMap:    appNameMap,
+		cfg:                  cfg,
+	})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)
@@ -184,6 +210,18 @@ func main() {
 	log.Println("Listening on", *bindAddr)
 
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))
+}
+
+func parseIssueTemplate(cfg *config) *template.Template {
+	issueTemplate := cfg.IssueBodyTemplate
+	if issueTemplate == "" {
+		issueTemplate = DefaultIssueBodyTemplate
+	}
+	parsedIssueTemplate, err := template.New("issue").Parse(issueTemplate)
+	if err != nil {
+		log.Fatalf("Invalid `issue_template` in config file: %s", err)
+	}
+	return parsedIssueTemplate
 }
 
 func configureAppNameMap(cfg *config) map[string]bool {
