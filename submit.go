@@ -580,9 +580,12 @@ func (s *submitServer) submitGithubIssue(ctx context.Context, p payload, listing
 	}
 	owner, repo := splits[0], splits[1]
 
-	issueReq := buildGithubIssueRequest(p, listingURL)
+	issueReq, err := buildGithubIssueRequest(p, listingURL)
+	if err != nil {
+		return err
+	}
 
-	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, &issueReq)
+	issue, _, err := s.ghClient.Issues.Create(ctx, owner, repo, issueReq)
 	if err != nil {
 		return err
 	}
@@ -602,7 +605,10 @@ func (s *submitServer) submitGitlabIssue(p payload, listingURL string, resp *sub
 	glProj := s.cfg.GitlabProjectMappings[p.AppName]
 	glLabels := s.cfg.GitlabProjectLabels[p.AppName]
 
-	issueReq := buildGitlabIssueRequest(p, listingURL, glLabels, s.cfg.GitlabIssueConfidential)
+	issueReq, err := buildGitlabIssueRequest(p, listingURL, glLabels, s.cfg.GitlabIssueConfidential)
+	if err != nil {
+		return err
+	}
 
 	issue, _, err := s.glClient.Issues.CreateIssue(glProj, issueReq)
 
@@ -665,7 +671,7 @@ func buildReportBody(p payload, newline, quoteChar string) *bytes.Buffer {
 	return &bodyBuf
 }
 
-func buildGenericIssueRequest(p payload, listingURL string) (title, body string) {
+func buildGenericIssueRequest(p payload, listingURL string) (title, body string, err error) {
 	bodyBuf := buildReportBody(p, "  \n", "`")
 
 	// Add log links to the body
@@ -688,23 +694,29 @@ func buildGenericIssueRequest(p payload, listingURL string) (title, body string)
 	return
 }
 
-func buildGithubIssueRequest(p payload, listingURL string) github.IssueRequest {
-	title, body := buildGenericIssueRequest(p, listingURL)
+func buildGithubIssueRequest(p payload, listingURL string) (*github.IssueRequest, error) {
+	title, body, err := buildGenericIssueRequest(p, listingURL)
+	if err != nil {
+		return nil, err
+	}
 
 	labels := p.Labels
 	// go-github doesn't like nils
 	if labels == nil {
 		labels = []string{}
 	}
-	return github.IssueRequest{
+	return &github.IssueRequest{
 		Title:  &title,
 		Body:   &body,
 		Labels: &labels,
-	}
+	}, nil
 }
 
-func buildGitlabIssueRequest(p payload, listingURL string, labels []string, confidential bool) *gitlab.CreateIssueOptions {
-	title, body := buildGenericIssueRequest(p, listingURL)
+func buildGitlabIssueRequest(p payload, listingURL string, labels []string, confidential bool) (*gitlab.CreateIssueOptions, error) {
+	title, body, err := buildGenericIssueRequest(p, listingURL)
+	if err != nil {
+		return nil, err
+	}
 
 	if p.Labels != nil {
 		labels = append(labels, p.Labels...)
@@ -715,7 +727,7 @@ func buildGitlabIssueRequest(p payload, listingURL string, labels []string, conf
 		Description:  &body,
 		Confidential: &confidential,
 		Labels:       labels,
-	}
+	}, nil
 }
 
 func (s *submitServer) sendEmail(p payload, reportDir string) error {
