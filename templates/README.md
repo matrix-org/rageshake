@@ -5,7 +5,7 @@ The templates can be overridden via settings in the config file.
 The templates are as follows:
 
 * `issue_body.tmpl`: Used when filing an issue at Github or Gitlab, and gives the issue description. Override via
-  the `issue_body_template` setting in the configuration file.
+  the `issue_body_template_file` setting in the configuration file.
 
 See https://pkg.go.dev/text/template#pkg-overview for documentation of the template language.
 

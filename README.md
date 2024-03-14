@@ -21,7 +21,7 @@ Optional parameters:
 ## Issue template
 
 It is possible to specify a template in the configuration file which will be used to build the
-body of any issues created on Github or Gitlab, via the `issue_body_template` setting. See
+body of any issues created on Github or Gitlab, via the `issue_body_template_file` setting. See
 [templates/README.md](templates/README.md) for more information.
 
 ## HTTP endpoints

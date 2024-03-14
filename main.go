@@ -70,7 +70,7 @@ type config struct {
 	GitlabProjectLabels     map[string][]string `yaml:"gitlab_project_labels"`
 	GitlabIssueConfidential bool                `yaml:"gitlab_issue_confidential"`
 
-	IssueBodyTemplate string `yaml:"issue_body_template"`
+	IssueBodyTemplateFile string `yaml:"issue_body_template_file"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`
 
@@ -205,13 +205,18 @@ func main() {
 }
 
 func parseIssueTemplate(cfg *config) *template.Template {
-	issueTemplate := cfg.IssueBodyTemplate
-	if issueTemplate == "" {
-		issueTemplate = DefaultIssueBodyTemplate
+	issueTemplate := DefaultIssueBodyTemplate
+	issueTemplateFile := cfg.IssueBodyTemplateFile
+	if issueTemplateFile != "" {
+		issueTemplateBytes, err := os.ReadFile(issueTemplateFile)
+		if err != nil {
+			log.Fatalf("Unable to read template file `%s`: %s", issueTemplateFile, err)
+		}
+		issueTemplate = string(issueTemplateBytes)
 	}
 	parsedIssueTemplate, err := template.New("issue").Parse(issueTemplate)
 	if err != nil {
-		log.Fatalf("Invalid `issue_template` in config file: %s", err)
+		log.Fatalf("Invalid `issue body template` in config file: %s", err)
 	}
 	return parsedIssueTemplate
 }

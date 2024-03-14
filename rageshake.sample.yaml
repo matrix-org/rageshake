@@ -21,18 +21,9 @@ github_token: secrettoken
 github_project_mappings:
    my-app: octocat/HelloWorld
 
-# A template for the body of Github and Gitlab issues. The default template is as shown below.
-#
-# See `templates/README.md` for more information on what can be specified here.
-issue_body_template: |
-  {{ .UserText }}
-  
-  {{ range $key, $val := .Data -}}
-  {{ $key }}: `{{ $val }}`
-  {{ end }}
-  [Logs]({{ .ListingURL }}) ([archive]({{ .ListingURL }}?format=tar.gz))
-  {{- range $file := .Files}} / [{{ $file }}]({{ $.ListingURL }}/{{ $file }})
-  {{- end }}
+# The path of a template for the body of Github and Gitlab issues. See `templates/README.md` for more information on
+# the templates.
+issue_body_template_file: path/to/issue_body.tmpl
 
 # a GitLab personal access token (https://gitlab.com/-/profile/personal_access_tokens), which
 # will be used to create a GitLab issue for each report. It requires
