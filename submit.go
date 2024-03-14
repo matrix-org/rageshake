@@ -84,7 +84,7 @@ type jsonLogEntry struct {
 
 // `issueBodyTemplatePayload` contains the data made available to the `issue_body_template`.
 //
-// !!! Keep in step with the documentation in `README.md` !!!
+// !!! Keep in step with the documentation in `templates/README.md` !!!
 type issueBodyTemplatePayload struct {
 	payload
 	// Complete link to the listing URL that contains all uploaded logs
@@ -103,7 +103,7 @@ type genericWebhookPayload struct {
 // `payload` stores information about a request made to this server.
 //
 // !!! Since this is inherited by `issueBodyTemplatePayload`, remember to keep it in step
-// with the documentation in `README.md` !!!
+// with the documentation in `templates/README.md` !!!
 type payload struct {
 	// A unique ID for this payload, generated within this server 
 	ID         string            `json:"id"`

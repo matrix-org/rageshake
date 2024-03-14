@@ -1,0 +1,9 @@
+User message:
+{{ .UserText }}
+
+{{ range $key, $val := .Data -}}
+{{ $key }}: `{{ $val }}`
+{{ end }}
+[Logs]({{ .ListingURL }}) ([archive]({{ .ListingURL }}?format=tar.gz))
+{{- range $file := .Files}} / [{{ $file }}]({{ $.ListingURL }}/{{ $file }})
+{{- end }}

@@ -37,20 +37,12 @@ import (
 
 	"gopkg.in/yaml.v2"
 )
+import _ "embed"
 
-// DefaultIssueBodyTemplate is the default template used for `issue_body_template` in the config.
+// DefaultIssueBodyTemplate is the default template used for `issue_body_template_file` in the config.
 //
-// !!! Keep in step with the documentation in `rageshake.sample.yaml` !!!
-const DefaultIssueBodyTemplate = `User message:
-{{ .UserText }}
-
-{{ range $key, $val := .Data -}}
-{{ $key }}: ` + "`{{ $val }}`" + `
-{{ end }}
-[Logs]({{ .ListingURL }}) ([archive]({{ .ListingURL }}?format=tar.gz))
-{{- range $file := .Files}} / [{{ $file }}]({{ $.ListingURL }}/{{ $file }})
-{{- end }}
-`
+//go:embed templates/issue_body.tmpl
+var DefaultIssueBodyTemplate string
 
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")

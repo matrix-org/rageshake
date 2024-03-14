@@ -23,7 +23,7 @@ github_project_mappings:
 
 # A template for the body of Github and Gitlab issues. The default template is as shown below.
 #
-# See `README.md` for more information on what can be specified here.
+# See `templates/README.md` for more information on what can be specified here.
 issue_body_template: |
   {{ .UserText }}
   
