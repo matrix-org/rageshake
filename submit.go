@@ -687,7 +687,7 @@ func buildReportBody(p payload, newline, quoteChar string) *bytes.Buffer {
 	return &bodyBuf
 }
 
-func buildGenericIssueRequest(p payload, listingURL string, bodyTemplate *template.Template) (title, body string, err error) {
+func buildGenericIssueRequest(p payload, listingURL string, bodyTemplate *template.Template) (title string, body []byte, err error) {
 	var bodyBuf bytes.Buffer
 
 	issuePayload := issueBodyTemplatePayload{
@@ -700,7 +700,7 @@ func buildGenericIssueRequest(p payload, listingURL string, bodyTemplate *templa
 	}
 
 	title = buildReportTitle(p)
-	body = bodyBuf.String()
+	body = bodyBuf.Bytes()
 
 	return
 }
@@ -716,9 +716,10 @@ func buildGithubIssueRequest(p payload, listingURL string, bodyTemplate *templat
 	if labels == nil {
 		labels = []string{}
 	}
+	bodyStr := string(body)
 	return &github.IssueRequest{
 		Title:  &title,
-		Body:   &body,
+		Body:   &bodyStr,
 		Labels: &labels,
 	}, nil
 }
@@ -733,9 +734,10 @@ func buildGitlabIssueRequest(p payload, listingURL string, bodyTemplate *templat
 		labels = append(labels, p.Labels...)
 	}
 
+	bodyStr := string(body)
 	return &gitlab.CreateIssueOptions{
 		Title:        &title,
-		Description:  &body,
+		Description:  &bodyStr,
 		Confidential: &confidential,
 		Labels:       labels,
 	}, nil
