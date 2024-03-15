@@ -70,7 +70,7 @@ func submitSimpleRequestToServer(t *testing.T, allowedAppNameMap map[string]bool
 	w := httptest.NewRecorder()
 
 	var cfg config
-	s := &submitServer{nil, nil, nil, "/", nil, nil, allowedAppNameMap, &cfg}
+	s := &submitServer{nil, nil, nil, nil, "/", nil, nil, allowedAppNameMap, &cfg}
 
 	s.ServeHTTP(w, req)
 	rsp := w.Result()

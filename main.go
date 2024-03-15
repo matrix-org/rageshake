@@ -44,6 +44,11 @@ import _ "embed"
 //go:embed templates/issue_body.tmpl
 var DefaultIssueBodyTemplate string
 
+// DefaultEmailBodyTemplate is the default template used for `email_body_template_file` in the config.
+//
+//go:embed templates/email_body.tmpl
+var DefaultEmailBodyTemplate string
+
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
 
@@ -71,6 +76,7 @@ type config struct {
 	GitlabIssueConfidential bool                `yaml:"gitlab_issue_confidential"`
 
 	IssueBodyTemplateFile string `yaml:"issue_body_template_file"`
+	EmailBodyTemplateFile string `yaml:"email_body_template_file"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`
 
@@ -169,6 +175,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	http.Handle("/api/submit", &submitServer{
 		issueTemplate:        parseTemplate(DefaultIssueBodyTemplate, cfg.IssueBodyTemplateFile, "issue"),
+		emailTemplate:        parseTemplate(DefaultEmailBodyTemplate, cfg.EmailBodyTemplateFile, "email"),
 		ghClient:             ghClient,
 		glClient:             glClient,
 		apiPrefix:            apiPrefix,

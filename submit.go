@@ -51,6 +51,9 @@ type submitServer struct {
 	// Template for building github and gitlab issues
 	issueTemplate *template.Template
 
+	// Template for building emails
+	emailTemplate *template.Template
+
 	// github client for reporting bugs. may be nil, in which case,
 	// reporting is disabled.
 	ghClient *github.Client
@@ -82,7 +85,8 @@ type jsonLogEntry struct {
 	Lines string `json:"lines"`
 }
 
-// `issueBodyTemplatePayload` contains the data made available to the `issue_body_template`.
+// `issueBodyTemplatePayload` contains the data made available to the `issue_body_template` and
+// `email_body_template`.
 //
 // !!! Keep in step with the documentation in `templates/README.md` !!!
 type issueBodyTemplatePayload struct {
@@ -521,7 +525,7 @@ func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, lis
 		return nil, err
 	}
 
-	if err := s.sendEmail(p, reportDir); err != nil {
+	if err := s.sendEmail(p, reportDir, listingURL); err != nil {
 		return nil, err
 	}
 
@@ -671,22 +675,6 @@ func buildReportTitle(p payload) string {
 	return trimmedUserText
 }
 
-func buildReportBody(p payload, newline, quoteChar string) *bytes.Buffer {
-	var bodyBuf bytes.Buffer
-	fmt.Fprintf(&bodyBuf, "User message:\n\n%s\n\n", p.UserText)
-	var dataKeys []string
-	for k := range p.Data {
-		dataKeys = append(dataKeys, k)
-	}
-	sort.Strings(dataKeys)
-	for _, k := range dataKeys {
-		v := p.Data[k]
-		fmt.Fprintf(&bodyBuf, "%s: %s%s%s%s", k, quoteChar, v, quoteChar, newline)
-	}
-
-	return &bodyBuf
-}
-
 func buildGenericIssueRequest(p payload, listingURL string, bodyTemplate *template.Template) (title string, body []byte, err error) {
 	var bodyBuf bytes.Buffer
 
@@ -743,9 +731,14 @@ func buildGitlabIssueRequest(p payload, listingURL string, bodyTemplate *templat
 	}, nil
 }
 
-func (s *submitServer) sendEmail(p payload, reportDir string) error {
+func (s *submitServer) sendEmail(p payload, reportDir string, listingURL string) error {
 	if len(s.cfg.EmailAddresses) == 0 {
 		return nil
+	}
+
+	title, body, err := buildGenericIssueRequest(p, listingURL, s.emailTemplate)
+	if err != nil {
+		return err
 	}
 
 	e := email.NewEmail()
@@ -756,10 +749,8 @@ func (s *submitServer) sendEmail(p payload, reportDir string) error {
 	}
 
 	e.To = s.cfg.EmailAddresses
-
-	e.Subject = fmt.Sprintf("[%s] %s", p.AppName, buildReportTitle(p))
-
-	e.Text = buildReportBody(p, "\n", "\"").Bytes()
+	e.Subject = fmt.Sprintf("[%s] %s", p.AppName, title)
+	e.Text = body
 
 	allFiles := append(p.Files, p.Logs...)
 	for _, file := range allFiles {
@@ -771,7 +762,7 @@ func (s *submitServer) sendEmail(p payload, reportDir string) error {
 	if s.cfg.SMTPPassword != "" || s.cfg.SMTPUsername != "" {
 		auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPServer)
 	}
-	err := e.Send(s.cfg.SMTPServer, auth)
+	err = e.Send(s.cfg.SMTPServer, auth)
 	if err != nil {
 		return err
 	}

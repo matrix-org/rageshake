@@ -6,6 +6,7 @@ The templates are as follows:
 
 * `issue_body.tmpl`: Used when filing an issue at Github or Gitlab, and gives the issue description. Override via
   the `issue_body_template_file` setting in the configuration file.
+* `email_body.tmpl`: Used when sending an email. Override via the `email_body_template_file` configuration setting.
 
 See https://pkg.go.dev/text/template#pkg-overview for documentation of the template language.
 

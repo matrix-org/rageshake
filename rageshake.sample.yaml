@@ -21,10 +21,6 @@ github_token: secrettoken
 github_project_mappings:
    my-app: octocat/HelloWorld
 
-# The path of a template for the body of Github and Gitlab issues. See `templates/README.md` for more information on
-# the templates.
-issue_body_template_file: path/to/issue_body.tmpl
-
 # a GitLab personal access token (https://gitlab.com/-/profile/personal_access_tokens), which
 # will be used to create a GitLab issue for each report. It requires
 # `api` scope. If omitted, no issues will be created.
@@ -63,3 +59,8 @@ smtp_password: myemailpass
 generic_webhook_urls: 
   - https://server.example.com/your-server/api
   - http://another-server.com/api
+
+# The paths of template files for the body of Github and Gitlab issues, and emails.
+# See `templates/README.md` for more information.
+issue_body_template_file: path/to/issue_body.tmpl
+email_body_template_file: path/to/email_body.tmpl
