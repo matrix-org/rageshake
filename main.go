@@ -168,7 +168,7 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 	http.Handle("/api/submit", &submitServer{
-		issueTemplate:        parseIssueTemplate(cfg),
+		issueTemplate:        parseTemplate(DefaultIssueBodyTemplate, cfg.IssueBodyTemplateFile, "issue"),
 		ghClient:             ghClient,
 		glClient:             glClient,
 		apiPrefix:            apiPrefix,
@@ -204,21 +204,26 @@ func main() {
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))
 }
 
-func parseIssueTemplate(cfg *config) *template.Template {
-	issueTemplate := DefaultIssueBodyTemplate
-	issueTemplateFile := cfg.IssueBodyTemplateFile
-	if issueTemplateFile != "" {
-		issueTemplateBytes, err := os.ReadFile(issueTemplateFile)
+// parseTemplate parses a template file, with fallback to default.
+//
+// If `configFileSettingValue` is non-empty, it is used as the name of a file to read. Otherwise, `defaultTemplate` is
+// used.
+//
+// The template text is then parsed into a template named `templateName`.
+func parseTemplate(defaultTemplate string, configFileSettingValue string, templateName string) *template.Template {
+	templateText := defaultTemplate
+	if configFileSettingValue != "" {
+		issueTemplateBytes, err := os.ReadFile(configFileSettingValue)
 		if err != nil {
-			log.Fatalf("Unable to read template file `%s`: %s", issueTemplateFile, err)
+			log.Fatalf("Unable to read template file `%s`: %s", configFileSettingValue, err)
 		}
-		issueTemplate = string(issueTemplateBytes)
+		templateText = string(issueTemplateBytes)
 	}
-	parsedIssueTemplate, err := template.New("issue").Parse(issueTemplate)
+	parsedTemplate, err := template.New(templateName).Parse(templateText)
 	if err != nil {
-		log.Fatalf("Invalid `issue body template` in config file: %s", err)
+		log.Fatalf("Invalid template file %s in config file: %s", configFileSettingValue, err)
 	}
-	return parsedIssueTemplate
+	return parsedTemplate
 }
 
 func configureAppNameMap(cfg *config) map[string]bool {
