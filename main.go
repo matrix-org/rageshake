@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/google/go-github/github"
@@ -36,6 +37,17 @@ import (
 
 	"gopkg.in/yaml.v2"
 )
+import _ "embed"
+
+// DefaultIssueBodyTemplate is the default template used for `issue_body_template_file` in the config.
+//
+//go:embed templates/issue_body.tmpl
+var DefaultIssueBodyTemplate string
+
+// DefaultEmailBodyTemplate is the default template used for `email_body_template_file` in the config.
+//
+//go:embed templates/email_body.tmpl
+var DefaultEmailBodyTemplate string
 
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
@@ -62,6 +74,9 @@ type config struct {
 	GitlabProjectMappings   map[string]int      `yaml:"gitlab_project_mappings"`
 	GitlabProjectLabels     map[string][]string `yaml:"gitlab_project_labels"`
 	GitlabIssueConfidential bool                `yaml:"gitlab_issue_confidential"`
+
+	IssueBodyTemplateFile string `yaml:"issue_body_template_file"`
+	EmailBodyTemplateFile string `yaml:"email_body_template_file"`
 
 	SlackWebhookURL string `yaml:"slack_webhook_url"`
 
@@ -158,7 +173,17 @@ func main() {
 	log.Printf("Using %s/listing as public URI", apiPrefix)
 
 	rand.Seed(time.Now().UnixNano())
-	http.Handle("/api/submit", &submitServer{ghClient, glClient, apiPrefix, slack, genericWebhookClient, appNameMap, cfg})
+	http.Handle("/api/submit", &submitServer{
+		issueTemplate:        parseTemplate(DefaultIssueBodyTemplate, cfg.IssueBodyTemplateFile, "issue"),
+		emailTemplate:        parseTemplate(DefaultEmailBodyTemplate, cfg.EmailBodyTemplateFile, "email"),
+		ghClient:             ghClient,
+		glClient:             glClient,
+		apiPrefix:            apiPrefix,
+		slack:                slack,
+		genericWebhookClient: genericWebhookClient,
+		allowedAppNameMap:    appNameMap,
+		cfg:                  cfg,
+	})
 
 	// Make sure bugs directory exists
 	_ = os.Mkdir("bugs", os.ModePerm)
@@ -184,6 +209,28 @@ func main() {
 	log.Println("Listening on", *bindAddr)
 
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))
+}
+
+// parseTemplate parses a template file, with fallback to default.
+//
+// If `templateFilePath` is non-empty, it is used as the name of a file to read. Otherwise, `defaultTemplate` is
+// used.
+//
+// The template text is then parsed into a template named `templateName`.
+func parseTemplate(defaultTemplate string, templateFilePath string, templateName string) *template.Template {
+	templateText := defaultTemplate
+	if templateFilePath != "" {
+		issueTemplateBytes, err := os.ReadFile(templateFilePath)
+		if err != nil {
+			log.Fatalf("Unable to read template file `%s`: %s", templateFilePath, err)
+		}
+		templateText = string(issueTemplateBytes)
+	}
+	parsedTemplate, err := template.New(templateName).Parse(templateText)
+	if err != nil {
+		log.Fatalf("Invalid template file %s in config file: %s", templateFilePath, err)
+	}
+	return parsedTemplate
 }
 
 func configureAppNameMap(cfg *config) map[string]bool {

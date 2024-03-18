@@ -18,6 +18,11 @@ Optional parameters:
  * `-listen <address>`: TCP network address to listen for HTTP requests
    on. Example: `:9110`.
 
+## Issue template
+
+It is possible to override the templates used to construct emails, and Github and Gitlab issues.
+See [templates/README.md](templates/README.md) for more information.
+
 ## HTTP endpoints
 
 The following HTTP endpoints are exposed:

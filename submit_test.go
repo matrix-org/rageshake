@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"text/template"
 )
 
 // testParsePayload builds a /submit request with the given body, and calls
@@ -56,11 +57,10 @@ func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*
 	return p, rr.Result()
 }
 
-
 func submitSimpleRequestToServer(t *testing.T, allowedAppNameMap map[string]bool, body string) int {
-        // Submit a request without files to the server and return statusCode
-        // Could be extended with more complicated config; aimed here just to
-        // test options for allowedAppNameMap
+	// Submit a request without files to the server and return statusCode
+	// Could be extended with more complicated config; aimed here just to
+	// test options for allowedAppNameMap
 
 	req, err := http.NewRequest("POST", "/api/submit", strings.NewReader(body))
 	if err != nil {
@@ -70,7 +70,7 @@ func submitSimpleRequestToServer(t *testing.T, allowedAppNameMap map[string]bool
 	w := httptest.NewRecorder()
 
 	var cfg config
-	s := &submitServer{nil, nil, "/", nil, nil, allowedAppNameMap, &cfg}
+	s := &submitServer{nil, nil, nil, nil, "/", nil, nil, allowedAppNameMap, &cfg}
 
 	s.ServeHTTP(w, req)
 	rsp := w.Result()
@@ -406,6 +406,63 @@ func mkTempDir(t *testing.T) string {
  * buildGithubIssueRequest tests
  */
 
+// General test of Github issue formatting.
+func TestBuildGithubIssue(t *testing.T) {
+	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="text"
+
+
+test words.
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="app"
+
+riot-web
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="User-Agent"
+
+xxx
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="user_id"
+
+id
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="device_id"
+
+id
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="version"
+
+1
+------WebKitFormBoundarySsdgl8Nq9voFyhdO
+Content-Disposition: form-data; name="file"; filename="passwd.txt"
+
+file
+------WebKitFormBoundarySsdgl8Nq9voFyhdO--
+`
+	p, _ := testParsePayload(t, body,
+		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
+		"",
+	)
+
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
+
+	parsedIssueTemplate := template.Must(template.New("issue").Parse(DefaultIssueBodyTemplate))
+	issueReq, err := buildGithubIssueRequest(*p, "http://test/listing/foo", parsedIssueTemplate)
+	if err != nil {
+		t.Fatalf("Error building issue request: %s", err)
+	}
+
+	if *issueReq.Title != "test words." {
+		t.Errorf("Title: got %s, want %s", *issueReq.Title, "test words.")
+	}
+	expectedBody := "User message:\n\ntest words.\n\nUser-Agent: `xxx`\nVersion: `1`\ndevice_id: `id`\nuser_id: `id`\n\n[Logs](http://test/listing/foo) ([archive](http://test/listing/foo?format=tar.gz)) / [passwd.txt](http://test/listing/foo/passwd.txt)\n"
+	if *issueReq.Body != expectedBody {
+		t.Errorf("Body: got %s, want %s", *issueReq.Body, expectedBody)
+	}
+}
+
 func TestBuildGithubIssueLeadingNewline(t *testing.T) {
 	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
 Content-Disposition: form-data; name="text"
@@ -427,12 +484,16 @@ riot-web
 		t.Fatal("parseRequest returned nil")
 	}
 
-	issueReq := buildGithubIssueRequest(*p, "http://test/listing/foo")
+	parsedIssueTemplate := template.Must(template.New("issue").Parse(DefaultIssueBodyTemplate))
+	issueReq, err := buildGithubIssueRequest(*p, "http://test/listing/foo", parsedIssueTemplate)
+	if err != nil {
+		t.Fatalf("Error building issue request: %s", err)
+	}
 
 	if *issueReq.Title != "test words." {
 		t.Errorf("Title: got %s, want %s", *issueReq.Title, "test words.")
 	}
-	expectedBody := "User message:\n\n\ntest words.\n"
+	expectedBody := "User message:\n\ntest words.\n"
 	if !strings.HasPrefix(*issueReq.Body, expectedBody) {
 		t.Errorf("Body: got %s, want %s", *issueReq.Body, expectedBody)
 	}
@@ -453,7 +514,11 @@ Content-Disposition: form-data; name="text"
 		t.Fatal("parseRequest returned nil")
 	}
 
-	issueReq := buildGithubIssueRequest(*p, "http://test/listing/foo")
+	parsedIssueTemplate := template.Must(template.New("issue").Parse(DefaultIssueBodyTemplate))
+	issueReq, err := buildGithubIssueRequest(*p, "http://test/listing/foo", parsedIssueTemplate)
+	if err != nil {
+		t.Fatalf("Error building issue request: %s", err)
+	}
 
 	if *issueReq.Title != "Untitled report" {
 		t.Errorf("Title: got %s, want %s", *issueReq.Title, "Untitled report")
@@ -464,7 +529,7 @@ Content-Disposition: form-data; name="text"
 	}
 }
 
-func TestTestSortDataKeys(t *testing.T) {
+func TestSortDataKeys(t *testing.T) {
 	expect := `
 Number of logs: 0
 Application: 
@@ -506,9 +571,13 @@ user_id: id
 		}
 	}
 
+	parsedIssueTemplate := template.Must(template.New("issue").Parse(DefaultIssueBodyTemplate))
 	for k, v := range sample {
 		p := payload{Data: v.data}
-		res := buildGithubIssueRequest(p, "")
+		res, err := buildGithubIssueRequest(p, "", parsedIssueTemplate)
+		if err != nil {
+			t.Fatalf("Error building issue request: %s", err)
+		}
 		got := *res.Body
 		if k == 0 {
 			expect = got

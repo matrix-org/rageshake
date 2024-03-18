@@ -1,3 +1,12 @@
+UNRELEASED
+==========
+
+Features
+--------
+
+- Allow configuration of the body of created Github/Gitlab issues via a template in the configuration file. ([\#84](https://github.com/matrix-org/rageshake/issues/84))
+
+
 1.11.0 (2023-08-11)
 ===================
 

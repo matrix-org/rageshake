@@ -55,8 +55,12 @@ smtp_server: localhost:25
 smtp_username: myemailuser
 smtp_password: myemailpass
 
-
 # a list of webhook URLs, (see docs/generic_webhook.md)
 generic_webhook_urls: 
   - https://server.example.com/your-server/api
   - http://another-server.com/api
+
+# The paths of template files for the body of Github and Gitlab issues, and emails.
+# See `templates/README.md` for more information.
+issue_body_template_file: path/to/issue_body.tmpl
+email_body_template_file: path/to/email_body.tmpl
