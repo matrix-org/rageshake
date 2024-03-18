@@ -213,22 +213,22 @@ func main() {
 
 // parseTemplate parses a template file, with fallback to default.
 //
-// If `configFileSettingValue` is non-empty, it is used as the name of a file to read. Otherwise, `defaultTemplate` is
+// If `templateFilePath` is non-empty, it is used as the name of a file to read. Otherwise, `defaultTemplate` is
 // used.
 //
 // The template text is then parsed into a template named `templateName`.
-func parseTemplate(defaultTemplate string, configFileSettingValue string, templateName string) *template.Template {
+func parseTemplate(defaultTemplate string, templateFilePath string, templateName string) *template.Template {
 	templateText := defaultTemplate
-	if configFileSettingValue != "" {
-		issueTemplateBytes, err := os.ReadFile(configFileSettingValue)
+	if templateFilePath != "" {
+		issueTemplateBytes, err := os.ReadFile(templateFilePath)
 		if err != nil {
-			log.Fatalf("Unable to read template file `%s`: %s", configFileSettingValue, err)
+			log.Fatalf("Unable to read template file `%s`: %s", templateFilePath, err)
 		}
 		templateText = string(issueTemplateBytes)
 	}
 	parsedTemplate, err := template.New(templateName).Parse(templateText)
 	if err != nil {
-		log.Fatalf("Invalid template file %s in config file: %s", configFileSettingValue, err)
+		log.Fatalf("Invalid template file %s in config file: %s", templateFilePath, err)
 	}
 	return parsedTemplate
 }
