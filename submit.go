@@ -369,7 +369,7 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 		}
 	}
 
-	if strings.TrimSpace(p.UserText) == "googleplaytester2" {
+	if strings.HasPrefix(strings.TrimSpace(p.UserText), "googleplaytester2") {
 		log.Println("Dropping report with title googleplaytester2")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
