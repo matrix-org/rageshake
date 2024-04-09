@@ -110,6 +110,9 @@ func extensionToMimeType(path string) string {
 		// re-educated.
 		return "text/plain; charset=utf-8"
 	}
+	if strings.HasSuffix(path, ".json") {
+		return "application/json"
+	}
 
 	if strings.HasSuffix(path, ".png") {
 		return "image/png"
