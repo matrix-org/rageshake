@@ -852,13 +852,21 @@ func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listi
 		return fmt.Errorf("failed to prepare webhook request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if resp, err = http.DefaultClient.Do(req); err != nil {
-		return fmt.Errorf("failed to send webhook request: %w", err)
-	} else if resp.StatusCode < 200 || resp.StatusCode > 300 {
-		return fmt.Errorf("unexpected webhook HTTP status code %d", resp.StatusCode)
-	} else {
-		return nil
+
+	backoff := 1
+	for backoff <= 32 {
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("Error sending webhook request: %v", err)
+		} else if resp.StatusCode < 200 || resp.StatusCode > 300 {
+			log.Printf("unexpected webhook HTTP status code %d", resp.StatusCode)
+		} else {
+			return nil
+		}
+		time.Sleep(time.Duration(backoff) * time.Second)
+		backoff *= 2
 	}
+	return err
 }
 
 func buildReportTitle(p parsedPayload) string {
