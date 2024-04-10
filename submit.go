@@ -780,33 +780,41 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 	fmt.Println("  Subscribers:", subscriberIDs)
 	fmt.Println("  Title:", title)
 
-	var createResp CreateIssueResponse
-	err := LinearRequest(&GraphQLRequest{
-		Token: s.cfg.LinearToken,
-		Query: mutationCreateIssue,
-		Variables: map[string]interface{}{
-			"input": map[string]interface{}{
-				"teamId":        teamID,
-				"title":         title,
-				"description":   body,
-				"labelIds":      labelIDs,
-				"subscriberIds": subscriberIDs,
+	var err error
+	backoff := 1
+	for backoff <= 32 {
+		var createResp CreateIssueResponse
+		err := LinearRequest(&GraphQLRequest{
+			Token: s.cfg.LinearToken,
+			Query: mutationCreateIssue,
+			Variables: map[string]interface{}{
+				"input": map[string]interface{}{
+					"teamId":        teamID,
+					"title":         title,
+					"description":   body,
+					"labelIds":      labelIDs,
+					"subscriberIds": subscriberIDs,
+				},
 			},
-		},
-	}, &createResp)
-	if err != nil {
-		return err
+		}, &createResp)
+		if err == nil {
+			// Success, log info about the issue and return
+			log.Println("Created issue:", createResp.IssueCreate.Issue.URL)
+
+			resp.ReportURL = createResp.IssueCreate.Issue.URL
+			resp.IssueNumber = createResp.IssueCreate.Issue.Identifier
+
+			fmt.Printf("  / %+v\n", createResp.IssueCreate)
+			fmt.Println("Rageshake response:", resp)
+
+			return nil
+		} else {
+			log.Printf("Error creating issue in Linear: %v", err)
+			time.Sleep(time.Duration(backoff) * time.Second)
+			backoff *= 2
+		}
 	}
-
-	log.Println("Created issue:", createResp.IssueCreate.Issue.URL)
-
-	resp.ReportURL = createResp.IssueCreate.Issue.URL
-	resp.IssueNumber = createResp.IssueCreate.Issue.Identifier
-
-	fmt.Printf("  / %+v\n", createResp.IssueCreate)
-	fmt.Println("Rageshake response:", resp)
-
-	return nil
+	return err
 }
 
 type webhookRequest struct {
