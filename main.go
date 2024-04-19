@@ -121,7 +121,7 @@ func main() {
 
 	cfg, err := loadConfig(*configPath)
 	if err != nil {
-		globallog.Fatal().Err(err).Str("config_path", *configPath).Msg("Invalid config file")
+		globallog.Fatal().Err(err).Str("config_path", *configPath).Msg("Failed to load config")
 	}
 	log, err := cfg.Logging.Compile()
 	if err != nil {
@@ -174,13 +174,11 @@ func main() {
 }
 
 func loadConfig(configPath string) (*config, error) {
-	contents, err := os.ReadFile(configPath)
+	file, err := os.Open(configPath)
 	if err != nil {
 		return nil, err
 	}
 	var cfg config
-	if err = yaml.Unmarshal(contents, &cfg); err != nil {
-		return nil, err
-	}
-	return &cfg, nil
+	err = yaml.NewDecoder(file).Decode(&cfg)
+	return &cfg, err
 }
