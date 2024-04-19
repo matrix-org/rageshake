@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"log"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -40,6 +39,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog"
 )
 
 var maxPayloadSize = 1024 * 1024 * 105 // 105 MB
@@ -126,6 +126,8 @@ type submitResponse struct {
 var gplaySpamEmailRegex = regexp.MustCompile(`^[a-z]+.\d{5}@gmail\.com$`)
 
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	log := zerolog.Ctx(req.Context()).With().Str("component", "submit_server").Logger()
+
 	// if we attempt to return a response without reading the request body,
 	// apache gets upset and returns a 500. Let's try this.
 	defer req.Body.Close()
@@ -153,22 +155,27 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	rand.Read(randBytes)
 	prefix += "-" + base32.StdEncoding.EncodeToString(randBytes)
 	reportDir := filepath.Join("bugs", prefix)
+	listingURL := s.apiPrefix + "/listing/" + prefix
+	log = log.With().
+		Str("report_dir", reportDir).
+		Str("listing_url", listingURL).
+		Logger()
+	ctx := log.WithContext(req.Context())
+
 	if err := os.MkdirAll(reportDir, os.ModePerm); err != nil {
-		log.Println("Unable to create report directory", err)
+		log.Err(err).Msg("Unable to create report directory")
 		http.Error(w, "Internal error", 500)
 		return
 	}
 
-	listingURL := s.apiPrefix + "/listing/" + prefix
-	log.Println("Handling report submission; listing URI will be", listingURL)
+	log.Info().Msg("Handling report submission")
 
-	p := s.parseRequest(w, req, reportDir)
+	p := s.parseRequest(ctx, w, req, reportDir)
 	if p == nil {
 		// parseRequest already wrote an error, but now let's delete the
 		// useless report dir
 		if err := os.RemoveAll(reportDir); err != nil {
-			log.Printf("Unable to remove report dir %s after invalid upload: %v\n",
-				reportDir, err)
+			log.Err(err).Msg("Unable to remove report dir after invalid upload")
 		}
 		return
 	}
@@ -177,12 +184,13 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := s.saveReport(*p, reportDir, listingURL)
+	err := s.saveReport(ctx, *p, reportDir, listingURL)
 	if err != nil {
-		log.Println("Error handling report submission:", err)
+		log.Err(err).Msg("Error handling report submission")
 		http.Error(w, "Internal error", 500)
 		return
 	}
+	log.Info().Msg("Successfully handled report submission")
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
@@ -339,38 +347,40 @@ func isMultipart(contentType string) bool {
 
 // parseRequest attempts to parse a received request as a bug report. If
 // the request cannot be parsed, it responds with an error and returns nil.
-func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *parsedPayload {
+func (s *submitServer) parseRequest(ctx context.Context, w http.ResponseWriter, req *http.Request, reportDir string) *parsedPayload {
+	log := zerolog.Ctx(ctx).With().Str("action", "parse_request").Logger()
+
 	length, err := strconv.Atoi(req.Header.Get("Content-Length"))
 	if err != nil {
-		log.Println("Couldn't parse content-length", err)
+		log.Err(err).Msg("Couldn't parse content-length")
 		http.Error(w, "Bad content-length", http.StatusBadRequest)
 		return nil
 	}
 	if length > maxPayloadSize {
-		log.Println("Content-length", length, "too large")
+		log.Error().Int("content_length", length).Msg("Content too large")
 		http.Error(w, fmt.Sprintf("Content too large (max %d)", maxPayloadSize), http.StatusRequestEntityTooLarge)
 		return nil
 	}
 
 	var p *parsedPayload
 	if isMultipart(req.Header.Get("Content-Type")) {
-		p, err = parseMultipartRequest(req, reportDir)
+		p, err = parseMultipartRequest(ctx, req, reportDir)
 		if err != nil {
-			log.Println("Error parsing multipart data:", err)
+			log.Err(err).Msg("Error parsing multipart data")
 			http.Error(w, "Bad multipart data", http.StatusBadRequest)
 			return nil
 		}
 	} else {
-		p, err = parseJSONRequest(req, reportDir)
+		p, err = parseJSONRequest(ctx, req.Body, reportDir)
 		if err != nil {
-			log.Println("Error parsing JSON body", err)
+			log.Err(err).Msg("Error parsing JSON body")
 			http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), http.StatusBadRequest)
 			return nil
 		}
 	}
 
 	if strings.HasPrefix(strings.TrimSpace(p.UserText), "googleplaytester2") {
-		log.Println("Dropping report with title googleplaytester2")
+		log.Info().Msg("Dropping report with title googleplaytester2")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("{}"))
@@ -380,11 +390,17 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 	userID, hasUserID := p.Data["user_id"]
 	delete(p.Data, "user_id")
 	delete(p.Data, "verified_device_id")
+
+	log = log.With().
+		Str("user_id", userID).
+		Bool("has_user_id", hasUserID).
+		Logger()
+
 	if !hasUserID {
 		return p
 	} else if p.AppName == "booper" {
 		if gplaySpamEmailRegex.MatchString(userID) {
-			log.Println("Dropping report from", userID)
+			log.Info().Str("user_id", userID).Msg("Droppnig report from Google Play test email")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(200)
 			_, _ = w.Write([]byte("{}"))
@@ -393,27 +409,31 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 
 		whoami, err := s.verifyIMAToken(req.Context(), req.Header.Get("Authorization"), userID)
 		if err != nil {
-			log.Printf("Error verifying user ID (%s): %v", userID, err)
+			log.Warn().Err(err).Msg("Error verifying user ID")
 			p.Data["unverified_user_id"] = userID
 		} else {
 			p.IMAWhoami = whoami
 			p.VerifiedUserID = whoami.Email
 			if p.VerifiedUserID != userID {
-				log.Printf("Mismatching user ID (verified: %s, input: %s), overriding...", p.VerifiedUserID, userID)
+				log.Warn().
+					Str("verified_user_id", p.VerifiedUserID).
+					Msg("Mismatching user ID. Overriding with verified user ID")
 			}
 			p.Data["user_id"] = p.VerifiedUserID
 		}
 	} else {
 		whoami, err := s.verifyMatrixAccessToken(req.Context(), req.Header.Get("Authorization"), userID)
 		if err != nil {
-			log.Printf("Error verifying user ID (%s): %v", userID, err)
+			log.Warn().Err(err).Msg("Error verifying user ID")
 			p.Data["unverified_user_id"] = userID
 		} else {
 			p.MatrixWhoami = whoami
 			p.VerifiedUserID = whoami.Matrix.UserID
 			p.VerifiedDeviceID = whoami.Matrix.DeviceID
 			if p.VerifiedUserID != userID {
-				log.Printf("Mismatching user ID (verified: %s, input: %s), overriding...", p.VerifiedUserID, userID)
+				log.Warn().
+					Str("verified_user_id", p.VerifiedUserID).
+					Msg("Mismatching user ID. Overriding with verified user ID")
 			}
 			p.Data["verified_device_id"] = p.VerifiedDeviceID
 			p.Data["user_id"] = p.VerifiedUserID
@@ -422,9 +442,11 @@ func (s *submitServer) parseRequest(w http.ResponseWriter, req *http.Request, re
 	return p
 }
 
-func parseJSONRequest(req *http.Request, reportDir string) (*parsedPayload, error) {
+func parseJSONRequest(ctx context.Context, body io.ReadCloser, reportDir string) (*parsedPayload, error) {
+	log := zerolog.Ctx(ctx)
+
 	var p jsonPayload
-	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
+	if err := json.NewDecoder(body).Decode(&p); err != nil {
 		return nil, err
 	}
 
@@ -442,7 +464,7 @@ func parseJSONRequest(req *http.Request, reportDir string) (*parsedPayload, erro
 		buf := bytes.NewBufferString(logfile.Lines)
 		leafName, err := saveLogPart(i, logfile.ID, buf, reportDir)
 		if err != nil {
-			log.Printf("Error saving log %s: %v", leafName, err)
+			log.Err(err).Str("leaf_name", leafName).Msg("Error saving log")
 			parsed.LogErrors = append(parsed.LogErrors, fmt.Sprintf("Error saving log %s: %v", leafName, err))
 		} else {
 			parsed.Logs = append(parsed.Logs, leafName)
@@ -483,7 +505,7 @@ func parseJSONRequest(req *http.Request, reportDir string) (*parsedPayload, erro
 	return &parsed, nil
 }
 
-func parseMultipartRequest(req *http.Request, reportDir string) (*parsedPayload, error) {
+func parseMultipartRequest(ctx context.Context, req *http.Request, reportDir string) (*parsedPayload, error) {
 	rdr, err := req.MultipartReader()
 	if err != nil {
 		return nil, err
@@ -501,17 +523,21 @@ func parseMultipartRequest(req *http.Request, reportDir string) (*parsedPayload,
 			return nil, err
 		}
 
-		if err = parseFormPart(part, &p, reportDir); err != nil {
+		if err = parseFormPart(ctx, part, &p, reportDir); err != nil {
 			return nil, err
 		}
 	}
 	return &p, nil
 }
 
-func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) error {
+func parseFormPart(ctx context.Context, part *multipart.Part, p *parsedPayload, reportDir string) error {
 	defer part.Close()
 	field := part.FormName()
 	partName := part.FileName()
+	log := zerolog.Ctx(ctx).With().
+		Str("field", field).
+		Str("part_name", partName).
+		Logger()
 
 	var partReader io.Reader
 	if field == "compressed-log" {
@@ -524,7 +550,7 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 		if err != nil {
 			// we don't reject the whole request if there is an
 			// error reading one attachment.
-			log.Printf("Error unzipping %s: %v", partName, err)
+			log.Err(err).Msg("Error unzipping part")
 
 			p.LogErrors = append(p.LogErrors, fmt.Sprintf("Error unzipping %s: %v", partName, err))
 			return nil
@@ -537,9 +563,9 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 	}
 
 	if field == "file" {
-		leafName, err := saveFormPart(partName, partReader, reportDir)
+		leafName, err := saveFormPart(ctx, partName, partReader, reportDir)
 		if err != nil {
-			log.Printf("Error saving %s %s: %v", field, partName, err)
+			log.Err(err).Msg("Error saving file part")
 			p.FileErrors = append(p.FileErrors, fmt.Sprintf("Error saving %s: %v", partName, err))
 		} else {
 			p.Files = append(p.Files, leafName)
@@ -550,7 +576,7 @@ func parseFormPart(part *multipart.Part, p *parsedPayload, reportDir string) err
 	if field == "log" || field == "compressed-log" {
 		leafName, err := saveLogPart(len(p.Logs), partName, partReader, reportDir)
 		if err != nil {
-			log.Printf("Error saving %s %s: %v", field, partName, err)
+			log.Err(err).Msg("Error saving (compressed-)log")
 			p.LogErrors = append(p.LogErrors, fmt.Sprintf("Error saving %s: %v", partName, err))
 		} else {
 			p.Logs = append(p.Logs, leafName)
@@ -606,14 +632,14 @@ var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|heic|gif
 // saveFormPart saves a file upload to the report directory.
 //
 // Returns the leafname of the saved file.
-func saveFormPart(leafName string, reader io.Reader, reportDir string) (string, error) {
+func saveFormPart(ctx context.Context, leafName string, reader io.Reader, reportDir string) (string, error) {
 	if !filenameRegexp.MatchString(leafName) {
 		return "", fmt.Errorf("invalid upload filename")
 	}
 
 	fullName := filepath.Join(reportDir, leafName)
 
-	log.Println("Saving uploaded file", leafName, "to", fullName)
+	zerolog.Ctx(ctx).Info().Str("file_destination", fullName).Msg("Saving uploaded file")
 
 	f, err := os.Create(fullName)
 	if err != nil {
@@ -669,10 +695,10 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 	return leafName, nil
 }
 
-func (s *submitServer) saveReportBackground(p parsedPayload, listingURL string) error {
+func (s *submitServer) saveReportBackground(ctx context.Context, p parsedPayload, listingURL string) error {
 	var resp submitResponse
 
-	if err := s.submitLinearIssue(p, listingURL, &resp); err != nil {
+	if err := s.submitLinearIssue(ctx, p, listingURL, &resp); err != nil {
 		return err
 	}
 
@@ -683,7 +709,7 @@ func (s *submitServer) saveReportBackground(p parsedPayload, listingURL string) 
 	return nil
 }
 
-func (s *submitServer) saveReport(p parsedPayload, reportDir, listingURL string) error {
+func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDir, listingURL string) error {
 	var summaryBuf bytes.Buffer
 	p.WriteToBuffer(&summaryBuf)
 	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
@@ -691,16 +717,20 @@ func (s *submitServer) saveReport(p parsedPayload, reportDir, listingURL string)
 	}
 
 	go func() {
-		err := s.saveReportBackground(p, listingURL)
+		err := s.saveReportBackground(ctx, p, listingURL)
 		if err != nil {
-			fmt.Println("Error submitting report in background:", err)
+			zerolog.Ctx(ctx).Err(err).Msg("Error submitting report in background")
 		}
 	}()
 
 	return nil
 }
 
-func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, resp *submitResponse) error {
+func (s *submitServer) submitLinearIssue(ctx context.Context, p parsedPayload, listingURL string, resp *submitResponse) error {
+	log := zerolog.Ctx(ctx).With().
+		Str("action", "submit_linear_issue").
+		Logger()
+
 	if len(s.cfg.LinearToken) == 0 {
 		return nil
 	}
@@ -724,7 +754,7 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		email = p.IMAWhoami.Email
 	}
 	if email != "" {
-		if linearID := getLinearID(email, s.cfg.LinearToken); linearID != "" {
+		if linearID := getLinearID(ctx, email, s.cfg.LinearToken); linearID != "" {
 			subscriberIDs = []string{linearID}
 		}
 	}
@@ -773,18 +803,20 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}
 	}
 
-	title, body := s.buildGenericIssueRequest(p, listingURL)
+	title, body := s.buildGenericIssueRequest(ctx, p, listingURL)
 
-	fmt.Println("Creating issue in", teamID)
-	fmt.Println("  Labels:", labelIDs)
-	fmt.Println("  Subscribers:", subscriberIDs)
-	fmt.Println("  Title:", title)
+	log.Info().
+		Str("team_id", teamID).
+		Strs("label_ids", labelIDs).
+		Strs("subscriber_ids", subscriberIDs).
+		Str("title", title).
+		Msg("Creating issue")
 
 	var err error
 	backoff := 1
 	for backoff <= 32 {
 		var createResp CreateIssueResponse
-		err := LinearRequest(&GraphQLRequest{
+		err := LinearRequest(ctx, &GraphQLRequest{
 			Token: s.cfg.LinearToken,
 			Query: mutationCreateIssue,
 			Variables: map[string]interface{}{
@@ -799,17 +831,19 @@ func (s *submitServer) submitLinearIssue(p parsedPayload, listingURL string, res
 		}, &createResp)
 		if err == nil {
 			// Success, log info about the issue and return
-			log.Println("Created issue:", createResp.IssueCreate.Issue.URL)
 
 			resp.ReportURL = createResp.IssueCreate.Issue.URL
 			resp.IssueNumber = createResp.IssueCreate.Issue.Identifier
 
-			fmt.Printf("  / %+v\n", createResp.IssueCreate)
-			fmt.Println("Rageshake response:", resp)
+			log.Info().
+				Str("url", createResp.IssueCreate.Issue.URL).
+				Any("issue_create_resp", createResp.IssueCreate).
+				Any("rageshake_response", resp).
+				Msg("Created issue")
 
 			return nil
 		} else {
-			log.Printf("Error creating issue in Linear: %v", err)
+			log.Err(err).Msg("Error creating issue in Linear")
 			time.Sleep(time.Duration(backoff) * time.Second)
 			backoff *= 2
 		}
@@ -825,6 +859,7 @@ type webhookRequest struct {
 }
 
 func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listingURL string, submitResp *submitResponse) error {
+	log := zerolog.Ctx(ctx).With().Str("action", "submit_webhook").Logger()
 	if len(s.cfg.WebhookURL) == 0 {
 		return nil
 	}
@@ -857,7 +892,7 @@ func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listi
 	for backoff <= 32 {
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
-			log.Printf("Error sending webhook request: %v", err)
+			log.Err(err).Msg("Error sending webhook request")
 		} else if resp.StatusCode < 200 || resp.StatusCode > 300 {
 			log.Printf("unexpected webhook HTTP status code %d", resp.StatusCode)
 		} else {
@@ -904,7 +939,7 @@ func (s *submitServer) createToken(path string) (string, error) {
 	return token.SignedString([]byte(s.cfg.BugsJWTSecret))
 }
 
-func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *bytes.Buffer {
+func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, listingURL string) *bytes.Buffer {
 	var bodyBuf bytes.Buffer
 
 	textLines := strings.Split(p.UserText, "\n")
@@ -930,7 +965,7 @@ func (s *submitServer) buildReportBody(p parsedPayload, listingURL string) *byte
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" {
 			jwtTok, err := s.createToken(strings.TrimPrefix(fileURL, s.apiPrefix+"/listing/"))
 			if err != nil {
-				log.Printf("Error creating token for image URL: %v", err)
+				zerolog.Ctx(ctx).Err(err).Msg("Error creating token for image URL")
 			} else {
 				imageifier = "!"
 				fileURL = fileURL + "?tok=" + jwtTok
@@ -983,8 +1018,8 @@ func printDataKeys(p parsedPayload, output io.Writer, title string, keys []strin
 	fmt.Fprintf(output, "```\n")
 }
 
-func (s *submitServer) buildGenericIssueRequest(p parsedPayload, listingURL string) (title, body string) {
-	bodyBuf := s.buildReportBody(p, listingURL)
+func (s *submitServer) buildGenericIssueRequest(ctx context.Context, p parsedPayload, listingURL string) (title, body string) {
+	bodyBuf := s.buildReportBody(ctx, p, listingURL)
 
 	// Add log links to the body
 	fmt.Fprintf(bodyBuf, "\n### [Logs](%s)", listingURL)

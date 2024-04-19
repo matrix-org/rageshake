@@ -18,14 +18,16 @@ package main
 
 import (
 	"compress/gzip"
+	"context"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/rs/zerolog"
 )
 
 // logServer is an http.handler which will serve up bugreports
@@ -35,13 +37,18 @@ type logServer struct {
 
 func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	upath := r.URL.Path
+	log := zerolog.Ctx(r.Context()).With().
+		Str("component", "log_server").
+		Str("url_path", upath).
+		Logger()
+	ctx := log.WithContext(r.Context())
 
 	if !strings.HasPrefix(upath, "/") {
 		upath = "/" + upath
 		r.URL.Path = upath
 	}
 
-	log.Println("Serving", upath)
+	log.Info().Msg("Serving report logs")
 
 	// eliminate ., .., //, etc
 	upath = path.Clean(upath)
@@ -65,10 +72,11 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serveFile(w, r, upath)
+	serveFile(ctx, w, r, upath)
 }
 
-func serveFile(w http.ResponseWriter, r *http.Request, path string) {
+func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, path string) {
+	log := zerolog.Ctx(ctx).With().Str("action", "serve_file").Logger()
 	d, err := os.Stat(path)
 	if err != nil {
 		msg, code := toHTTPError(err)
@@ -81,7 +89,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) {
 
 	// if it's a directory, serve a listing
 	if d.IsDir() {
-		log.Println("Serving", path)
+		log.Info().Msg("Serving listing")
 		http.ServeFile(w, r, path)
 		return
 	}

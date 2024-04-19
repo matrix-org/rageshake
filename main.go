@@ -17,16 +17,19 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/subtle"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog"
+	globallog "github.com/rs/zerolog/log"
+	"go.mau.fi/zeroconfig"
 	"gopkg.in/yaml.v2"
 )
 
@@ -47,6 +50,8 @@ type config struct {
 	APIServerURLs map[string]string `yaml:"api_server_url"`
 
 	WebhookURL string `yaml:"webhook_url"`
+
+	Logging zeroconfig.Config `yaml:"logging"`
 }
 
 const (
@@ -66,6 +71,8 @@ func basicAuthOrJWTAuthenticated(handler http.Handler, username, password, realm
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := zerolog.Ctx(r.Context())
+
 		user, pass, ok := r.BasicAuth() // pull creds from the request
 		if !ok && len(jwtSecret) == 0 { // if no basic auth and no JWT auth, return unauthorized
 			unauthorized(w)
@@ -79,27 +86,27 @@ func basicAuthOrJWTAuthenticated(handler http.Handler, username, password, realm
 				return jwtSecret, nil
 			})
 			if err != nil {
-				log.Printf("Error parsing JWT: %v", err)
+				log.Err(err).Msg("Error parsing JWT")
 				unauthorized(w)
 				return
 			}
 
 			claims, ok := token.Claims.(*jwt.RegisteredClaims)
 			if !token.Valid || !ok {
-				log.Printf("Token invalid or claims not RegisteredClaims: %v", err)
+				log.Error().Msg("Token invalid or claims not RegisteredClaims")
 				unauthorized(w)
 				return
 			} else if claims.Issuer != rageshakeIssuer && claims.Issuer != apiServerIssuer {
-				log.Printf("Token issuer not rageshake or API server: %s", claims.Issuer)
+				log.Error().Str("issuer", claims.Issuer).Msg("Token issuer not rageshake or API server")
 				unauthorized(w)
 				return
 			} else if claims.Subject != r.URL.Path {
-				log.Printf("Token subject (%s) not the request path (%s)", claims.Subject, r.URL.Path)
+				log.Error().Str("subject", claims.Subject).Str("path", r.URL.Path).Msg("Token subject not the request path")
 				unauthorized(w)
 				return
 			}
 
-			log.Printf("Valid token from %s for accessing %s", claims.Issuer, claims.Subject)
+			log.Info().Str("subject", claims.Subject).Str("issuer", claims.Issuer).Msg("Valid token")
 		} else if subtle.ConstantTimeCompare([]byte(user), []byte(username)) != 1 || subtle.ConstantTimeCompare([]byte(pass), []byte(password)) != 1 { // check user and pass securely
 			unauthorized(w)
 			return
@@ -114,29 +121,33 @@ func main() {
 
 	cfg, err := loadConfig(*configPath)
 	if err != nil {
-		log.Fatalf("Invalid config file: %s", err)
+		globallog.Fatal().Err(err).Str("config_path", *configPath).Msg("Invalid config file")
 	}
+	log, err := cfg.Logging.Compile()
+	if err != nil {
+		globallog.Fatal().Err(err).Msg("Failed to compile logging configuration")
+	}
+	zerolog.DefaultContextLogger = log
 
 	if cfg.LinearToken == "" {
-		panic("No linear_token configured. Reporting bugs to Linear is disabled.")
+		log.Fatal().Msg("No linear_token configured. Reporting bugs to Linear is disabled.")
 	}
-	err = fillEmailCache(cfg.LinearToken)
+	err = fillEmailCache(context.TODO(), cfg.LinearToken)
 	if err != nil {
-		log.Fatalln("Failed to fetch internal user IDs from Linear:", err)
+		log.Fatal().Err(err).Msg("Failed to fetch internal user IDs from Linear")
 	}
 
 	apiPrefix := cfg.APIPrefix
 	if apiPrefix == "" {
 		_, port, err := net.SplitHostPort(*bindAddr)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal().Err(err).Msg("failed to parse bind address")
 		}
 		apiPrefix = fmt.Sprintf("http://localhost:%s/api", port)
 	} else {
 		// remove trailing /
 		apiPrefix = strings.TrimRight(apiPrefix, "/")
 	}
-	log.Printf("Using %s/listing as public URI", apiPrefix)
 
 	http.Handle("/api/submit", &submitServer{apiPrefix: apiPrefix, cfg: cfg})
 
@@ -152,9 +163,14 @@ func main() {
 		fmt.Fprint(w, "ok")
 	})
 
-	log.Println("Listening on", *bindAddr)
+	log.Info().
+		Str("api_prefix", apiPrefix).
+		Str("bind_addr", *bindAddr).
+		Msg("Starting rageshake server HTTP listener")
 
-	log.Fatal(http.ListenAndServe(*bindAddr, nil))
+	if err := http.ListenAndServe(*bindAddr, nil); err != nil {
+		log.Fatal().Err(err).Msg("HTTP listener failed")
+	}
 }
 
 func loadConfig(configPath string) (*config, error) {

@@ -18,3 +18,10 @@ api_server_url:
 
 # A custom webhook URL that receives all the relevant data about the rageshake.
 webhook_url: https://example.com/rageshake-webhook
+
+# See https://github.com/tulir/zeroconfig for details.
+logging:
+  min_level: debug
+  writers:
+    - type: stdout
+      format: json

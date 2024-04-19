@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -195,7 +196,7 @@ func isValidEmailLocalpart(localpart string) bool {
 	return true
 }
 
-func getLinearID(email, token string) string {
+func getLinearID(ctx context.Context, email, token string) string {
 	if len(email) > 100 {
 		return ""
 	}
@@ -214,9 +215,15 @@ func getLinearID(email, token string) string {
 	if ok {
 		return userID
 	}
-	fmt.Println("ID for", email, "not cached, fetching from Linear")
+	log := zerolog.Ctx(ctx).With().
+		Str("email", email).
+		Str("user_id", userID).
+		Logger()
+
+	log.Warn().Msg("Linear user ID for email is not cached, fetching from Linear")
+
 	var userResp GetUserEmailsResponse
-	err := LinearRequest(&GraphQLRequest{
+	err := LinearRequest(ctx, &GraphQLRequest{
 		Token: token,
 		Query: queryFindUserByEmail,
 		Variables: map[string]any{
@@ -224,20 +231,24 @@ func getLinearID(email, token string) string {
 		},
 	}, &userResp)
 	if err != nil {
-		fmt.Printf("Error finding linear ID of %s: %v\n", email, err)
+		log.Err(err).Msg("Error finding linear user ID for email")
 		emailToLinearIDCache[email] = ""
 		return ""
 	}
 	for _, user := range userResp.Users.Nodes {
-		fmt.Printf("Found linear ID for %s (%s) -> %s\n", user.Email, user.Name, user.ID)
+		log.Info().
+			Str("found_email", user.Email).
+			Str("found_name", user.Name).
+			Str("found_id", user.ID).
+			Msg("Found linear user ID for email")
 		emailToLinearIDCache[user.Email] = user.ID
 	}
 	return emailToLinearIDCache[email]
 }
 
-func fillEmailCache(token string) error {
+func fillEmailCache(ctx context.Context, token string) error {
 	var userResp GetUserEmailsResponse
-	err := LinearRequest(&GraphQLRequest{
+	err := LinearRequest(ctx, &GraphQLRequest{
 		Token: token,
 		Query: queryGetUserEmails,
 	}, &userResp)
@@ -245,14 +256,20 @@ func fillEmailCache(token string) error {
 		return err
 	}
 	for _, user := range userResp.Users.Nodes {
-		fmt.Printf("Found linear ID for %s (%s) -> %s\n", user.Email, user.Name, user.ID)
+		zerolog.Ctx(ctx).Info().
+			Str("email", user.Email).
+			Str("name", user.Name).
+			Str("user_id", user.ID).
+			Msg("Found linear user ID for email")
 		emailToLinearIDCache[user.Email] = user.ID
 	}
 	return nil
 }
 
-func LinearRequest(payload *GraphQLRequest, into interface{}) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+func LinearRequest(ctx context.Context, payload *GraphQLRequest, into any) error {
+	log := zerolog.Ctx(ctx).With().Str("action", "linear_request").Logger()
+
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 	var buf bytes.Buffer
 	err := json.NewEncoder(&buf).Encode(payload)
@@ -271,13 +288,17 @@ func LinearRequest(payload *GraphQLRequest, into interface{}) error {
 	}
 	defer resp.Body.Close()
 	var respData GraphQLResponse
-	data, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != 200 {
-		log.Printf("Got non-200 response %d: %s", resp.StatusCode, data)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	} else if resp.StatusCode != 200 {
+		log.Error().Int("status_code", resp.StatusCode).Str("resp_data", string(data)).Msg("Got non-200 response")
+	} else if json.Valid(data) {
+		log.Info().RawJSON("resp_data", data).Msg("Received GraphQL response from Linear")
+	} else {
+		log.Warn().Str("resp_data_invalid", string(data)).Msg("Received non-JSON GraphQL response from Linear")
 	}
-	fmt.Printf("%s\n", data)
 	err = json.Unmarshal(data, &respData)
-	//err = json.NewDecoder(resp.Body).Decode(&respData)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal response JSON (status %d): %w: %s", resp.StatusCode, err, data)
 	}
