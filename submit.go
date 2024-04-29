@@ -184,7 +184,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := s.saveReport(ctx, *p, reportDir, listingURL)
+	err := s.saveReport(log, *p, reportDir, listingURL)
 	if err != nil {
 		log.Err(err).Msg("Error handling report submission")
 		http.Error(w, "Internal error", 500)
@@ -709,7 +709,7 @@ func (s *submitServer) saveReportBackground(ctx context.Context, p parsedPayload
 	return nil
 }
 
-func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDir, listingURL string) error {
+func (s *submitServer) saveReport(log zerolog.Logger, p parsedPayload, reportDir, listingURL string) error {
 	var summaryBuf bytes.Buffer
 	p.WriteToBuffer(&summaryBuf)
 	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
@@ -717,9 +717,10 @@ func (s *submitServer) saveReport(ctx context.Context, p parsedPayload, reportDi
 	}
 
 	go func() {
-		err := s.saveReportBackground(ctx, p, listingURL)
+		log = log.With().Str("action", "save_report_background").Logger()
+		err := s.saveReportBackground(log.WithContext(context.Background()), p, listingURL)
 		if err != nil {
-			zerolog.Ctx(ctx).Err(err).Msg("Error submitting report in background")
+			log.Err(err).Msg("Error submitting report in background")
 		}
 	}()
 
