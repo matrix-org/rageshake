@@ -24,6 +24,7 @@ const (
 	linearTeamBooperEng    = "f477325d-646a-49f4-9d69-bf0e81be71c9"
 	linearTeamBleeper      = "7921fd20-54a4-4aab-acc2-a8d31128d71f"
 	linearTeamA8cDesktop   = "bf34ce9c-1187-40f8-b749-5f60f6e52436"
+	linearTeamA8CiOS       = "bb037da9-b240-4cf8-a47c-eceed138e45a"
 )
 
 const (
@@ -62,6 +63,7 @@ var appToTeamID = map[string]string{
 	"beeper-desktop":     linearTeamDesktop,
 	"bleeper":            linearTeamBleeper,
 	"beeper-a8c-desktop": linearTeamA8cDesktop,
+	"beeper-a8c-ios":     linearTeamA8CiOS
 }
 
 var problemToLabelID = map[string]string{
