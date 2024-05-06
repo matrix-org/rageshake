@@ -63,7 +63,7 @@ var appToTeamID = map[string]string{
 	"beeper-desktop":     linearTeamDesktop,
 	"bleeper":            linearTeamBleeper,
 	"beeper-a8c-desktop": linearTeamA8cDesktop,
-	"beeper-a8c-ios":     linearTeamA8CiOS
+	"beeper-a8c-ios":     linearTeamA8CiOS,
 }
 
 var problemToLabelID = map[string]string{
