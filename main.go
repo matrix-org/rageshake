@@ -36,8 +36,9 @@ import (
 	"golang.org/x/oauth2"
 
 	"gopkg.in/yaml.v2"
+
+	_ "embed"
 )
-import _ "embed"
 
 // DefaultIssueBodyTemplate is the default template used for `issue_body_template_file` in the config.
 //
@@ -62,6 +63,8 @@ type config struct {
 
 	// Allowed rageshake app names
 	AllowedAppNames []string `yaml:"allowed_app_names"`
+
+	RejectionConditions []RejectionCondition `yaml:"rejection_conditions"`
 
 	// A GitHub personal access token, to create a GitHub issue for each report.
 	GithubToken string `yaml:"github_token"`
@@ -91,6 +94,49 @@ type config struct {
 	SMTPPassword string `yaml:"smtp_password"`
 
 	GenericWebhookURLs []string `yaml:"generic_webhook_urls"`
+}
+
+type RejectionCondition struct {
+	Version string `yaml:"version"`
+	Label   string `yaml:"label"`
+	App     string `yaml:"app"`
+}
+
+// shouldReject returns true if the app name AND version AND labels all match the rejection condition.
+// If any one of these do not match the condition, it is not rejected.
+func (c RejectionCondition) shouldReject(appName, version string, labels []string) bool {
+	if appName != c.App {
+		return false
+	}
+	// version was a condition and it doesn't match => accept it
+	if version != c.Version && c.Version != "" {
+		return false
+	}
+
+	// label was a condition and no label matches it => accept it
+	if c.Label != "" {
+		labelMatch := false
+		for _, l := range labels {
+			if l == c.Label {
+				labelMatch = true
+				break
+			}
+		}
+		if !labelMatch {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (c *config) matchesRejectionCondition(p *payload) bool {
+	for _, rc := range c.RejectionConditions {
+		if rc.shouldReject(p.AppName, p.Data["Version"], p.Labels) {
+			return true
+		}
+	}
+	return false
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -263,6 +309,15 @@ func loadConfig(configPath string) (*config, error) {
 	var cfg config
 	if err = yaml.Unmarshal(contents, &cfg); err != nil {
 		return nil, err
+	}
+	// sanity check rejection conditions
+	for _, rc := range cfg.RejectionConditions {
+		if rc.App == "" {
+			fmt.Println("rejection_condition missing an app field so will never match anything.")
+		}
+		if rc.Label == "" && rc.Version == "" {
+			fmt.Println("rejection_condition missing both label and version so will always match, specify label and/or version")
+		}
 	}
 	return &cfg, nil
 }
