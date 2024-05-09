@@ -132,7 +132,11 @@ func (c RejectionCondition) shouldReject(appName, version string, labels []strin
 
 func (c *config) matchesRejectionCondition(p *payload) bool {
 	for _, rc := range c.RejectionConditions {
-		if rc.shouldReject(p.AppName, p.Data["Version"], p.Labels) {
+		version := ""
+		if p.Data != nil {
+			version = p.Data["Version"]
+		}
+		if rc.shouldReject(p.AppName, version, p.Labels) {
 			return true
 		}
 	}
