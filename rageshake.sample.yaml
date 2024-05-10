@@ -14,7 +14,7 @@ allowed_app_names: []
 
 # If any submission matches one of these rejection conditions, the submission is rejected.
 # The 'app' field is required, but 'version' and 'label' are both optional. A condition with just
-# an 'app' will reject those apps, effectively acting as a blocklist for app in contrast to allowed_app_names.
+# an 'app' will reject that app altogether, effectively acting as a blocklist for app in contrast to allowed_app_names.
 rejection_conditions:
   - app: my-app
     version: "0.4.9" # if the submission has a Version which is exactly this value, reject the submission.
