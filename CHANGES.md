@@ -1,3 +1,12 @@
+1.13.0 (2024-05-10)
+===================
+
+Features
+--------
+
+- Add support for blocking specific app/version/label combinations. ([\#85](https://github.com/matrix-org/rageshake/issues/85))
+
+
 1.12.0 (2024-03-18)
 ===================
 
