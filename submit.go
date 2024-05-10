@@ -183,7 +183,10 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		respond(200, w)
 		return
 	}
+	s.handleSubmission(w, req)
+}
 
+func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request) {
 	// create the report dir before parsing the request, so that we can dump
 	// files straight in
 	t := time.Now().UTC()
