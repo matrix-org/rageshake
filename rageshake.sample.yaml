@@ -12,6 +12,18 @@ listings_auth_pass: secret
 # An empty or missing list will retain legacy behaviour and permit reports from any application name.
 allowed_app_names: []
 
+# If any submission matches one of these rejection conditions, the submission is rejected.
+# The 'app' field is required, but 'version' and 'label' are both optional. A condition with just
+# an 'app' will reject that app altogether, effectively acting as a blocklist for app in contrast to allowed_app_names.
+rejection_conditions:
+  - app: my-app
+    version: "0.4.9" # if the submission has a Version which is exactly this value, reject the submission.
+  - app: my-app
+    label: "0.4.9" # if any label matches this value, the submission is rejected.
+  - app: my-app
+    version: "0.4.9"
+    label: "nightly" # both label and Version must match for this condition to be true
+
 # a GitHub personal access token (https://github.com/settings/tokens), which
 # will be used to create a GitHub issue for each report. It requires
 # `public_repo` scope. If omitted, no issues will be created.

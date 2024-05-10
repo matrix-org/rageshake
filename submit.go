@@ -99,7 +99,7 @@ type issueBodyTemplatePayload struct {
 type genericWebhookPayload struct {
 	payload
 	// If a github/gitlab report is generated, this is set.
-	ReportURL  string `json:"report_url"`
+	ReportURL string `json:"report_url"`
 	// Complete link to the listing URL that contains all uploaded logs
 	ListingURL string `json:"listing_url"`
 }
@@ -109,24 +109,24 @@ type genericWebhookPayload struct {
 // !!! Since this is inherited by `issueBodyTemplatePayload`, remember to keep it in step
 // with the documentation in `templates/README.md` !!!
 type payload struct {
-	// A unique ID for this payload, generated within this server 
-	ID         string            `json:"id"`
-	// A multi-line string containing the user description of the fault. 
-	UserText   string            `json:"user_text"`
+	// A unique ID for this payload, generated within this server
+	ID string `json:"id"`
+	// A multi-line string containing the user description of the fault.
+	UserText string `json:"user_text"`
 	// A short slug to identify the app making the report
-	AppName    string            `json:"app"`
+	AppName string `json:"app"`
 	// Arbitrary data to annotate the report
-	Data       map[string]string `json:"data"`
+	Data map[string]string `json:"data"`
 	// Short labels to group reports
-	Labels     []string          `json:"labels"`
+	Labels []string `json:"labels"`
 	// A list of names of logs recognised by the server
-	Logs       []string          `json:"logs"`
+	Logs []string `json:"logs"`
 	// Set if there are log parsing errors
-	LogErrors  []string          `json:"logErrors"`
+	LogErrors []string `json:"logErrors"`
 	// A list of other files (not logs) uploaded as part of the rageshake
-	Files      []string          `json:"files"`
+	Files []string `json:"files"`
 	// Set if there are file parsing errors
-	FileErrors []string          `json:"fileErrors"`
+	FileErrors []string `json:"fileErrors"`
 }
 
 func (p payload) WriteTo(out io.Writer) {
@@ -183,7 +183,10 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		respond(200, w)
 		return
 	}
+	s.handleSubmission(w, req)
+}
 
+func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request) {
 	// create the report dir before parsing the request, so that we can dump
 	// files straight in
 	t := time.Now().UTC()
@@ -220,6 +223,15 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				reportDir, err)
 		}
 		http.Error(w, "This server does not accept rageshakes from your application. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", 400)
+		return
+	}
+	if s.cfg.matchesRejectionCondition(p) {
+		log.Printf("Blocking rageshake from app %s because it matches a rejection_condition", p.AppName)
+		if err := os.RemoveAll(reportDir); err != nil {
+			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",
+				reportDir, err)
+		}
+		http.Error(w, "This server does not accept rageshakes from your application + version. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", 400)
 		return
 	}
 
@@ -422,15 +434,15 @@ func formPartToPayload(field, data string, p *payload) {
 
 // we use a quite restrictive regexp for the filenames; in particular:
 //
-// * a limited set of extensions. We are careful to limit the content-types
-//   we will serve the files with, but somebody might accidentally point an
-//   Apache or nginx at the upload directory, which would serve js files as
-//   application/javascript and open XSS vulnerabilities. We also allow gzipped
-//   text and json on the same basis (there's really no sense allowing gzipped images).
+//   - a limited set of extensions. We are careful to limit the content-types
+//     we will serve the files with, but somebody might accidentally point an
+//     Apache or nginx at the upload directory, which would serve js files as
+//     application/javascript and open XSS vulnerabilities. We also allow gzipped
+//     text and json on the same basis (there's really no sense allowing gzipped images).
 //
-// * no silly characters (/, ctrl chars, etc)
+//   - no silly characters (/, ctrl chars, etc)
 //
-// * nothing starting with '.'
+//   - nothing starting with '.'
 var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|txt|json|txt\.gz|json\.gz)$`)
 
 // saveFormPart saves a file upload to the report directory.
@@ -551,9 +563,9 @@ func (s *submitServer) submitGenericWebhook(p payload, listingURL string, report
 		return nil
 	}
 	genericHookPayload := genericWebhookPayload{
-		payload: p,
-		ReportURL:     reportURL,
-		ListingURL:    listingURL,
+		payload:    p,
+		ReportURL:  reportURL,
+		ListingURL: listingURL,
 	}
 	for _, url := range s.cfg.GenericWebhookURLs {
 		// Enrich the payload with a reportURL and listingURL, to convert a single struct
