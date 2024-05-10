@@ -96,6 +96,7 @@ type config struct {
 	GenericWebhookURLs []string `yaml:"generic_webhook_urls"`
 }
 
+// RejectionCondition contains the fields that should match a bug report for it to be rejected.
 type RejectionCondition struct {
 	Version string `yaml:"version"`
 	Label   string `yaml:"label"`
