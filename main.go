@@ -64,6 +64,7 @@ type config struct {
 	// Allowed rageshake app names
 	AllowedAppNames []string `yaml:"allowed_app_names"`
 
+	// List of rejection conditions
 	RejectionConditions []RejectionCondition `yaml:"rejection_conditions"`
 
 	// A GitHub personal access token, to create a GitHub issue for each report.
@@ -98,9 +99,12 @@ type config struct {
 
 // RejectionCondition contains the fields that should match a bug report for it to be rejected.
 type RejectionCondition struct {
+	// Required field: if a payload does not match this app name, the condition does not match.
+	App string `yaml:"app"`
+	// Optional: version that must also match in addition to the app and label. If empty, does not check version.
 	Version string `yaml:"version"`
-	Label   string `yaml:"label"`
-	App     string `yaml:"app"`
+	// Optional: label that must also match in addition to the app and version. If empty, does not check label.
+	Label string `yaml:"label"`
 }
 
 // shouldReject returns true if the app name AND version AND labels all match the rejection condition.

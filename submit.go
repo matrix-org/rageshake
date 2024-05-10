@@ -440,9 +440,9 @@ func formPartToPayload(field, data string, p *payload) {
 //     application/javascript and open XSS vulnerabilities. We also allow gzipped
 //     text and json on the same basis (there's really no sense allowing gzipped images).
 //
-// * no silly characters (/, ctrl chars, etc)
+//   - no silly characters (/, ctrl chars, etc)
 //
-// * nothing starting with '.'
+//   - nothing starting with '.'
 var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|png|txt|json|txt\.gz|json\.gz)$`)
 
 // saveFormPart saves a file upload to the report directory.

@@ -18,6 +18,9 @@ func TestConfigRejectionCondition(t *testing.T) {
 				Version: "0.1.2",
 				Label:   "nightly",
 			},
+			{
+				App: "block-my-app",
+			},
 		},
 	}
 	rejectPayloads := []payload{
@@ -37,6 +40,26 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Labels:  []string{"foo", "nightly"},
 			Data: map[string]string{
 				"Version": "0.1.2",
+			},
+		},
+		{
+			AppName: "block-my-app",
+		},
+		{
+			AppName: "block-my-app",
+			Labels:  []string{"foo"},
+		},
+		{
+			AppName: "block-my-app",
+			Data: map[string]string{
+				"Version": "42",
+			},
+		},
+		{
+			AppName: "block-my-app",
+			Labels:  []string{"foo"},
+			Data: map[string]string{
+				"Version": "42",
 			},
 		},
 	}
