@@ -905,7 +905,8 @@ func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listi
 	return err
 }
 
-func getUsernameFromPayload(p parsedPayload) string {
+func getUsernameFromPayload(p parsedPayload) (string, bool) {
+	isVerified := false
 	userID := p.Data["user_id"]
 	if len(userID) == 0 {
 		userID = p.Data["unverified_user_id"]
@@ -914,8 +915,10 @@ func getUsernameFromPayload(p parsedPayload) string {
 		} else {
 			userID = fmt.Sprintf("[unverified] %s", userID)
 		}
+	} else {
+		isVerified = true
 	}
-	return strings.TrimPrefix(strings.TrimSuffix(userID, ":beeper.com"), "@")
+	return strings.TrimPrefix(strings.TrimSuffix(userID, ":beeper.com"), "@"), isVerified
 }
 
 func buildReportTitle(userID string, p parsedPayload) string {
@@ -1025,10 +1028,13 @@ func printDataKeys(p parsedPayload, output io.Writer, title string, keys []strin
 func (s *submitServer) buildGenericIssueRequest(ctx context.Context, p parsedPayload, listingURL string) (title, body string) {
 	bodyBuf := s.buildReportBody(ctx, p, listingURL)
 
-	username := getUsernameFromPayload(p)
+	username, isVerified := getUsernameFromPayload(p)
 
 	// Add log links to the body
-	fmt.Fprintf(bodyBuf, "\n### [Rageshake Logs](%s) | [User Admin](https://admin.beeper.com/user/%s)", listingURL, username)
+	fmt.Fprintf(bodyBuf, "\n### [Rageshake Logs](%s)", listingURL)
+	if isVerified {
+		fmt.Fprintf(bodyBuf, " | [User Admin](https://admin.beeper.com/user/%s)", username)
+	}
 
 	title = buildReportTitle(username, p)
 
