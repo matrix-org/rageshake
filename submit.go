@@ -905,14 +905,7 @@ func (s *submitServer) submitWebhook(ctx context.Context, p parsedPayload, listi
 	return err
 }
 
-func buildReportTitle(p parsedPayload) string {
-	// set the title to the first (non-empty) line of the user's report, if any
-	trimmedUserText := strings.TrimSpace(p.UserText)
-	if trimmedUserText == "" {
-		trimmedUserText = "Untitled report"
-	} else if i := strings.IndexAny(trimmedUserText, "\r\n"); i >= 0 {
-		trimmedUserText = trimmedUserText[0:i]
-	}
+func getUsernameFromPayload(p parsedPayload) string {
 	userID := p.Data["user_id"]
 	if len(userID) == 0 {
 		userID = p.Data["unverified_user_id"]
@@ -922,7 +915,17 @@ func buildReportTitle(p parsedPayload) string {
 			userID = fmt.Sprintf("[unverified] %s", userID)
 		}
 	}
-	userID = strings.TrimPrefix(strings.TrimSuffix(userID, ":beeper.com"), "@")
+	return strings.TrimPrefix(strings.TrimSuffix(userID, ":beeper.com"), "@")
+}
+
+func buildReportTitle(userID string, p parsedPayload) string {
+	// set the title to the first (non-empty) line of the user's report, if any
+	trimmedUserText := strings.TrimSpace(p.UserText)
+	if trimmedUserText == "" {
+		trimmedUserText = "Untitled report"
+	} else if i := strings.IndexAny(trimmedUserText, "\r\n"); i >= 0 {
+		trimmedUserText = trimmedUserText[0:i]
+	}
 	title := fmt.Sprintf("%s: %s", userID, trimmedUserText)
 	if len(title) > 200 {
 		title = title[:200]
@@ -1022,10 +1025,12 @@ func printDataKeys(p parsedPayload, output io.Writer, title string, keys []strin
 func (s *submitServer) buildGenericIssueRequest(ctx context.Context, p parsedPayload, listingURL string) (title, body string) {
 	bodyBuf := s.buildReportBody(ctx, p, listingURL)
 
-	// Add log links to the body
-	fmt.Fprintf(bodyBuf, "\n### [Logs](%s)", listingURL)
+	username := getUsernameFromPayload(p)
 
-	title = buildReportTitle(p)
+	// Add log links to the body
+	fmt.Fprintf(bodyBuf, "\n### [Rageshake Logs](%s) | [User Admin](https://admin.beeper.com/user/%s)", listingURL, username)
+
+	title = buildReportTitle(username, p)
 
 	body = bodyBuf.String()
 
