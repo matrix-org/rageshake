@@ -1034,6 +1034,11 @@ func (s *submitServer) buildGenericIssueRequest(ctx context.Context, p parsedPay
 	fmt.Fprintf(bodyBuf, "\n### [Rageshake Logs](%s)", listingURL)
 	if isVerified {
 		fmt.Fprintf(bodyBuf, " | [User Admin](https://admin.beeper.com/user/%s)", username)
+		if userLogsURL, err := makeGrafanaLogsURL(username); err != nil {
+			zerolog.Ctx(ctx).Err(err).Msg("Error generating grafana URL")
+		} else {
+			fmt.Fprintf(bodyBuf, " | [User Logs](%s)", userLogsURL)
+		}
 	}
 
 	title = buildReportTitle(username, p)
