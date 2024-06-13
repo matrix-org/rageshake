@@ -17,6 +17,8 @@ Optional parameters:
    [rageshake.sample.yaml](rageshake.sample.yaml) for more information.
  * `-listen <address>`: TCP network address to listen for HTTP requests
    on. Example: `:9110`.
+ * `-metrics <address>`: TCP network address to listen for HTTP requests
+   for prometheus metrics on. Example: `:9111`. Defaults to not being served.
 
 ## Issue template
 
@@ -26,6 +28,10 @@ See [templates/README.md](templates/README.md) for more information.
 ## HTTP endpoints
 
 The following HTTP endpoints are exposed:
+
+### GET `/health`
+
+Returns a simple "ok" if the server is healthy, for use with automated healthchecks.
 
 ### GET `/api/listing/`
 
@@ -104,6 +110,10 @@ The response (if successful) will be a JSON object with the following fields:
 
 * `report_url`: A URL where the user can track their bug report. Omitted if
   issue submission was disabled.
+
+### /metrics
+
+If the metrics address is configured with `-metrics` then prometheus metrics are visible here.
 
 ## Notifications
 
