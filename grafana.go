@@ -23,12 +23,11 @@ type grafanaRequest struct {
 	Range      grafanaRange   `json:"range"`
 }
 
-func makeGrafanaLogsURL(username string) (string, error) {
+func makeGrafanaLogURL(expr string) (string, error) {
 	now := time.Now().UTC()
 	from := now.Add(-time.Minute * 15)
 	to := now.Add(time.Minute * 15)
 
-	expr := `{username="` + username + `",env="prod"} | unpack`
 	req := grafanaRequest{
 		Datasource: "f21b0c24-8614-42eb-827b-fcbd230dd8d3",
 		Queries:    []grafanaQuery{{expr, "range"}},
@@ -37,10 +36,24 @@ func makeGrafanaLogsURL(username string) (string, error) {
 			To:   strconv.Itoa(int(to.UnixMilli())),
 		},
 	}
+
 	jsonStr, err := json.Marshal(req)
 	if err != nil {
 		return "", err
 	}
-	url := "https://grafana.beeper-tools.com/explore?orgId=1&left=" + url.QueryEscape(string(jsonStr))
-	return url, nil
+	return "https://grafana.beeper-tools.com/explore?orgId=1&left=" + url.QueryEscape(string(jsonStr)), nil
+}
+
+func makeGrafanaLogsURLs(username string) (string, string, error) {
+	bridgeLogsURL, err := makeGrafanaLogURL(`{username="` + username + `",env="prod"} | unpack`)
+	if err != nil {
+		return "", "", err
+	}
+
+	megahungryLogsURL, err := makeGrafanaLogURL(`{user_id="@` + username + `:beeper.com",env="prod"} | unpack`)
+	if err != nil {
+		return "", "", err
+	}
+
+	return bridgeLogsURL, megahungryLogsURL, nil
 }
