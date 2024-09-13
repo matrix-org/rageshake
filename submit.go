@@ -989,12 +989,15 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 
 	var dataKeys, eventDataKeys []string
 	var eventSource string
+	var roomDescription string
 	for k := range p.Data {
 		switch k {
 		case "event_id", "room_id", "event_timestamp":
 			eventDataKeys = append(eventDataKeys, k)
 		case "decrypted_event_source":
 			eventSource = p.Data[k]
+		case "room_description":
+			roomDescription = p.Data[k]
 		default:
 			dataKeys = append(dataKeys, k)
 		}
@@ -1005,6 +1008,9 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 	printDataKeys(p, &bodyBuf, "Event data", eventDataKeys)
 	if eventSource != "" {
 		_, _ = fmt.Fprintf(&bodyBuf, "### Event source:\n\n```json\n%s\n```\n", eventSource)
+	}
+	if roomDescription != "" {
+		_, _ = fmt.Fprintf(&bodyBuf, "### Room description:\n\n```json\n%s\n```\n", roomDescription)
 	}
 	printDataKeys(p, &bodyBuf, "Data from app", dataKeys)
 
