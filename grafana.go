@@ -51,12 +51,12 @@ func makeGrafanaLogsURLs(username string) (string, string, error) {
 		userID = userID + ":beeper.com"
 	}
 
-	bridgeLogsURL, err := makeGrafanaLogURL(`{user_id="@` + userID + `",app="bridges",env="prod"} | unpack`)
+	bridgeLogsURL, err := makeGrafanaLogURL(`{user_id="@` + userID + `",app="bridges"} | unpack`)
 	if err != nil {
 		return "", "", err
 	}
 
-	megahungryLogsURL, err := makeGrafanaLogURL(`{user_id="@` + userID + `",namespace="megahungry",env="prod"} | unpack`)
+	megahungryLogsURL, err := makeGrafanaLogURL(`{user_id="@` + userID + `",namespace="megahungry"} | unpack`)
 	if err != nil {
 		return "", "", err
 	}
