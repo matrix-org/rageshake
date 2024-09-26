@@ -918,6 +918,7 @@ func getUsernameFromPayload(p parsedPayload) (string, bool) {
 	} else {
 		isVerified = true
 	}
+	// Note: for staging/dev we still return the entire userID so it's clear they're not prod
 	return strings.TrimPrefix(strings.TrimSuffix(userID, ":beeper.com"), "@"), isVerified
 }
 

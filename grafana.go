@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -45,12 +46,17 @@ func makeGrafanaLogURL(expr string) (string, error) {
 }
 
 func makeGrafanaLogsURLs(username string) (string, string, error) {
-	bridgeLogsURL, err := makeGrafanaLogURL(`{user_id="@` + username + `:beeper.com",app="bridges",env="prod"} | unpack`)
+	userID := username
+	if !strings.HasSuffix(userID, ":beeper-dev.com") && !strings.HasSuffix(userID, ":beeper-staging.com") {
+		userID = userID + ":beeper.com"
+	}
+
+	bridgeLogsURL, err := makeGrafanaLogURL(`{user_id="@` + userID + `",app="bridges",env="prod"} | unpack`)
 	if err != nil {
 		return "", "", err
 	}
 
-	megahungryLogsURL, err := makeGrafanaLogURL(`{user_id="@` + username + `:beeper.com",namespace="megahungry",env="prod"} | unpack`)
+	megahungryLogsURL, err := makeGrafanaLogURL(`{user_id="@` + userID + `",namespace="megahungry",env="prod"} | unpack`)
 	if err != nil {
 		return "", "", err
 	}
