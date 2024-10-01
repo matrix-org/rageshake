@@ -768,7 +768,7 @@ func (s *submitServer) submitLinearIssue(ctx context.Context, p parsedPayload, l
 	if isInternal {
 		p.IsInternal = true
 		labelIDs = append(labelIDs, labelInternalUser)
-	} else if teamID != linearTeamA8cDesktop && teamID != linearTeamA8CiOS {
+	} else {
 		labelIDs = append(labelIDs, labelSupportReview)
 		if p.MatrixWhoami != nil && p.MatrixWhoami.UserInfo.Channel == "NIGHTLY" {
 			labelIDs = append(labelIDs, labelNightlyUser)
