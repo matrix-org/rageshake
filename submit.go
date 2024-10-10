@@ -387,8 +387,8 @@ func (s *submitServer) parseRequest(ctx context.Context, w http.ResponseWriter, 
 		return nil
 	}
 	// TODO remove this after the reports calm down
-	if p.Data["telephony_network_country_iso"] == "id" && p.AppName == "bleeper" {
-		log.Info().Str("user_text", p.UserText).Msg("Dropping report from Indonesia")
+	if (p.Data["telephony_network_country_iso"] == "id" || p.Data["telephony_network_country_iso"] == "ke") && p.AppName == "bleeper" {
+		log.Info().Str("user_text", p.UserText).Str("user_id", p.Data["user_id"]).Msg("Dropping report from Indonesia or Kenya")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("{}"))
