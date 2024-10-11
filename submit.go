@@ -397,6 +397,15 @@ func (s *submitServer) parseRequest(ctx context.Context, w http.ResponseWriter, 
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("{}"))
 		return nil
+	} else if p.Data["Version"] == "4.6.1 [140601]" && p.AppName == "bleeper" {
+		log.Info().
+			Str("user_text", p.UserText).
+			Str("user_id", p.Data["user_id"]).
+			Msg("Dropping report from Bleeper 4.6.1")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("{}"))
+		return nil
 	}
 
 	userID, hasUserID := p.Data["user_id"]
