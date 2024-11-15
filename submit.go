@@ -1064,8 +1064,11 @@ func (s *submitServer) buildGenericIssueRequest(ctx context.Context, p parsedPay
 
 	username, isVerified := getUsernameFromPayload(p)
 
+	// Swap out rageshake API url for SSO-version
+	rageshakeLogsURL := strings.ReplaceAll(listingURL, "rageshake.", "rageshake-sso.")
+
 	// Add log links to the body
-	fmt.Fprintf(bodyBuf, "\n### [Rageshake Logs](%s)", listingURL)
+	fmt.Fprintf(bodyBuf, "\n### [Rageshake Logs](%s)", rageshakeLogsURL)
 	if isVerified {
 		fmt.Fprintf(bodyBuf, " | [User Admin](https://admin.beeper.com/user/%s)", username)
 		if bridgeLogsURL, megahungryLogsURL, err := makeGrafanaLogsURLs(username); err != nil {
