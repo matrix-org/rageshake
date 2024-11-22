@@ -588,3 +588,27 @@ user_id: id
 		}
 	}
 }
+
+func TestParseUserAgent(t *testing.T) {
+	reportDir := mkTempDir(t)
+	defer os.RemoveAll(reportDir)
+
+	body := `{
+    "app": "riot-web",
+    "logs": [],
+    "text": "test message",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.91 Safari/537.3",
+    "version": "0.9.9"
+}`
+
+	p, _ := testParsePayload(t, body, "application/json", reportDir)
+
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
+
+	wanted := "Chrome 130.0.6723 on Windows 10 running on Other device"
+	if p.Data["User-Agent"] != wanted {
+		t.Errorf("user agent: got %s, want %s", p.Data["User-Agent"], wanted)
+	}
+}
