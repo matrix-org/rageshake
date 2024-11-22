@@ -1,0 +1,1 @@
+Parse User-Agent into a human readable format and attach to the report alongside the raw UA string.
