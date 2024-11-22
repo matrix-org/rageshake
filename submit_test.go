@@ -259,8 +259,9 @@ func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	if len(p.Logs) != 4 {
 		t.Errorf("Log length: got %d, want 4", len(p.Logs))
 	}
-	if len(p.Data) != 3 {
-		t.Errorf("Data length: got %d, want 3", len(p.Data))
+	// One extra data field to account for User Agent being parsed into two fields
+	if len(p.Data) != 4 {
+		t.Errorf("Data length: got %d, want 4", len(p.Data))
 	}
 	if len(p.Labels) != 0 {
 		t.Errorf("Labels: got %#v, want []", p.Labels)
