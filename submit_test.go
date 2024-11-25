@@ -609,7 +609,7 @@ func TestParseUserAgent(t *testing.T) {
 	}
 
 	wanted := "Chrome 130.0.6723 on Windows 10 running on Other device"
-	if p.Data["User-Agent"] != wanted {
-		t.Errorf("user agent: got %s, want %s", p.Data["User-Agent"], wanted)
+	if p.Data["Parsed-User-Agent"] != wanted {
+		t.Errorf("user agent: got %s, want %s", p.Data["Parsed-User-Agent"], wanted)
 	}
 }

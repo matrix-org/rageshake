@@ -329,8 +329,8 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string
 	parsed.AppName = p.AppName
 
 	if p.UserAgent != "" {
-		parsed.Data["User-Agent"] = parseUserAgent(p.UserAgent)
-		parsed.Data["Raw-User-Agent"] = p.UserAgent
+		parsed.Data["Parsed-User-Agent"] = parseUserAgent(p.UserAgent)
+		parsed.Data["User-Agent"] = p.UserAgent
 	}
 	if p.Version != "" {
 		parsed.Data["Version"] = p.Version
@@ -433,8 +433,8 @@ func formPartToPayload(field, data string, p *payload) {
 	} else if field == "version" {
 		p.Data["Version"] = data
 	} else if field == "user_agent" {
-		p.Data["User-Agent"] = parseUserAgent(data)
-		p.Data["Raw-User-Agent"] = data
+		p.Data["User-Agent"] = data
+		p.Data["Parsed-User-Agent"] = parseUserAgent(data)
 	} else if field == "label" {
 		p.Labels = append(p.Labels, data)
 	} else {
