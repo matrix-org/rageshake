@@ -259,8 +259,9 @@ func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	if len(p.Logs) != 4 {
 		t.Errorf("Log length: got %d, want 4", len(p.Logs))
 	}
-	if len(p.Data) != 3 {
-		t.Errorf("Data length: got %d, want 3", len(p.Data))
+	// One extra data field to account for User Agent being parsed into two fields
+	if len(p.Data) != 4 {
+		t.Errorf("Data length: got %d, want 4", len(p.Data))
 	}
 	if len(p.Labels) != 0 {
 		t.Errorf("Labels: got %#v, want []", p.Labels)
@@ -586,5 +587,29 @@ user_id: id
 		if got != expect {
 			t.Errorf("expected %s got %s", expect, got)
 		}
+	}
+}
+
+func TestParseUserAgent(t *testing.T) {
+	reportDir := mkTempDir(t)
+	defer os.RemoveAll(reportDir)
+
+	body := `{
+    "app": "riot-web",
+    "logs": [],
+    "text": "test message",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.91 Safari/537.3",
+    "version": "0.9.9"
+}`
+
+	p, _ := testParsePayload(t, body, "application/json", reportDir)
+
+	if p == nil {
+		t.Fatal("parseRequest returned nil")
+	}
+
+	wanted := "Chrome 130.0.6723 on Windows 10 running on Other device"
+	if p.Data["Parsed-User-Agent"] != wanted {
+		t.Errorf("user agent: got %s, want %s", p.Data["Parsed-User-Agent"], wanted)
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
+	"github.com/ua-parser/uap-go/uaparser"
 	"io"
 	"io/ioutil"
 	"log"
@@ -291,6 +292,13 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 	return p
 }
 
+var uaParser *uaparser.Parser = uaparser.NewFromSaved()
+
+func parseUserAgent(userAgent string) string {
+	client := uaParser.Parse(userAgent)
+	return fmt.Sprintf(`%s on %s running on %s device`, client.UserAgent.ToString(), client.Os.ToString(), client.Device.ToString())
+}
+
 func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
 	var p jsonPayload
 	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
@@ -321,6 +329,7 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string
 	parsed.AppName = p.AppName
 
 	if p.UserAgent != "" {
+		parsed.Data["Parsed-User-Agent"] = parseUserAgent(p.UserAgent)
 		parsed.Data["User-Agent"] = p.UserAgent
 	}
 	if p.Version != "" {
@@ -425,6 +434,7 @@ func formPartToPayload(field, data string, p *payload) {
 		p.Data["Version"] = data
 	} else if field == "user_agent" {
 		p.Data["User-Agent"] = data
+		p.Data["Parsed-User-Agent"] = parseUserAgent(data)
 	} else if field == "label" {
 		p.Labels = append(p.Labels, data)
 	} else {
