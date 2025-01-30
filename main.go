@@ -27,6 +27,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -105,11 +106,16 @@ type RejectionCondition struct {
 	Version string `yaml:"version"`
 	// Optional: label that must also match in addition to the app and version. If empty, does not check label.
 	Label string `yaml:"label"`
+	UserTextMatch string `yaml:"usertextmatch"`
 }
 
 // shouldReject returns true if the app name AND version AND labels all match the rejection condition.
 // If any one of these do not match the condition, it is not rejected.
-func (c RejectionCondition) shouldReject(appName, version string, labels []string) bool {
+func (c RejectionCondition) shouldReject(appName, version string, labels []string, userText string) bool {
+	var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
+	if c.UserTextMatch != "" && userTextRegexp.MatchString(userText) {
+		return true
+	}
 	if appName != c.App {
 		return false
 	}
@@ -141,7 +147,7 @@ func (c *config) matchesRejectionCondition(p *payload) bool {
 		if p.Data != nil {
 			version = p.Data["Version"]
 		}
-		if rc.shouldReject(p.AppName, version, p.Labels) {
+		if rc.shouldReject(p.AppName, version, p.Labels, p.UserText) {
 			return true
 		}
 	}
