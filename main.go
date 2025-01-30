@@ -108,7 +108,8 @@ type RejectionCondition struct {
 	// Optional: label that must also match in addition to the app and version. If empty, does not check label.
 	Label string `yaml:"label"`
 	// Alternative to matching app names, match the content of the user text
-	UserTextMatch string `yaml:"usertextmatch"`
+	UserTextMatch       string `yaml:"usertext"`
+	UserTextMatchReason string `yaml:"reason"`
 }
 
 // shouldReject returns true in two situations:
@@ -116,16 +117,15 @@ type RejectionCondition struct {
 //   - if the text provided by the user matches a regex specified in the rejection condition
 //
 // If any one of these do not match the condition, it is not rejected.
-func (c RejectionCondition) shouldReject(appName, version string, labels []string, userText string) bool {
+func (c RejectionCondition) shouldReject(appName, version string, labels []string, userText string) (reject bool, reason string) {
 	if c.App != "" {
 		if appName != c.App {
-			return false
+			return false, ""
 		}
 		// version was a condition and it doesn't match => accept it
 		if version != c.Version && c.Version != "" {
-			return false
+			return false, ""
 		}
-
 		// label was a condition and no label matches it => accept it
 		if c.Label != "" {
 			labelMatch := false
@@ -136,30 +136,39 @@ func (c RejectionCondition) shouldReject(appName, version string, labels []strin
 				}
 			}
 			if !labelMatch {
-				return false
+				return false, ""
 			}
 		}
+		return true, "this application is not allowed to send rageshakes to this server"
 	}
 	if c.UserTextMatch != "" {
 		var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
 		if userTextRegexp.MatchString(userText) {
-			return true
+			fmt.Println("Match:", c.UserTextMatch)
+			fmt.Println("Reason:", c.UserTextMatchReason)
+			reason := c.UserTextMatchReason
+			if c.UserTextMatchReason == "" {
+				reason = "user text"
+			}
+			return true, reason
 		}
 	}
-	return true
+	// Nothing matches
+	return false, ""
 }
 
-func (c *config) matchesRejectionCondition(p *payload) bool {
+func (c *config) matchesRejectionCondition(p *payload) (match bool, reason string) {
 	for _, rc := range c.RejectionConditions {
 		version := ""
 		if p.Data != nil {
 			version = p.Data["Version"]
 		}
-		if rc.shouldReject(p.AppName, version, p.Labels, p.UserText) {
-			return true
+		reject, reason := rc.shouldReject(p.AppName, version, p.Labels, p.UserText)
+		if reject {
+			return true, reason
 		}
 	}
-	return false
+	return false, ""
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {

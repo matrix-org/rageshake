@@ -13,8 +13,11 @@ listings_auth_pass: secret
 allowed_app_names: []
 
 # If any submission matches one of these rejection conditions, the submission is rejected.
-# The 'app' field is required, but 'version' and 'label' are both optional. A condition with just
-# an 'app' will reject that app altogether, effectively acting as a blocklist for app in contrast to allowed_app_names.
+# You can either match an 'app' name, with optional 'version' and 'label' or the 'usertext' submitted by the user when describing their issue.
+#
+# Adding an 'app' item will reject that app altogether, effectively acting as a blocklist for app in contrast to allowed_app_names. You can optionally add 'version' and 'label' to fine-tune the rejection condition
+#
+# 'usertext' is a regex to reject user descriptions with an optional 'reason' text to send to the client
 rejection_conditions:
   - app: my-app
     version: "0.4.9" # if the submission has a Version which is exactly this value, reject the submission.
@@ -23,7 +26,8 @@ rejection_conditions:
   - app: my-app
     version: "0.4.9"
     label: "nightly" # both label and Version must match for this condition to be true
-  - usertextmatch: "(\\w{4}\\s){11}\\w{4}" # reject text containing possible recovery keys
+  - usertext: "(\\w{4}\\s){11}\\w{4}" # reject text containing possible recovery keys
+    reason: "it matches a recovery key and recovery keys are private"
 
 # a GitHub personal access token (https://github.com/settings/tokens), which
 # will be used to create a GitHub issue for each report. It requires
