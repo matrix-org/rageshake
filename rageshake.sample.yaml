@@ -23,8 +23,7 @@ rejection_conditions:
   - app: my-app
     version: "0.4.9"
     label: "nightly" # both label and Version must match for this condition to be true
-  - app: whatever
-    usertextmatch: "(\\w{4}\\s){11}\\w{4}"
+  - usertextmatch: "(\\w{4}\\s){11}\\w{4}" # reject text containing possible recovery keys
 
 # a GitHub personal access token (https://github.com/settings/tokens), which
 # will be used to create a GitHub issue for each report. It requires

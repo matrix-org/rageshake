@@ -99,45 +99,53 @@ type config struct {
 }
 
 // RejectionCondition contains the fields that should match a bug report for it to be rejected.
+// The condition matches a specific app, with optionall version and label, or the user submitted text
 type RejectionCondition struct {
-	// Required field: if a payload does not match this app name, the condition does not match.
+	// If a payload is not a UserTextMatch and does not match this app name, the condition does not match.
 	App string `yaml:"app"`
 	// Optional: version that must also match in addition to the app and label. If empty, does not check version.
 	Version string `yaml:"version"`
 	// Optional: label that must also match in addition to the app and version. If empty, does not check label.
 	Label string `yaml:"label"`
+	// Alternative to matching app names, match the content of the user text
 	UserTextMatch string `yaml:"usertextmatch"`
 }
 
-// shouldReject returns true if the app name AND version AND labels all match the rejection condition.
+// shouldReject returns true in two situations:
+//   - if the app name AND version AND labels all match the rejection condition.
+//   - if the text provided by the user matches a regex specified in the rejection condition
+//
 // If any one of these do not match the condition, it is not rejected.
 func (c RejectionCondition) shouldReject(appName, version string, labels []string, userText string) bool {
-	var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
-	if c.UserTextMatch != "" && userTextRegexp.MatchString(userText) {
-		return true
-	}
-	if appName != c.App {
-		return false
-	}
-	// version was a condition and it doesn't match => accept it
-	if version != c.Version && c.Version != "" {
-		return false
-	}
-
-	// label was a condition and no label matches it => accept it
-	if c.Label != "" {
-		labelMatch := false
-		for _, l := range labels {
-			if l == c.Label {
-				labelMatch = true
-				break
-			}
-		}
-		if !labelMatch {
+	if c.App != "" {
+		if appName != c.App {
 			return false
 		}
-	}
+		// version was a condition and it doesn't match => accept it
+		if version != c.Version && c.Version != "" {
+			return false
+		}
 
+		// label was a condition and no label matches it => accept it
+		if c.Label != "" {
+			labelMatch := false
+			for _, l := range labels {
+				if l == c.Label {
+					labelMatch = true
+					break
+				}
+			}
+			if !labelMatch {
+				return false
+			}
+		}
+	}
+	if c.UserTextMatch != "" {
+		var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
+		if userTextRegexp.MatchString(userText) {
+			return true
+		}
+	}
 	return true
 }
 
