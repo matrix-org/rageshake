@@ -13,11 +13,8 @@ listings_auth_pass: secret
 allowed_app_names: []
 
 # If any submission matches one of these rejection conditions, the submission is rejected.
-# You can either match an 'app' name, with optional 'version' and 'label' or the 'usertext' submitted by the user when describing their issue.
-#
-# Adding an 'app' item will reject that app altogether, effectively acting as a blocklist for app in contrast to allowed_app_names. You can optionally add 'version' and 'label' to fine-tune the rejection condition
-#
-# 'usertext' is a regex to reject user descriptions with an optional 'reason' text to send to the client
+# A condition is made by an union of optional fields: app, version, labels, user text. They all need to match for rejecting the rageshake
+# It can also contain an optional reason to explain why this server is rejecting a user's submission.
 rejection_conditions:
   - app: my-app
     version: "0.4.9" # if the submission has a Version which is exactly this value, reject the submission.
@@ -26,6 +23,7 @@ rejection_conditions:
   - app: my-app
     version: "0.4.9"
     label: "nightly" # both label and Version must match for this condition to be true
+    reason: "this server does not accept rageshakes from nightlies"
   - usertext: "(\\w{4}\\s){11}\\w{4}" # reject text containing possible recovery keys
     reason: "it matches a recovery key and recovery keys are private"
 

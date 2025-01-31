@@ -98,8 +98,7 @@ type config struct {
 	GenericWebhookURLs []string `yaml:"generic_webhook_urls"`
 }
 
-// RejectionCondition contains the fields that should match a bug report for it to be rejected.
-// The condition matches a specific app, with optionall version and label, or the user submitted text
+// RejectionCondition contains the fields that can match a bug report for it to be rejected.
 type RejectionCondition struct {
 	// If a payload is not a UserTextMatch and does not match this app name, the condition does not match.
 	App string `yaml:"app"`
@@ -108,54 +107,47 @@ type RejectionCondition struct {
 	// Optional: label that must also match in addition to the app and version. If empty, does not check label.
 	Label string `yaml:"label"`
 	// Alternative to matching app names, match the content of the user text
-	UserTextMatch       string `yaml:"usertext"`
+	UserTextMatch string `yaml:"usertext"`
+	// Send this text to the client-side to inform the user why the server rejects the rageshake
 	UserTextMatchReason string `yaml:"reason"`
 }
 
-// shouldReject returns true in two situations:
-//   - if the app name AND version AND labels all match the rejection condition.
-//   - if the text provided by the user matches a regex specified in the rejection condition
-//
-// If any one of these do not match the condition, it is not rejected.
+// shouldReject returns true if all the App, Version, Label and UserTextMatch attributes of a RejectionCondition match
 func (c RejectionCondition) shouldReject(appName, version string, labels []string, userText string) (reject bool, reason *string) {
-	if c.App != "" {
-		if appName != c.App {
-			return false, nil
-		}
-		// version was a condition and it doesn't match => accept it
-		if version != c.Version && c.Version != "" {
-			return false, nil
-		}
-		// label was a condition and no label matches it => accept it
-		if c.Label != "" {
-			labelMatch := false
-			for _, l := range labels {
-				if l == c.Label {
-					labelMatch = true
-					break
-				}
-			}
-			if !labelMatch {
-				return false, nil
+	// Reject by default and then accept as soon as one condition does not match
+	reject = true
+	defaultReason := "app, version, labels, user text"
+	// Check the attribute of the RejectionCondition if it is not empty
+	if c.App != "" && c.App != appName {
+		reject = reject && false
+	}
+	if c.Version != "" && c.Version != version {
+		reject = reject && false
+	}
+	if c.Label != "" {
+		labelMatch := false
+		for _, l := range labels {
+			if l == c.Label {
+				labelMatch = true
+				break
 			}
 		}
-		reason := "this application is not allowed to send rageshakes to this server"
-		return true, &reason
+		if !labelMatch {
+			reject = reject && false
+		}
 	}
 	if c.UserTextMatch != "" {
 		var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
-		if userTextRegexp.MatchString(userText) {
-			fmt.Println("Match:", c.UserTextMatch)
-			fmt.Println("Reason:", c.UserTextMatchReason)
-			reason := c.UserTextMatchReason
-			if c.UserTextMatchReason == "" {
-				reason = "user text"
-			}
-			return true, &reason
+		if !userTextRegexp.MatchString(userText) {
+			reject = reject && false
 		}
 	}
-	// Nothing matches
-	return false, nil
+	if c.UserTextMatchReason != "" {
+		reason = &c.UserTextMatchReason
+	} else {
+		reason = &defaultReason
+	}
+	return
 }
 
 func (c *config) matchesRejectionCondition(p *payload) (match bool, reason *string) {
