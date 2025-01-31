@@ -110,7 +110,7 @@ type RejectionCondition struct {
 	// Message sent by the user, checked only if not empty
 	UserTextMatch string `yaml:"usertext"`
 	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default generic value if empty.
-	UserTextMatchReason string `yaml:"reason"`
+	Reason string `yaml:"reason"`
 }
 
 // shouldReject returns true if all the App, Version, Label and UserTextMatch attributes of a RejectionCondition match
@@ -118,8 +118,8 @@ func (c RejectionCondition) shouldReject(appName, version string, labels []strin
 	// Reject by default and then accept as soon as one condition does not match
 	reject = true
 	defaultReason := "app or user text rejected"
-	if c.UserTextMatchReason != "" {
-		reason = &c.UserTextMatchReason
+	if c.Reason != "" {
+		reason = &c.Reason
 	} else {
 		reason = &defaultReason
 	}
