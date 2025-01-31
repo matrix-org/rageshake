@@ -117,13 +117,20 @@ type RejectionCondition struct {
 func (c RejectionCondition) shouldReject(appName, version string, labels []string, userText string) (reject bool, reason *string) {
 	// Reject by default and then accept as soon as one condition does not match
 	reject = true
-	defaultReason := "app, version, labels, user text"
+	defaultReason := "app or user text rejected"
+	if c.UserTextMatchReason != "" {
+		reason = &c.UserTextMatchReason
+	} else {
+		reason = &defaultReason
+	}
 	// Check the attribute of the RejectionCondition if it is not empty
 	if c.App != "" && c.App != appName {
-		reject = reject && false
+		reject = false
+		return
 	}
 	if c.Version != "" && c.Version != version {
-		reject = reject && false
+		reject = false
+		return
 	}
 	if c.Label != "" {
 		labelMatch := false
@@ -134,19 +141,16 @@ func (c RejectionCondition) shouldReject(appName, version string, labels []strin
 			}
 		}
 		if !labelMatch {
-			reject = reject && false
+			reject = false
+			return
 		}
 	}
 	if c.UserTextMatch != "" {
 		var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
 		if !userTextRegexp.MatchString(userText) {
-			reject = reject && false
+			reject = false
+			return
 		}
-	}
-	if c.UserTextMatchReason != "" {
-		reason = &c.UserTextMatchReason
-	} else {
-		reason = &defaultReason
 	}
 	return
 }
