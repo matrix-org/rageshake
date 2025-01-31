@@ -100,15 +100,16 @@ type config struct {
 
 // RejectionCondition contains the fields that can match a bug report for it to be rejected.
 type RejectionCondition struct {
-	// If a payload is not a UserTextMatch and does not match this app name, the condition does not match.
+	// All the optional fields must match for the rejection condition to apply
+	// App name, checked only if not empty
 	App string `yaml:"app"`
-	// Optional: version that must also match in addition to the app and label. If empty, does not check version.
+	// Version, checked only if not empty
 	Version string `yaml:"version"`
-	// Optional: label that must also match in addition to the app and version. If empty, does not check label.
+	// List of labels, checked only if not empty
 	Label string `yaml:"label"`
-	// Alternative to matching app names, match the content of the user text
+	// Message sent by the user, checked only if not empty
 	UserTextMatch string `yaml:"usertext"`
-	// Send this text to the client-side to inform the user why the server rejects the rageshake
+	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default generic value if empty.
 	UserTextMatchReason string `yaml:"reason"`
 }
 
