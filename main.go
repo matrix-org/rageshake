@@ -117,14 +117,14 @@ type RejectionCondition struct {
 //   - if the text provided by the user matches a regex specified in the rejection condition
 //
 // If any one of these do not match the condition, it is not rejected.
-func (c RejectionCondition) shouldReject(appName, version string, labels []string, userText string) (reject bool, reason string) {
+func (c RejectionCondition) shouldReject(appName, version string, labels []string, userText string) (reject bool, reason *string) {
 	if c.App != "" {
 		if appName != c.App {
-			return false, ""
+			return false, nil
 		}
 		// version was a condition and it doesn't match => accept it
 		if version != c.Version && c.Version != "" {
-			return false, ""
+			return false, nil
 		}
 		// label was a condition and no label matches it => accept it
 		if c.Label != "" {
@@ -136,10 +136,11 @@ func (c RejectionCondition) shouldReject(appName, version string, labels []strin
 				}
 			}
 			if !labelMatch {
-				return false, ""
+				return false, nil
 			}
 		}
-		return true, "this application is not allowed to send rageshakes to this server"
+		reason := "this application is not allowed to send rageshakes to this server"
+		return true, &reason
 	}
 	if c.UserTextMatch != "" {
 		var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
@@ -150,14 +151,14 @@ func (c RejectionCondition) shouldReject(appName, version string, labels []strin
 			if c.UserTextMatchReason == "" {
 				reason = "user text"
 			}
-			return true, reason
+			return true, &reason
 		}
 	}
 	// Nothing matches
-	return false, ""
+	return false, nil
 }
 
-func (c *config) matchesRejectionCondition(p *payload) (match bool, reason string) {
+func (c *config) matchesRejectionCondition(p *payload) (match bool, reason *string) {
 	for _, rc := range c.RejectionConditions {
 		version := ""
 		if p.Data != nil {
@@ -168,7 +169,7 @@ func (c *config) matchesRejectionCondition(p *payload) (match bool, reason strin
 			return true, reason
 		}
 	}
-	return false, ""
+	return false, nil
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {

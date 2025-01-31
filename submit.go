@@ -228,12 +228,12 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 	}
 	matchesRejection, reason := s.cfg.matchesRejectionCondition(p)
 	if matchesRejection {
-		log.Printf("Blocking rageshake from app %s because it matches a rejection_condition: %s", p.AppName, reason)
+		log.Printf("Blocking rageshake from app %s because it matches a rejection_condition: %s", p.AppName, *reason)
 		if err := os.RemoveAll(reportDir); err != nil {
 			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",
 				reportDir, err)
 		}
-		userErrorText := fmt.Sprintf("This server did not accept the rageshake because it matches a rejection condition: %s. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", reason)
+		userErrorText := fmt.Sprintf("This server did not accept the rageshake because it matches a rejection condition: %s. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", *reason)
 		http.Error(w, userErrorText, 400)
 		return
 	}
