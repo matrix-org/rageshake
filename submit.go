@@ -226,14 +226,14 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 		http.Error(w, "This server does not accept rageshakes from your application. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", 400)
 		return
 	}
-	matchesRejection, reason := s.cfg.matchesRejectionCondition(p)
-	if matchesRejection {
-		log.Printf("Blocking rageshake from app %s because it matches a rejection_condition: %s", p.AppName, *reason)
+	rejection := s.cfg.matchesRejectionCondition(p)
+	if rejection != nil {
+		log.Printf("Blocking rageshake from app %s because it matches a rejection_condition: %s", p.AppName, *rejection)
 		if err := os.RemoveAll(reportDir); err != nil {
 			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",
 				reportDir, err)
 		}
-		userErrorText := fmt.Sprintf("This server did not accept the rageshake because it matches a rejection condition: %s. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", *reason)
+		userErrorText := fmt.Sprintf("This server did not accept the rageshake because it matches a rejection condition: %s. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", *rejection)
 		http.Error(w, userErrorText, 400)
 		return
 	}

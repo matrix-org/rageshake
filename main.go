@@ -113,60 +113,58 @@ type RejectionCondition struct {
 	Reason string `yaml:"reason"`
 }
 
-// shouldReject returns true if all the App, Version, Label and UserTextMatch attributes of a RejectionCondition match
-func (c RejectionCondition) shouldReject(appName, version string, labels []string, userText string) (reject bool, reason *string) {
-	// Reject by default and then accept as soon as one condition does not match
-	reject = true
+// shouldReject returns a rejection reason if the payload matches the condition, nil if the server should accept the rageshake
+func (c RejectionCondition) shouldReject(p *payload) (reason *string) {
 	defaultReason := "app or user text rejected"
 	if c.Reason != "" {
 		reason = &c.Reason
 	} else {
 		reason = &defaultReason
 	}
-	// Check the attribute of the RejectionCondition if it is not empty
-	if c.App != "" && c.App != appName {
-		reject = false
+	// Check all the non-empty attributes of the RejectionCondition
+	if c.App != "" && c.App != p.AppName {
+		reason = nil
 		return
 	}
+	version := ""
+	if p.Data != nil {
+		version = p.Data["Version"]
+	}
 	if c.Version != "" && c.Version != version {
-		reject = false
+		reason = nil
 		return
 	}
 	if c.Label != "" {
 		labelMatch := false
-		for _, l := range labels {
+		for _, l := range p.Labels {
 			if l == c.Label {
 				labelMatch = true
 				break
 			}
 		}
 		if !labelMatch {
-			reject = false
+			reason = nil
 			return
 		}
 	}
 	if c.UserTextMatch != "" {
 		var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
-		if !userTextRegexp.MatchString(userText) {
-			reject = false
+		if !userTextRegexp.MatchString(p.UserText) {
+			reason = nil
 			return
 		}
 	}
 	return
 }
 
-func (c *config) matchesRejectionCondition(p *payload) (match bool, reason *string) {
+func (c *config) matchesRejectionCondition(p *payload) (reason *string) {
 	for _, rc := range c.RejectionConditions {
-		version := ""
-		if p.Data != nil {
-			version = p.Data["Version"]
-		}
-		reject, reason := rc.shouldReject(p.AppName, version, p.Labels, p.UserText)
-		if reject {
-			return true, reason
+		reject := rc.shouldReject(p)
+		if reject != nil {
+			return rc.shouldReject(p)
 		}
 	}
-	return false, nil
+	return nil
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {

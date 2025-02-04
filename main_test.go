@@ -90,13 +90,13 @@ func TestConfigRejectionCondition(t *testing.T) {
 		},
 	}
 	for _, p := range rejectPayloads {
-		reject, reason := cfg.matchesRejectionCondition(&p)
-		if reject {
-			if *reason != p.Data["ExpectedRejectReason"] {
+		reject := cfg.matchesRejectionCondition(&p)
+		if reject != nil {
+			if *reject != p.Data["ExpectedRejectReason"] {
 				t.Errorf("payload was rejected with the wrong reason:\n payload=%+v\nconfig=%+v", p, cfg)
 			}
 		}
-		if !reject {
+		if reject == nil {
 			t.Errorf("payload was accepted when it should be rejected:\n payload=%+v\nconfig=%+v", p, cfg)
 		}
 	}
@@ -150,8 +150,8 @@ func TestConfigRejectionCondition(t *testing.T) {
 		},
 	}
 	for _, p := range acceptPayloads {
-		reject, _ := cfg.matchesRejectionCondition(&p)
-		if reject {
+		reject := cfg.matchesRejectionCondition(&p)
+		if reject != nil {
 			t.Errorf("payload was rejected when it should be accepted:\n payload=%+v\nconfig=%+v", p, cfg)
 		}
 	}
