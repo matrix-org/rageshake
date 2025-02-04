@@ -114,6 +114,7 @@ type RejectionCondition struct {
 }
 
 // shouldReject returns a rejection reason if the payload matches the condition, nil if the server should accept the rageshake
+// gocyclo: ignore we need lots of checks because all fields are optional
 func (c RejectionCondition) shouldReject(p *payload) (reason *string) {
 	defaultReason := "app or user text rejected"
 	if c.Reason != "" {
