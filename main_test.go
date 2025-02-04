@@ -32,7 +32,9 @@ func TestConfigRejectionCondition(t *testing.T) {
 		{
 			AppName: "my-app",
 			Data: map[string]string{
-				"Version":              "0.1.0",
+				"Version": "0.1.0",
+				// Hack add how we expect the rageshake to be rejected to the test
+				// The actual data in a rageshake has no ExpectedRejectReason field
 				"ExpectedRejectReason": "app or user text rejected",
 			},
 		},
