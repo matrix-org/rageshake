@@ -340,14 +340,5 @@ func loadConfig(configPath string) (*config, error) {
 	if err = yaml.Unmarshal(contents, &cfg); err != nil {
 		return nil, err
 	}
-	// sanity check rejection conditions
-	for _, rc := range cfg.RejectionConditions {
-		if rc.App == "" {
-			fmt.Println("rejection_condition missing an app field so will never match anything.")
-		}
-		if rc.Label == "" && rc.Version == "" {
-			fmt.Println("rejection_condition missing both label and version so will always match, specify label and/or version")
-		}
-	}
 	return &cfg, nil
 }
