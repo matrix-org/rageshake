@@ -45,7 +45,8 @@ type config struct {
 	// External URI to /api
 	APIPrefix string `yaml:"api_prefix"`
 
-	LinearToken string `yaml:"linear_token"`
+	LinearToken         string            `yaml:"linear_token"`
+	LinearTokenOverride map[string]string `yaml:"linear_token_override"`
 
 	APIServerURLs map[string]string `yaml:"api_server_url"`
 
