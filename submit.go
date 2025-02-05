@@ -753,7 +753,15 @@ func (s *submitServer) submitLinearIssue(ctx context.Context, p parsedPayload, l
 		Str("action", "submit_linear_issue").
 		Logger()
 
-	if len(s.cfg.LinearToken) == 0 {
+	// Get the appropriate Linear token - check override first, then fall back to default
+	linearToken := s.cfg.LinearToken
+	if p.VerifiedUserID != "" {
+		if overrideToken, ok := s.cfg.LinearTokenOverride[p.VerifiedUserID]; ok {
+			linearToken = overrideToken
+		}
+	}
+
+	if len(linearToken) == 0 {
 		return nil
 	}
 
@@ -776,7 +784,7 @@ func (s *submitServer) submitLinearIssue(ctx context.Context, p parsedPayload, l
 		email = p.IMAWhoami.Email
 	}
 	if email != "" {
-		if linearID := getLinearID(ctx, email, s.cfg.LinearToken); linearID != "" {
+		if linearID := getLinearID(ctx, email, linearToken); linearID != "" {
 			subscriberIDs = []string{linearID}
 		}
 	}
@@ -839,7 +847,7 @@ func (s *submitServer) submitLinearIssue(ctx context.Context, p parsedPayload, l
 	for backoff <= 32 {
 		var createResp CreateIssueResponse
 		err := LinearRequest(ctx, &GraphQLRequest{
-			Token: s.cfg.LinearToken,
+			Token: linearToken,
 			Query: mutationCreateIssue,
 			Variables: map[string]interface{}{
 				"input": map[string]interface{}{
