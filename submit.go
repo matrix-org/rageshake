@@ -1022,6 +1022,7 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 	var roomDescription string
 	var attachmentDescription string
 	var latestReadReceipt string
+	var roomFeatures string
 	for k := range p.Data {
 		switch k {
 		case "event_id", "room_id", "event_timestamp":
@@ -1034,6 +1035,8 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 			attachmentDescription = p.Data[k]
 		case "latest_read_receipt":
 			latestReadReceipt = p.Data[k]
+		case "room_features":
+			roomFeatures = p.Data[k]
 		default:
 			dataKeys = append(dataKeys, k)
 		}
@@ -1047,6 +1050,9 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 	}
 	if roomDescription != "" {
 		_, _ = fmt.Fprintf(&bodyBuf, "### Room description:\n\n```json\n%s\n```\n", roomDescription)
+	}
+	if roomFeatures != "" {
+		_, _ = fmt.Fprintf(&bodyBuf, "### Room features:\n\n```json\n%s\n```\n", roomFeatures)
 	}
 	if attachmentDescription != "" {
 		_, _ = fmt.Fprintf(&bodyBuf, "### Attachment description:\n\n```json\n%s\n```\n", attachmentDescription)
