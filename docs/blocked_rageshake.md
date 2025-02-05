@@ -14,6 +14,8 @@ The rageshake server you attempted to upload a report to is not accepting ragesh
 Generally, the developers who run a rageshake server will only be able to handle reports for applications they are developing,
 and your application is not listed as one of those applications.
 
+The rageshake server could also be rejecting the text you wrote in your bug report because its content matches a rejection rule. This usually happens to prevent you from disclosing private information in the bug report itself.
+
 Please contact the distributor of your application or the administrator of the web site you visit to report this as a problem.
 
 ## For developers of matrix clients
