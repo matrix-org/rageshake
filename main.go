@@ -113,6 +113,59 @@ type RejectionCondition struct {
 	Reason string `yaml:"reason"`
 }
 
+func (c RejectionCondition) rejectApp(p *payload, reason *string) *string {
+	// Use a form of short-circuit: if the reason pointer is already nil, some other rejection condition already failed and we don't need to perform any check
+	if reason != nil {
+		if c.App != "" && c.App != p.AppName {
+			reason = nil
+		}
+	}
+	return reason
+}
+
+func (c RejectionCondition) rejectVersion(p *payload, reason *string) *string {
+	if reason != nil {
+		version := ""
+		if p.Data != nil {
+			version = p.Data["Version"]
+		}
+		if c.Version != "" && c.Version != version {
+			reason = nil
+		}
+	}
+	return reason
+}
+
+func (c RejectionCondition) rejectLabel(p *payload, reason *string) *string {
+	if reason != nil {
+		if c.Label != "" {
+			labelMatch := false
+			for _, l := range p.Labels {
+				if l == c.Label {
+					labelMatch = true
+					break
+				}
+			}
+			if !labelMatch {
+				reason = nil
+			}
+		}
+	}
+	return reason
+}
+
+func (c RejectionCondition) rejectUserText(p *payload, reason *string) *string {
+	if reason != nil {
+		if c.UserTextMatch != "" {
+			var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
+			if !userTextRegexp.MatchString(p.UserText) {
+				reason = nil
+			}
+		}
+	}
+	return reason
+}
+
 // shouldReject returns a rejection reason if the payload matches the condition, nil if the server should accept the rageshake
 func (c RejectionCondition) shouldReject(p *payload) (reason *string) {
 	defaultReason := "app or user text rejected"
@@ -121,39 +174,10 @@ func (c RejectionCondition) shouldReject(p *payload) (reason *string) {
 	} else {
 		reason = &defaultReason
 	}
-	// Check all the non-empty attributes of the RejectionCondition
-	if c.App != "" && c.App != p.AppName {
-		reason = nil
-		return
-	}
-	version := ""
-	if p.Data != nil {
-		version = p.Data["Version"]
-	}
-	if c.Version != "" && c.Version != version {
-		reason = nil
-		return
-	}
-	if c.Label != "" {
-		labelMatch := false
-		for _, l := range p.Labels {
-			if l == c.Label {
-				labelMatch = true
-				break
-			}
-		}
-		if !labelMatch {
-			reason = nil
-			return
-		}
-	}
-	if c.UserTextMatch != "" {
-		var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
-		if !userTextRegexp.MatchString(p.UserText) {
-			reason = nil
-			return
-		}
-	}
+	reason = c.rejectApp(p, reason)
+	reason = c.rejectLabel(p, reason)
+	reason = c.rejectUserText(p, reason)
+	reason = c.rejectVersion(p, reason)
 	return
 }
 
