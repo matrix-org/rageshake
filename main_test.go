@@ -17,9 +17,14 @@ func TestConfigRejectionCondition(t *testing.T) {
 				App:     "my-app",
 				Version: "0.1.2",
 				Label:   "nightly",
+				Reason:  "no nightlies",
 			},
 			{
 				App: "block-my-app",
+			},
+			{
+				UserTextMatch: "(\\w{4}\\s){11}\\w{4}",
+				Reason:        "it matches a recovery key and recovery keys are private",
 			},
 		},
 	}
@@ -28,43 +33,70 @@ func TestConfigRejectionCondition(t *testing.T) {
 			AppName: "my-app",
 			Data: map[string]string{
 				"Version": "0.1.0",
+				// Hack add how we expect the rageshake to be rejected to the test
+				// The actual data in a rageshake has no ExpectedRejectReason field
+				"ExpectedRejectReason": "app or user text rejected",
 			},
 		},
 		{
 			AppName: "my-app",
-			Data:    map[string]string{},
-			Labels:  []string{"0.1.1"},
+			Data: map[string]string{
+				"ExpectedRejectReason": "app or user text rejected",
+			},
+			Labels: []string{"0.1.1"},
 		},
 		{
 			AppName: "my-app",
 			Labels:  []string{"foo", "nightly"},
 			Data: map[string]string{
-				"Version": "0.1.2",
+				"Version":              "0.1.2",
+				"ExpectedRejectReason": "no nightlies",
 			},
 		},
 		{
 			AppName: "block-my-app",
-		},
-		{
-			AppName: "block-my-app",
-			Labels:  []string{"foo"},
-		},
-		{
-			AppName: "block-my-app",
 			Data: map[string]string{
-				"Version": "42",
+				"ExpectedRejectReason": "app or user text rejected",
 			},
 		},
 		{
 			AppName: "block-my-app",
 			Labels:  []string{"foo"},
 			Data: map[string]string{
-				"Version": "42",
+				"ExpectedRejectReason": "app or user text rejected",
+			},
+		},
+		{
+			AppName: "block-my-app",
+			Data: map[string]string{
+				"Version":              "42",
+				"ExpectedRejectReason": "app or user text rejected",
+			},
+		},
+		{
+			AppName: "block-my-app",
+			Labels:  []string{"foo"},
+			Data: map[string]string{
+				"Version":              "42",
+				"ExpectedRejectReason": "app or user text rejected",
+			},
+		},
+		{
+			AppName:  "my-app",
+			UserText: "Looks like a recover key abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd",
+			Data: map[string]string{
+				"ExpectedRejectReason": "it matches a recovery key and recovery keys are private",
 			},
 		},
 	}
 	for _, p := range rejectPayloads {
-		if !cfg.matchesRejectionCondition(&p) {
+		reject := cfg.matchesRejectionCondition(&p)
+		if reject != nil {
+			if *reject != p.Data["ExpectedRejectReason"] {
+				t.Errorf("payload was rejected with the wrong reason:\n payload=%+v\nconfig=%+v", p, cfg)
+			}
+		}
+		if reject == nil {
 			t.Errorf("payload was accepted when it should be rejected:\n payload=%+v\nconfig=%+v", p, cfg)
 		}
 	}
@@ -112,9 +144,14 @@ func TestConfigRejectionCondition(t *testing.T) {
 				"Version": "0.1.2",
 			},
 		},
+		{
+			AppName:  "my-app",
+			UserText: "Some description",
+		},
 	}
 	for _, p := range acceptPayloads {
-		if cfg.matchesRejectionCondition(&p) {
+		reject := cfg.matchesRejectionCondition(&p)
+		if reject != nil {
 			t.Errorf("payload was rejected when it should be accepted:\n payload=%+v\nconfig=%+v", p, cfg)
 		}
 	}

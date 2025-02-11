@@ -27,6 +27,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -97,55 +98,76 @@ type config struct {
 	GenericWebhookURLs []string `yaml:"generic_webhook_urls"`
 }
 
-// RejectionCondition contains the fields that should match a bug report for it to be rejected.
+// RejectionCondition contains the fields that can match a bug report for it to be rejected.
+// All the (optional) fields must match for the rejection condition to apply
 type RejectionCondition struct {
-	// Required field: if a payload does not match this app name, the condition does not match.
+	// App name, applies only if not empty
 	App string `yaml:"app"`
-	// Optional: version that must also match in addition to the app and label. If empty, does not check version.
+	// Version, applies only if not empty
 	Version string `yaml:"version"`
-	// Optional: label that must also match in addition to the app and version. If empty, does not check label.
+	// Label, applies only if not empty
 	Label string `yaml:"label"`
+	// Message sent by the user, applies only if not empty
+	UserTextMatch string `yaml:"usertext"`
+	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default generic value if empty.
+	Reason string `yaml:"reason"`
 }
 
-// shouldReject returns true if the app name AND version AND labels all match the rejection condition.
-// If any one of these do not match the condition, it is not rejected.
-func (c RejectionCondition) shouldReject(appName, version string, labels []string) bool {
-	if appName != c.App {
-		return false
-	}
-	// version was a condition and it doesn't match => accept it
-	if version != c.Version && c.Version != "" {
-		return false
-	}
-
-	// label was a condition and no label matches it => accept it
-	if c.Label != "" {
-		labelMatch := false
-		for _, l := range labels {
-			if l == c.Label {
-				labelMatch = true
-				break
-			}
-		}
-		if !labelMatch {
-			return false
-		}
-	}
-
-	return true
+func (c RejectionCondition) matchesApp(p *payload) bool {
+	// Empty `RejectionCondition.App` is a wildcard which matches anything
+	return c.App == "" || c.App == p.AppName
 }
 
-func (c *config) matchesRejectionCondition(p *payload) bool {
+func (c RejectionCondition) matchesVersion(p *payload) bool {
+	version := ""
+	if p.Data != nil {
+		version = p.Data["Version"]
+	}
+	// Empty `RejectionCondition.Version` is a wildcard which matches anything
+	return c.Version == "" || c.Version == version
+}
+
+func (c RejectionCondition) matchesLabel(p *payload) bool {
+	// Empty `RejectionCondition.Label` is a wildcard which matches anything
+	if c.Label == "" {
+		return true
+	}
+	// Otherwise return true only if there is a label that matches
+	labelMatch := false
+	for _, l := range p.Labels {
+		if l == c.Label {
+			labelMatch = true
+			break
+		}
+	}
+	return labelMatch
+}
+
+func (c RejectionCondition) matchesUserText(p *payload) bool {
+	// Empty `RejectionCondition.UserTextMatch` is a wildcard which matches anything
+	return c.UserTextMatch == "" || regexp.MustCompile(c.UserTextMatch).MatchString(p.UserText)
+}
+
+func (c RejectionCondition) shouldReject(p *payload) *string {
+	if c.matchesApp(p) && c.matchesVersion(p) && c.matchesLabel(p) && c.matchesUserText(p) {
+		// RejectionCondition matches all of the conditions: we should reject this submission/
+		defaultReason := "app or user text rejected"
+		if c.Reason != "" {
+			return &c.Reason
+		}
+		return &defaultReason
+	}
+	return nil
+}
+
+func (c *config) matchesRejectionCondition(p *payload) *string {
 	for _, rc := range c.RejectionConditions {
-		version := ""
-		if p.Data != nil {
-			version = p.Data["Version"]
-		}
-		if rc.shouldReject(p.AppName, version, p.Labels) {
-			return true
+		reject := rc.shouldReject(p)
+		if reject != nil {
+			return reject
 		}
 	}
-	return false
+	return nil
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -318,15 +340,6 @@ func loadConfig(configPath string) (*config, error) {
 	var cfg config
 	if err = yaml.Unmarshal(contents, &cfg); err != nil {
 		return nil, err
-	}
-	// sanity check rejection conditions
-	for _, rc := range cfg.RejectionConditions {
-		if rc.App == "" {
-			fmt.Println("rejection_condition missing an app field so will never match anything.")
-		}
-		if rc.Label == "" && rc.Version == "" {
-			fmt.Println("rejection_condition missing both label and version so will always match, specify label and/or version")
-		}
 	}
 	return &cfg, nil
 }

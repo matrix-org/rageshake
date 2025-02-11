@@ -13,8 +13,8 @@ listings_auth_pass: secret
 allowed_app_names: []
 
 # If any submission matches one of these rejection conditions, the submission is rejected.
-# The 'app' field is required, but 'version' and 'label' are both optional. A condition with just
-# an 'app' will reject that app altogether, effectively acting as a blocklist for app in contrast to allowed_app_names.
+# A condition is made by an union of optional fields: app, version, labels, user text. They all need to match for rejecting the rageshake
+# It can also contain an optional reason to explain why this server is rejecting a user's submission.
 rejection_conditions:
   - app: my-app
     version: "0.4.9" # if the submission has a Version which is exactly this value, reject the submission.
@@ -23,6 +23,9 @@ rejection_conditions:
   - app: my-app
     version: "0.4.9"
     label: "nightly" # both label and Version must match for this condition to be true
+    reason: "this server does not accept rageshakes from nightlies"
+  - usertext: "(\\w{4}\\s){11}\\w{4}" # reject text containing possible recovery keys
+    reason: "it matches a recovery key and recovery keys are private"
 
 # a GitHub personal access token (https://github.com/settings/tokens), which
 # will be used to create a GitHub issue for each report. It requires
