@@ -164,7 +164,7 @@ func (c *config) matchesRejectionCondition(p *payload) (reason *string) {
 	for _, rc := range c.RejectionConditions {
 		reject := rc.shouldReject(p)
 		if reject != nil {
-			return rc.shouldReject(p)
+			return reject
 		}
 	}
 	return nil
