@@ -101,13 +101,13 @@ type config struct {
 // RejectionCondition contains the fields that can match a bug report for it to be rejected.
 // All the (optional) fields must match for the rejection condition to apply
 type RejectionCondition struct {
-	// App name, checked only if not empty
+	// App name, applies only if not empty
 	App string `yaml:"app"`
-	// Version, checked only if not empty
+	// Version, applies only if not empty
 	Version string `yaml:"version"`
-	// Label, checked only if not empty
+	// Label, applies only if not empty
 	Label string `yaml:"label"`
-	// Message sent by the user, checked only if not empty
+	// Message sent by the user, applies only if not empty
 	UserTextMatch string `yaml:"usertext"`
 	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default generic value if empty.
 	Reason string `yaml:"reason"`
