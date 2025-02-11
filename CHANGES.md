@@ -1,3 +1,13 @@
+1.14.0 (2025-02-11)
+===================
+
+Features
+--------
+
+- Parse User-Agent into a human readable format and attach to the report alongside the raw UA string. ([\#86](https://github.com/matrix-org/rageshake/issues/86))
+- Reject user text (problem description) matching a regex and send the reason why to the client-side. ([\#88](https://github.com/matrix-org/rageshake/issues/88))
+
+
 1.13.0 (2024-05-10)
 ===================
 
