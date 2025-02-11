@@ -154,12 +154,10 @@ func (c RejectionCondition) shouldReject(p *payload) *string {
 		defaultReason := "app or user text rejected"
 		if c.Reason != "" {
 			return &c.Reason
-		} else {
-			return &defaultReason
 		}
-	} else {
-		return nil
+		return &defaultReason
 	}
+	return nil
 }
 
 func (c *config) matchesRejectionCondition(p *payload) (reason *string) {
