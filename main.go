@@ -113,72 +113,53 @@ type RejectionCondition struct {
 	Reason string `yaml:"reason"`
 }
 
-func (c RejectionCondition) rejectApp(p *payload, reason *string) *string {
-	// Use a form of short-circuit: if the reason pointer is already nil, some other rejection condition already failed and we don't need to perform any check
-	if reason != nil {
-		if c.App != "" && c.App != p.AppName {
-			reason = nil
-		}
-	}
-	return reason
+func (c RejectionCondition) matchesApp(p *payload) bool {
+	// Empty `RejectionCondition.App` is a wildcard which matches anything
+	return c.App == "" || c.App == p.AppName
 }
 
-func (c RejectionCondition) rejectVersion(p *payload, reason *string) *string {
-	if reason != nil {
-		version := ""
-		if p.Data != nil {
-			version = p.Data["Version"]
-		}
-		if c.Version != "" && c.Version != version {
-			reason = nil
-		}
+func (c RejectionCondition) matchesVersion(p *payload) bool {
+	version := ""
+	if p.Data != nil {
+		version = p.Data["Version"]
 	}
-	return reason
+	// Empty `RejectionCondition.Version` is a wildcard which matches anything
+	return c.Version == "" || c.Version == version
 }
 
-func (c RejectionCondition) rejectLabel(p *payload, reason *string) *string {
-	if reason != nil {
-		if c.Label != "" {
-			labelMatch := false
-			for _, l := range p.Labels {
-				if l == c.Label {
-					labelMatch = true
-					break
-				}
-			}
-			if !labelMatch {
-				reason = nil
-			}
+func (c RejectionCondition) matchesLabel(p *payload) bool {
+	// Empty `RejectionCondition.Label` is a wildcard which matches anything
+	if c.Label == "" {
+		return true
+	}
+	// Otherwise return true only if there is a label that matches
+	labelMatch := false
+	for _, l := range p.Labels {
+		if l == c.Label {
+			labelMatch = true
+			break
 		}
 	}
-	return reason
+	return labelMatch
 }
 
-func (c RejectionCondition) rejectUserText(p *payload, reason *string) *string {
-	if reason != nil {
-		if c.UserTextMatch != "" {
-			var userTextRegexp = regexp.MustCompile(c.UserTextMatch)
-			if !userTextRegexp.MatchString(p.UserText) {
-				reason = nil
-			}
+func (c RejectionCondition) matchesUserText(p *payload) bool {
+	// Empty `RejectionCondition.UserTextMatch` is a wildcard which matches anything
+	return c.UserTextMatch == "" || regexp.MustCompile(c.UserTextMatch).MatchString(p.UserText)
+}
+
+func (c RejectionCondition) shouldReject(p *payload) *string {
+	if c.matchesApp(p) && c.matchesVersion(p) && c.matchesLabel(p) && c.matchesUserText(p) {
+		// RejectionCondition matches all of the conditions: we should reject this submission/
+		defaultReason := "app or user text rejected"
+		if c.Reason != "" {
+			return &c.Reason
+		} else {
+			return &defaultReason
 		}
-	}
-	return reason
-}
-
-// shouldReject returns a rejection reason if the payload matches the condition, nil if the server should accept the rageshake
-func (c RejectionCondition) shouldReject(p *payload) (reason *string) {
-	defaultReason := "app or user text rejected"
-	if c.Reason != "" {
-		reason = &c.Reason
 	} else {
-		reason = &defaultReason
+		return nil
 	}
-	reason = c.rejectApp(p, reason)
-	reason = c.rejectLabel(p, reason)
-	reason = c.rejectUserText(p, reason)
-	reason = c.rejectVersion(p, reason)
-	return
 }
 
 func (c *config) matchesRejectionCondition(p *payload) (reason *string) {
