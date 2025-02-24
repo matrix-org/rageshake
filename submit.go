@@ -1023,6 +1023,7 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 	var attachmentDescription string
 	var latestReadReceipt string
 	var roomFeatures string
+	var localBridgeState string
 	for k := range p.Data {
 		switch k {
 		case "event_id", "room_id", "event_timestamp":
@@ -1037,6 +1038,8 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 			latestReadReceipt = p.Data[k]
 		case "room_features":
 			roomFeatures = p.Data[k]
+		case "local_bridge_state":
+			localBridgeState = p.Data[k]
 		default:
 			dataKeys = append(dataKeys, k)
 		}
@@ -1059,6 +1062,9 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 	}
 	if latestReadReceipt != "" {
 		_, _ = fmt.Fprintf(&bodyBuf, "### Latest read receipt:\n\n```json\n%s\n```\n", latestReadReceipt)
+	}
+	if localBridgeState != "" {
+		_, _ = fmt.Fprintf(&bodyBuf, "### Local Bridge State:\n\n```json\n%s\n```\n", localBridgeState)
 	}
 	printDataKeys(p, &bodyBuf, "Data from app", dataKeys)
 
