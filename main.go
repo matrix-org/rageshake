@@ -57,8 +57,6 @@ var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
 // defaultErrorReason is the default reason string when not present for a rejection condition
 const defaultErrorReason string = "app or user text rejected"
 
-// defaultErrorCode is the default error code when not present for a rejection condition.
-const defaultErrorCode string = "RS_REJECTED"
 
 type config struct {
 	// Username and password required to access the bug report listings
@@ -164,7 +162,7 @@ func (c RejectionCondition) shouldReject(p *payload) (*string, *string) {
 		if c.Reason != "" {
 			reason = c.Reason
 		}
-		var code = defaultErrorCode
+		var code = ErrCodeRejected
 		if c.ErrorCode != "" {
 			code = c.ErrorCode
 		}

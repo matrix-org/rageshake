@@ -38,14 +38,14 @@ func TestConfigRejectionCondition(t *testing.T) {
 				// Hack add how we expect the rageshake to be rejected to the test
 				// The actual data in a rageshake has no ExpectedRejectReason field
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": "RS_REJECTED",
+				"ExpectedErrorCode": ErrCodeRejected,
 			},
 		},
 		{
 			AppName: "my-app",
 			Data: map[string]string{
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": "RS_REJECTED",
+				"ExpectedErrorCode": ErrCodeRejected,
 			},
 			Labels: []string{"0.1.1"},
 		},
@@ -62,7 +62,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			AppName: "block-my-app",
 			Data: map[string]string{
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": "RS_REJECTED",
+				"ExpectedErrorCode": ErrCodeRejected,
 			},
 		},
 		{
@@ -70,7 +70,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Labels:  []string{"foo"},
 			Data: map[string]string{
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": "RS_REJECTED",
+				"ExpectedErrorCode": ErrCodeRejected,
 			},
 		},
 		{
@@ -78,7 +78,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Data: map[string]string{
 				"Version":              "42",
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": "RS_REJECTED",
+				"ExpectedErrorCode": ErrCodeRejected,
 			},
 		},
 		{
@@ -87,7 +87,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Data: map[string]string{
 				"Version":              "42",
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": "RS_REJECTED",
+				"ExpectedErrorCode": ErrCodeRejected,
 			},
 		},
 		{
