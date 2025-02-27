@@ -235,9 +235,7 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",
 				reportDir, err)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(submitPolicyErrorResponse{"This server does not accept rageshakes from your application.", "RS_DISALLOWED_APP", "https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md"})
+		writeError(w, 400, submitPolicyErrorResponse{"This server does not accept rageshakes from your application.", "RS_DISALLOWED_APP", "https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md"})
 		return
 	}
 	rejection, code := s.cfg.matchesRejectionCondition(p)
@@ -248,9 +246,7 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 				reportDir, err)
 		}
 		userErrorText := fmt.Sprintf("This server did not accept the rageshake because it matches a rejection condition: %s.", *rejection)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(submitPolicyErrorResponse{userErrorText, *code, "https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md"})
+		writeError(w, 400, submitPolicyErrorResponse{userErrorText, *code, "https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md"})
 		return
 	}
 
@@ -271,7 +267,7 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 	json.NewEncoder(w).Encode(resp)
 }
 
-func writeError(w http.ResponseWriter, status int, response submitErrorResponse) {
+func writeError(w http.ResponseWriter, status int, response interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(response)
