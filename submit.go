@@ -165,6 +165,18 @@ type submitResponse struct {
 	ReportURL string `json:"report_url,omitempty"`
 }
 
+type submitErrorResponse struct {
+	Error string `json:"error"`
+	ErrorCode string `json:"errcode"`
+}
+
+type submitPolicyErrorResponse struct {
+	Error string `json:"error"`
+	ErrorCode string `json:"errcode"`
+	PolicyUrl string `json:"policy_url,omitempty"`
+}
+
+
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// if we attempt to return a response without reading the request body,
 	// apache gets upset and returns a 500. Let's try this.
@@ -172,7 +184,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer io.Copy(ioutil.Discard, req.Body)
 
 	if req.Method != "POST" && req.Method != "OPTIONS" {
-		respond(405, w)
+		writeError(w, 405, submitErrorResponse{"Method not allowed. Use POST.", "RS_METHOD_NOT_ALLOWED"})
 		return
 	}
 
@@ -198,7 +210,7 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 	reportDir := filepath.Join("bugs", prefix)
 	if err := os.MkdirAll(reportDir, os.ModePerm); err != nil {
 		log.Println("Unable to create report directory", err)
-		http.Error(w, "Internal error", 500)
+		writeError(w, 500, submitErrorResponse{"Internal error", "RS_UNKNOWN"})
 		return
 	}
 
@@ -223,18 +235,22 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",
 				reportDir, err)
 		}
-		http.Error(w, "This server does not accept rageshakes from your application. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", 400)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(submitPolicyErrorResponse{"This server does not accept rageshakes from your application.", "RS_DISALLOWED_APP", "https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md"})
 		return
 	}
-	rejection := s.cfg.matchesRejectionCondition(p)
+	rejection, code := s.cfg.matchesRejectionCondition(p)
 	if rejection != nil {
 		log.Printf("Blocking rageshake from app %s because it matches a rejection_condition: %s", p.AppName, *rejection)
 		if err := os.RemoveAll(reportDir); err != nil {
 			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",
 				reportDir, err)
 		}
-		userErrorText := fmt.Sprintf("This server did not accept the rageshake because it matches a rejection condition: %s. See https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md", *rejection)
-		http.Error(w, userErrorText, 400)
+		userErrorText := fmt.Sprintf("This server did not accept the rageshake because it matches a rejection condition: %s.", *rejection)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(submitPolicyErrorResponse{userErrorText, *code, "https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md"})
 		return
 	}
 
@@ -255,18 +271,24 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 	json.NewEncoder(w).Encode(resp)
 }
 
+func writeError(w http.ResponseWriter, status int, response submitErrorResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(response)
+}
+
 // parseRequest attempts to parse a received request as a bug report. If
 // the request cannot be parsed, it responds with an error and returns nil.
 func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *payload {
 	length, err := strconv.Atoi(req.Header.Get("Content-Length"))
 	if err != nil {
 		log.Println("Couldn't parse content-length", err)
-		http.Error(w, "Bad content-length", 400)
+		writeError(w, 400, submitErrorResponse{"Bad Content-Length header", "RS_BAD_HEADER"})
 		return nil
 	}
 	if length > maxPayloadSize {
 		log.Println("Content-length", length, "too large")
-		http.Error(w, fmt.Sprintf("Content too large (max %d)", maxPayloadSize), 413)
+		writeError(w, 413, submitErrorResponse{"Content too large", "RS_CONTENT_TOO_LARGE"})
 		return nil
 	}
 
@@ -277,7 +299,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 			p, err1 := parseMultipartRequest(w, req, reportDir)
 			if err1 != nil {
 				log.Println("Error parsing multipart data:", err1)
-				http.Error(w, "Bad multipart data", 400)
+				writeError(w, 400, submitErrorResponse{"Bad multipart data", "RS_BAD_CONTENT"})
 				return nil
 			}
 			return p
@@ -287,7 +309,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 	p, err := parseJSONRequest(w, req, reportDir)
 	if err != nil {
 		log.Println("Error parsing JSON body", err)
-		http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), 400)
+		writeError(w, 400, submitErrorResponse{fmt.Sprintf("Could not decode payload: %s", err.Error()), "RS_BAD_CONTENT"})
 		return nil
 	}
 

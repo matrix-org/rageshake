@@ -54,6 +54,9 @@ var DefaultEmailBodyTemplate string
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
 
+const DefaultErrorReason string = "app or user text rejected"
+const DefaultErrorCode string = "RS_UNKNOWN"
+
 type config struct {
 	// Username and password required to access the bug report listings
 	BugsUser string `yaml:"listings_auth_user"`
@@ -111,6 +114,8 @@ type RejectionCondition struct {
 	UserTextMatch string `yaml:"usertext"`
 	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default generic value if empty.
 	Reason string `yaml:"reason"`
+	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default error code RS_UNKNOWN if empty.
+	ErrorCode string `yaml:"errorcode"`
 }
 
 func (c RejectionCondition) matchesApp(p *payload) bool {
@@ -148,26 +153,30 @@ func (c RejectionCondition) matchesUserText(p *payload) bool {
 	return c.UserTextMatch == "" || regexp.MustCompile(c.UserTextMatch).MatchString(p.UserText)
 }
 
-func (c RejectionCondition) shouldReject(p *payload) *string {
+func (c RejectionCondition) shouldReject(p *payload) (*string, *string) {
 	if c.matchesApp(p) && c.matchesVersion(p) && c.matchesLabel(p) && c.matchesUserText(p) {
 		// RejectionCondition matches all of the conditions: we should reject this submission/
-		defaultReason := "app or user text rejected"
+		var reason = DefaultErrorReason
 		if c.Reason != "" {
-			return &c.Reason
+			reason = c.Reason
 		}
-		return &defaultReason
+		var code = DefaultErrorCode
+		if c.Reason != "" {
+			code = c.ErrorCode
+		}
+		return &reason, &code
 	}
-	return nil
+	return nil, nil
 }
 
-func (c *config) matchesRejectionCondition(p *payload) *string {
+func (c *config) matchesRejectionCondition(p *payload) (*string, *string) {
 	for _, rc := range c.RejectionConditions {
-		reject := rc.shouldReject(p)
+		reject, code := rc.shouldReject(p)
 		if reject != nil {
-			return reject
+			return reject, code
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
