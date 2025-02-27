@@ -156,6 +156,7 @@ func (c RejectionCondition) matchesUserText(p *payload) bool {
 	return c.UserTextMatch == "" || regexp.MustCompile(c.UserTextMatch).MatchString(p.UserText)
 }
 
+// Returns a rejection reason and error code if the payload should be rejected by this condition, otherwise nil.
 func (c RejectionCondition) shouldReject(p *payload) (*string, *string) {
 	if c.matchesApp(p) && c.matchesVersion(p) && c.matchesLabel(p) && c.matchesUserText(p) {
 		// RejectionCondition matches all of the conditions: we should reject this submission/
@@ -172,6 +173,7 @@ func (c RejectionCondition) shouldReject(p *payload) (*string, *string) {
 	return nil, nil
 }
 
+// Returns a rejection reason and error code if the payload should be rejected by any condition, otherwise nil.
 func (c *config) matchesRejectionCondition(p *payload) (*string, *string) {
 	for _, rc := range c.RejectionConditions {
 		reject, code := rc.shouldReject(p)
