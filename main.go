@@ -54,8 +54,11 @@ var DefaultEmailBodyTemplate string
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
 
+// Default string when a reason is not provided for a rejection condition
 const DefaultErrorReason string = "app or user text rejected"
-const DefaultErrorCode string = "RS_UNKNOWN"
+
+// Default error when a error code is not provided for a rejection condition.
+const DefaultErrorCode string = "RS_REJECTED"
 
 type config struct {
 	// Username and password required to access the bug report listings
@@ -114,7 +117,7 @@ type RejectionCondition struct {
 	UserTextMatch string `yaml:"usertext"`
 	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default generic value if empty.
 	Reason string `yaml:"reason"`
-	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default error code RS_UNKNOWN if empty.
+	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default error code RS_REJECTED if empty.
 	ErrorCode string `yaml:"errorcode"`
 }
 
@@ -161,7 +164,7 @@ func (c RejectionCondition) shouldReject(p *payload) (*string, *string) {
 			reason = c.Reason
 		}
 		var code = DefaultErrorCode
-		if c.Reason != "" {
+		if c.ErrorCode != "" {
 			code = c.ErrorCode
 		}
 		return &reason, &code

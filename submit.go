@@ -173,7 +173,7 @@ type submitErrorResponse struct {
 type submitPolicyErrorResponse struct {
 	Error string `json:"error"`
 	ErrorCode string `json:"errcode"`
-	PolicyUrl string `json:"policy_url,omitempty"`
+	PolicyURL string `json:"policy_url,omitempty"`
 }
 
 

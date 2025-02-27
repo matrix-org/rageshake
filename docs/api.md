@@ -25,6 +25,8 @@ Where the fields are as follows:
 - `RS_BAD_HEADER` is reported when a header was not able to be parsed, such as `Content-Length`.
 - `RS_CONTENT_TOO_LARGE` is reported when the reported content size is too large.
 - `RS_BAD_CONTENT` is reported when the reports content could not be parsed.
+- `RS_REJECTED` is is reported when the submission could be understood but was rejected by `rejection_conditions`.
+  This is the default value, see below for more information.
 
 In addition to these error codes, the configuration allows application developers to specify specific error codes
 for report rejection (see the `rejection_conditions` config option). Consult the administrator of your rageshake
