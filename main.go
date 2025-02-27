@@ -54,10 +54,10 @@ var DefaultEmailBodyTemplate string
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
 
-// Default string when a reason is not provided for a rejection condition
+// DefaultErrorReason is the default reason string when not present for a rejection condition
 const DefaultErrorReason string = "app or user text rejected"
 
-// Default error when a error code is not provided for a rejection condition.
+// DefaultErrorCode is the default error code when not present for a rejection condition.
 const DefaultErrorCode string = "RS_REJECTED"
 
 type config struct {
