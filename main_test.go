@@ -18,6 +18,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 				Version: "0.1.2",
 				Label:   "nightly",
 				Reason:  "no nightlies",
+				ErrorCode: "RS_BAD_VERSION",
 			},
 			{
 				App: "block-my-app",
@@ -25,6 +26,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			{
 				UserTextMatch: "(\\w{4}\\s){11}\\w{4}",
 				Reason:        "it matches a recovery key and recovery keys are private",
+				ErrorCode: "RS_EXPOSED_RECOVERY_KEY",
 			},
 		},
 	}
@@ -36,12 +38,14 @@ func TestConfigRejectionCondition(t *testing.T) {
 				// Hack add how we expect the rageshake to be rejected to the test
 				// The actual data in a rageshake has no ExpectedRejectReason field
 				"ExpectedRejectReason": "app or user text rejected",
+				"ExpectedErrorCode": "RS_REJECTED",
 			},
 		},
 		{
 			AppName: "my-app",
 			Data: map[string]string{
 				"ExpectedRejectReason": "app or user text rejected",
+				"ExpectedErrorCode": "RS_REJECTED",
 			},
 			Labels: []string{"0.1.1"},
 		},
@@ -51,12 +55,14 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Data: map[string]string{
 				"Version":              "0.1.2",
 				"ExpectedRejectReason": "no nightlies",
+				"ExpectedErrorCode": "RS_BAD_VERSION",
 			},
 		},
 		{
 			AppName: "block-my-app",
 			Data: map[string]string{
 				"ExpectedRejectReason": "app or user text rejected",
+				"ExpectedErrorCode": "RS_REJECTED",
 			},
 		},
 		{
@@ -64,6 +70,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Labels:  []string{"foo"},
 			Data: map[string]string{
 				"ExpectedRejectReason": "app or user text rejected",
+				"ExpectedErrorCode": "RS_REJECTED",
 			},
 		},
 		{
@@ -71,6 +78,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Data: map[string]string{
 				"Version":              "42",
 				"ExpectedRejectReason": "app or user text rejected",
+				"ExpectedErrorCode": "RS_REJECTED",
 			},
 		},
 		{
@@ -79,6 +87,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Data: map[string]string{
 				"Version":              "42",
 				"ExpectedRejectReason": "app or user text rejected",
+				"ExpectedErrorCode": "RS_REJECTED",
 			},
 		},
 		{
@@ -86,18 +95,24 @@ func TestConfigRejectionCondition(t *testing.T) {
 			UserText: "Looks like a recover key abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd",
 			Data: map[string]string{
 				"ExpectedRejectReason": "it matches a recovery key and recovery keys are private",
+				"ExpectedErrorCode": "RS_EXPOSED_RECOVERY_KEY",
 			},
 		},
 	}
 	for _, p := range rejectPayloads {
-		reject := cfg.matchesRejectionCondition(&p)
+		reject, code := cfg.matchesRejectionCondition(&p)
+		if reject == nil || code == nil {
+			t.Errorf("payload was accepted when it should be rejected:\n payload=%+v\nconfig=%+v", p, cfg)
+		}
 		if reject != nil {
 			if *reject != p.Data["ExpectedRejectReason"] {
 				t.Errorf("payload was rejected with the wrong reason:\n payload=%+v\nconfig=%+v", p, cfg)
 			}
 		}
-		if reject == nil {
-			t.Errorf("payload was accepted when it should be rejected:\n payload=%+v\nconfig=%+v", p, cfg)
+		if code != nil {
+			if *code != p.Data["ExpectedErrorCode"] {
+				t.Errorf("payload was rejected with the wrong code:\n payload=%+v\nconfig=%+v\ncode=%s", p, cfg, *code)
+			}
 		}
 	}
 	acceptPayloads := []payload{
@@ -150,8 +165,8 @@ func TestConfigRejectionCondition(t *testing.T) {
 		},
 	}
 	for _, p := range acceptPayloads {
-		reject := cfg.matchesRejectionCondition(&p)
-		if reject != nil {
+		reject, code := cfg.matchesRejectionCondition(&p)
+		if reject != nil || code != nil {
 			t.Errorf("payload was rejected when it should be accepted:\n payload=%+v\nconfig=%+v", p, cfg)
 		}
 	}
