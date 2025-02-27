@@ -54,11 +54,11 @@ var DefaultEmailBodyTemplate string
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
 
-// DefaultErrorReason is the default reason string when not present for a rejection condition
-const DefaultErrorReason string = "app or user text rejected"
+// defaultErrorReason is the default reason string when not present for a rejection condition
+const defaultErrorReason string = "app or user text rejected"
 
-// DefaultErrorCode is the default error code when not present for a rejection condition.
-const DefaultErrorCode string = "RS_REJECTED"
+// defaultErrorCode is the default error code when not present for a rejection condition.
+const defaultErrorCode string = "RS_REJECTED"
 
 type config struct {
 	// Username and password required to access the bug report listings
@@ -159,11 +159,11 @@ func (c RejectionCondition) matchesUserText(p *payload) bool {
 func (c RejectionCondition) shouldReject(p *payload) (*string, *string) {
 	if c.matchesApp(p) && c.matchesVersion(p) && c.matchesLabel(p) && c.matchesUserText(p) {
 		// RejectionCondition matches all of the conditions: we should reject this submission/
-		var reason = DefaultErrorReason
+		var reason = defaultErrorReason
 		if c.Reason != "" {
 			reason = c.Reason
 		}
-		var code = DefaultErrorCode
+		var code = defaultErrorCode
 		if c.ErrorCode != "" {
 			code = c.ErrorCode
 		}
@@ -352,6 +352,12 @@ func loadConfig(configPath string) (*config, error) {
 	var cfg config
 	if err = yaml.Unmarshal(contents, &cfg); err != nil {
 		return nil, err
+	}
+
+	for idx, condition := range cfg.RejectionConditions {
+		if condition.ErrorCode != "" && strings.HasPrefix(condition.ErrorCode, "RS_REJECTED_") == false {
+			return nil, fmt.Errorf("Rejected condition %d was invalid. ErrorCode must be use the namespace RS_REJECTED_", idx);
+		}
 	}
 	return &cfg, nil
 }

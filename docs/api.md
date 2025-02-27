@@ -111,5 +111,5 @@ Where the fields are as follows:
   This is the default value, see below for more information.
 
 In addition to these error codes, the configuration allows application developers to specify specific error codes
-for report rejection (see the `rejection_conditions` config option). Consult the administrator of your rageshake
-server in order to determine what error codes may be presented.
+for report rejection under the `RS_REJECTED_*` namespace. (see the `rejection_conditions` config option). Consult the
+administrator of your rageshake server in order to determine what error codes may be presented.
