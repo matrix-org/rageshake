@@ -154,7 +154,7 @@ func (c RejectionCondition) matchesUserText(p *payload) bool {
 	return c.UserTextMatch == "" || regexp.MustCompile(c.UserTextMatch).MatchString(p.UserText)
 }
 
-// Returns a rejection reason and error code if the payload should be rejected by this condition, otherwise nil.
+// Returns a rejection reason and error code if the payload should be rejected by this condition, condition; otherwise returns `nil` for both results.
 func (c RejectionCondition) shouldReject(p *payload) (*string, *string) {
 	if c.matchesApp(p) && c.matchesVersion(p) && c.matchesLabel(p) && c.matchesUserText(p) {
 		// RejectionCondition matches all of the conditions: we should reject this submission/
@@ -171,7 +171,7 @@ func (c RejectionCondition) shouldReject(p *payload) (*string, *string) {
 	return nil, nil
 }
 
-// Returns a rejection reason and error code if the payload should be rejected by any condition, otherwise nil.
+// Returns a rejection reason and error code if the payload should be rejected by any condition, condition; otherwise returns `nil` for both results.
 func (c *config) matchesRejectionCondition(p *payload) (*string, *string) {
 	for _, rc := range c.RejectionConditions {
 		reject, code := rc.shouldReject(p)
@@ -355,8 +355,8 @@ func loadConfig(configPath string) (*config, error) {
 	}
 
 	for idx, condition := range cfg.RejectionConditions {
-		if condition.ErrorCode != "" && strings.HasPrefix(condition.ErrorCode, "RS_REJECTED_") == false {
-			return nil, fmt.Errorf("Rejected condition %d was invalid. ErrorCode must be use the namespace RS_REJECTED_", idx);
+		if condition.ErrorCode != "" && !strings.HasPrefix(condition.ErrorCode, "RS_REJECTED_") {
+			return nil, fmt.Errorf("Rejected condition %d was invalid. `errorcode` must be use the namespace RS_REJECTED_", idx);
 		}
 	}
 	return &cfg, nil
