@@ -115,7 +115,7 @@ type RejectionCondition struct {
 	UserTextMatch string `yaml:"usertext"`
 	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default generic value if empty.
 	Reason string `yaml:"reason"`
-	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default error code RS_REJECTED if empty.
+	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default error code REJECTED if empty.
 	ErrorCode string `yaml:"errorcode"`
 }
 
@@ -355,8 +355,8 @@ func loadConfig(configPath string) (*config, error) {
 	}
 
 	for idx, condition := range cfg.RejectionConditions {
-		if condition.ErrorCode != "" && !strings.HasPrefix(condition.ErrorCode, "RS_REJECTED_") {
-			return nil, fmt.Errorf("Rejected condition %d was invalid. `errorcode` must be use the namespace RS_REJECTED_", idx);
+		if condition.ErrorCode != "" && !strings.HasPrefix(condition.ErrorCode, "REJECTED_") {
+			return nil, fmt.Errorf("Rejected condition %d was invalid. `errorcode` must be use the namespace REJECTED_", idx);
 		}
 	}
 	return &cfg, nil

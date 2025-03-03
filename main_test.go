@@ -18,7 +18,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 				Version: "0.1.2",
 				Label:   "nightly",
 				Reason:  "no nightlies",
-				ErrorCode: "RS_BAD_VERSION",
+				ErrorCode: "BAD_VERSION",
 			},
 			{
 				App: "block-my-app",
@@ -26,7 +26,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			{
 				UserTextMatch: "(\\w{4}\\s){11}\\w{4}",
 				Reason:        "it matches a recovery key and recovery keys are private",
-				ErrorCode: "RS_EXPOSED_RECOVERY_KEY",
+				ErrorCode: "EXPOSED_RECOVERY_KEY",
 			},
 		},
 	}
@@ -55,7 +55,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Data: map[string]string{
 				"Version":              "0.1.2",
 				"ExpectedRejectReason": "no nightlies",
-				"ExpectedErrorCode": "RS_BAD_VERSION",
+				"ExpectedErrorCode": "BAD_VERSION",
 			},
 		},
 		{
@@ -95,7 +95,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			UserText: "Looks like a recover key abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd",
 			Data: map[string]string{
 				"ExpectedRejectReason": "it matches a recovery key and recovery keys are private",
-				"ExpectedErrorCode": "RS_EXPOSED_RECOVERY_KEY",
+				"ExpectedErrorCode": "EXPOSED_RECOVERY_KEY",
 			},
 		},
 	}

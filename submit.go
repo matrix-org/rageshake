@@ -231,7 +231,7 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 			log.Printf("Unable to remove report dir %s after rejected upload: %v\n",
 				reportDir, err)
 		}
-		writeError(w, 400, submitErrorResponse{"This server does not accept rageshakes from your application.", "RS_DISALLOWED_APP", "https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md"})
+		writeError(w, 400, submitErrorResponse{"This server does not accept rageshakes from your application.", ErrCodeDisallowedApp, "https://github.com/matrix-org/rageshake/blob/master/docs/blocked_rageshake.md"})
 		return
 	}
 	rejection, code := s.cfg.matchesRejectionCondition(p)
