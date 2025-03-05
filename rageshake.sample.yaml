@@ -1,8 +1,6 @@
 # username/password pair which will be required to access the bug report
 # listings at `/api/listing`, via HTTP basic auth.  If omitted, there will be
 # *no* authentication on this access!
-listings_auth_user: alice
-listings_auth_pass: secret
 
 # the external URL at which /api is accessible; it is used to add a link to the
 # report to the GitHub issue. If unspecified, based on the listen address.
@@ -15,6 +13,8 @@ allowed_app_names: []
 # If any submission matches one of these rejection conditions, the submission is rejected.
 # A condition is made by an union of optional fields: app, version, labels, user text. They all need to match for rejecting the rageshake
 # It can also contain an optional reason to explain why this server is rejecting a user's submission.
+# An errorcode can be provided to give a precise machine-readable error description under the `REJECTED_` namespace.
+# Otherwise, this defaults to REJECTED.
 rejection_conditions:
   - app: my-app
     version: "0.4.9" # if the submission has a Version which is exactly this value, reject the submission.
@@ -24,8 +24,10 @@ rejection_conditions:
     version: "0.4.9"
     label: "nightly" # both label and Version must match for this condition to be true
     reason: "this server does not accept rageshakes from nightlies"
+    errorcode: "REJECTED_BAD_VERSION"
   - usertext: "(\\w{4}\\s){11}\\w{4}" # reject text containing possible recovery keys
     reason: "it matches a recovery key and recovery keys are private"
+    errorcode: "REJECTED_UNEXPECTED_RECOVERY_KEY"
 
 # a GitHub personal access token (https://github.com/settings/tokens), which
 # will be used to create a GitHub issue for each report. It requires

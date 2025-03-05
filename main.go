@@ -54,6 +54,9 @@ var DefaultEmailBodyTemplate string
 var configPath = flag.String("config", "rageshake.yaml", "The path to the config file. For more information, see the config file in this repository.")
 var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
 
+// defaultErrorReason is the default reason string when not present for a rejection condition
+const defaultErrorReason string = "app or user text rejected"
+
 type config struct {
 	// Username and password required to access the bug report listings
 	BugsUser string `yaml:"listings_auth_user"`
@@ -111,6 +114,8 @@ type RejectionCondition struct {
 	UserTextMatch string `yaml:"usertext"`
 	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default generic value if empty.
 	Reason string `yaml:"reason"`
+	// Send this text to the client-side to inform the user why the server rejects the rageshake. Uses a default error code REJECTED if empty.
+	ErrorCode string `yaml:"errorcode"`
 }
 
 func (c RejectionCondition) matchesApp(p *payload) bool {
@@ -148,26 +153,32 @@ func (c RejectionCondition) matchesUserText(p *payload) bool {
 	return c.UserTextMatch == "" || regexp.MustCompile(c.UserTextMatch).MatchString(p.UserText)
 }
 
-func (c RejectionCondition) shouldReject(p *payload) *string {
+// Returns a rejection reason and error code if the payload should be rejected by this condition, condition; otherwise returns `nil` for both results.
+func (c RejectionCondition) shouldReject(p *payload) (*string, *string) {
 	if c.matchesApp(p) && c.matchesVersion(p) && c.matchesLabel(p) && c.matchesUserText(p) {
 		// RejectionCondition matches all of the conditions: we should reject this submission/
-		defaultReason := "app or user text rejected"
+		var reason = defaultErrorReason
 		if c.Reason != "" {
-			return &c.Reason
+			reason = c.Reason
 		}
-		return &defaultReason
+		var code = ErrCodeRejected
+		if c.ErrorCode != "" {
+			code = c.ErrorCode
+		}
+		return &reason, &code
 	}
-	return nil
+	return nil, nil
 }
 
-func (c *config) matchesRejectionCondition(p *payload) *string {
+// Returns a rejection reason and error code if the payload should be rejected by any condition, condition; otherwise returns `nil` for both results.
+func (c *config) matchesRejectionCondition(p *payload) (*string, *string) {
 	for _, rc := range c.RejectionConditions {
-		reject := rc.shouldReject(p)
+		reject, code := rc.shouldReject(p)
 		if reject != nil {
-			return reject
+			return reject, code
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func basicAuth(handler http.Handler, username, password, realm string) http.Handler {
@@ -340,6 +351,12 @@ func loadConfig(configPath string) (*config, error) {
 	var cfg config
 	if err = yaml.Unmarshal(contents, &cfg); err != nil {
 		return nil, err
+	}
+
+	for idx, condition := range cfg.RejectionConditions {
+		if condition.ErrorCode != "" && !strings.HasPrefix(condition.ErrorCode, "REJECTED_") {
+			return nil, fmt.Errorf("Rejected condition %d was invalid. `errorcode` must be use the namespace REJECTED_", idx);
+		}
 	}
 	return &cfg, nil
 }
