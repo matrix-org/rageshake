@@ -172,7 +172,6 @@ type submitErrorResponse struct {
 }
 
 
-
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// if we attempt to return a response without reading the request body,
 	// apache gets upset and returns a 500. Let's try this.

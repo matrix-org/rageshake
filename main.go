@@ -57,7 +57,6 @@ var bindAddr = flag.String("listen", ":9110", "The port to listen on.")
 // defaultErrorReason is the default reason string when not present for a rejection condition
 const defaultErrorReason string = "app or user text rejected"
 
-
 type config struct {
 	// Username and password required to access the bug report listings
 	BugsUser string `yaml:"listings_auth_user"`
