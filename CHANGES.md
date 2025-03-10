@@ -5,7 +5,7 @@ Features
 --------
 
 - The `/api/submit` endpoint responds with JSON when it encounters an error.
-  Please read the documentation in [docs/api.md](https://github.com/matrix-org/rageshake/blob/main/docs/api.md) to learn more. ([\#99](https://github.com/matrix-org/rageshake/issues/99))
+  Please read the documentation in [docs/api.md](https://github.com/matrix-org/rageshake/blob/main/docs/api.md) to learn more. ([\#90](https://github.com/matrix-org/rageshake/issues/90))
 
 
 1.14.0 (2025-02-11)
