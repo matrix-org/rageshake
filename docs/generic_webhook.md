@@ -11,28 +11,28 @@ the original log files uploaded.
 
 A sample JSON body is as follows:
 
-```
+```json5
 {
-  'user_text': 'test\r\n\r\nIssue: No issue link given',
-  'app': 'element-web',
-  'data': {
-    'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:96.0) Gecko/20100101 Firefox/96.0',
-    'Version': '0f15ba34cdf5-react-0f15ba34cdf5-js-0f15ba34cdf5',
-    ...
-    'user_id': '@michaelgoesforawalk:matrix.org'},
-  'labels': None,
-  'logs': [
-    'logs-0000.log.gz',
-    'logs-0001.log.gz',
-    'logs-0002.log.gz',
+  "user_text": "test\r\n\r\nIssue: No issue link given",
+  "app": "element-web",
+  "data": {
+    "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:96.0) Gecko/20100101 Firefox/96.0",
+    "Version": "0f15ba34cdf5-react-0f15ba34cdf5-js-0f15ba34cdf5",
+    // ...
+    "user_id": "@michaelgoesforawalk:matrix.org"},
+  "labels": null,
+  "logs": [
+    "logs-0000.log.gz",
+    "logs-0001.log.gz",
+    "logs-0002.log.gz",
   ],
-  'logErrors': None,
-  'files': [
-    'screenshot.png'
+  "logErrors": null,
+  "files": [
+    "screenshot.png"
   ],
-  'fileErrors': None,
-  'report_url': 'https://github.com/your-org/your-repo/issues/1251',
-  'listing_url': 'http://your-rageshake-server/api/listing/2022-01-25/154742-OOXBVGIX'
+  "fileErrors": null,
+  "report_url": "https://github.com/your-org/your-repo/issues/1251",
+  "listing_url": "http://your-rageshake-server/api/listing/2022-01-25/154742-OOXBVGIX"
 }
 ```
 
