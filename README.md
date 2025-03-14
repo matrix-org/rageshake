@@ -27,6 +27,18 @@ See [templates/README.md](templates/README.md) for more information.
 
 See [docs/api.md](docs/api.md) for more information.
 
+## Data stored on disk
+
+Each request to `POST /api/submit` results in data being written to the local disk.
+A new directory is created within `./bugs` (relative to the working directory of the `rageshake` server) for
+each submission; within that directory is created:
+ * Any log files attached to the submission, named as chosen by the client (provided the name is moderately sensible),
+   and gzipped.
+ * `details.log.gz`: a gzipped text file giving metadata about the submission, in an undocumented format. Now
+   deprecated, but retained for backwards compatibility with existing tooling.
+ * `details.json`: Metadata about the submission, in the same format as submitted to the
+   [generic webhooks](./docs/generic_webhook.md).
+
 ## Notifications
 
 You can get notifications when a new rageshake arrives on the server.
