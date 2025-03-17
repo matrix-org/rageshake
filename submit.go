@@ -132,6 +132,8 @@ type payload struct {
 	Files []string `json:"files"`
 	// Set if there are file parsing errors
 	FileErrors []string `json:"fileErrors"`
+	// The time the rageshake was submitted, in milliseconds since the epoch
+	CreateTimeMillis int64 `json:"create_time"`
 }
 
 func (p payload) WriteTo(out io.Writer) {
@@ -252,6 +254,8 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 	// This is going to be used to uniquely identify rageshakes, even if they are not submitted to
 	// an issue tracker for instance with automatic rageshakes that can be plentiful
 	p.ID = prefix
+
+	p.CreateTimeMillis = t.Unix() * 1e3 // TODO: drop support for Go 1.16, use UnixMilli
 
 	resp, err := s.saveReport(req.Context(), *p, reportDir, listingURL)
 	if err != nil {

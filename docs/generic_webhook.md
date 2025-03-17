@@ -13,6 +13,10 @@ A sample JSON body is as follows:
 
 ```json5
 {
+  // Unique ID for this rageshake.
+  "id": "2022-01-25/154742-OOXBVGIX",
+  // The time this rageshake was submitted, in milliseconds past the epoch
+  "create_time": 1643125662456,
   "user_text": "test\r\n\r\nIssue: No issue link given",
   "app": "element-web",
   "data": {
