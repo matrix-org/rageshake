@@ -1,3 +1,12 @@
+1.16.0 (2025-03-17)
+===================
+
+Features
+--------
+
+- Write a file called `details.json` for each submission. ([\#92](https://github.com/matrix-org/rageshake/issues/92))
+
+
 1.15.0 (2025-03-10)
 ===================
 
