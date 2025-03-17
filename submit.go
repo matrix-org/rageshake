@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -96,7 +97,10 @@ type issueBodyTemplatePayload struct {
 	ListingURL string
 }
 
-// Stores additional information created during processing of a payload
+// `genericWebhookPayload` contains the data sent to webhooks configured with `generic_webhook_urls`, as
+// well as being written to `details.json` in the rageshake directory.
+//
+// See `docs/generic_webhook.md`.
 type genericWebhookPayload struct {
 	payload
 	// If a github/gitlab report is generated, this is set.
@@ -166,11 +170,10 @@ type submitResponse struct {
 }
 
 type submitErrorResponse struct {
-	Error string `json:"error"`
+	Error     string `json:"error"`
 	ErrorCode string `json:"errcode"`
 	PolicyURL string `json:"policy_url,omitempty"`
 }
-
 
 func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// if we attempt to return a response without reading the request body,
@@ -566,11 +569,37 @@ func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, lis
 		return nil, err
 	}
 
-	if err := s.submitGenericWebhook(p, listingURL, resp.ReportURL); err != nil {
+	genericHookPayload := genericWebhookPayload{
+		payload:    p,
+		ReportURL:  resp.ReportURL,
+		ListingURL: listingURL,
+	}
+
+	if err := s.submitGenericWebhook(genericHookPayload); err != nil {
+		return nil, err
+	}
+
+	// finally, write the details to details.json
+	if err := s.writeJSONDetailsFile(reportDir, genericHookPayload); err != nil {
 		return nil, err
 	}
 
 	return &resp, nil
+}
+
+// `writeJSONDetailsFile` records all the details of the rageshake in `details.json` in the report directory.
+func (s *submitServer) writeJSONDetailsFile(reportDir string, genericHookPayload genericWebhookPayload) error {
+	f, err := os.Create(filepath.Join(reportDir, "details.json"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	buffered := bufio.NewWriter(f)
+	if err = json.NewEncoder(buffered).Encode(genericHookPayload); err != nil {
+		return err
+	}
+	return buffered.Flush()
 }
 
 // submitGenericWebhook submits a basic JSON body to an endpoint configured in the config
@@ -583,14 +612,9 @@ func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, lis
 // Uses a goroutine to handle the http request asynchronously as by this point all critical
 // information has been stored.
 
-func (s *submitServer) submitGenericWebhook(p payload, listingURL string, reportURL string) error {
+func (s *submitServer) submitGenericWebhook(genericHookPayload genericWebhookPayload) error {
 	if s.genericWebhookClient == nil {
 		return nil
-	}
-	genericHookPayload := genericWebhookPayload{
-		payload:    p,
-		ReportURL:  reportURL,
-		ListingURL: listingURL,
 	}
 	for _, url := range s.cfg.GenericWebhookURLs {
 		// Enrich the payload with a reportURL and listingURL, to convert a single struct
