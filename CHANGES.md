@@ -1,3 +1,12 @@
+1.16.1 (2025-03-17)
+===================
+
+Features
+--------
+
+- Add `create_time` field to webhook payload and `details.json` ([\#93](https://github.com/matrix-org/rageshake/issues/93))
+
+
 1.16.0 (2025-03-17)
 ===================
 
