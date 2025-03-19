@@ -90,8 +90,15 @@ class Cleanup:
                 rageshake_path = folder_name + "/" + rageshake.name
                 if rageshake.is_dir():
                     checked += 1
-                    if self._check_rageshake(rageshake_path, applications_to_delete):
-                        deleted += 1
+                    try:
+                        if self._check_rageshake(
+                            rageshake_path, applications_to_delete
+                        ):
+                            deleted += 1
+                    except Exception as e:
+                        raise Exception(
+                            f"Error while checking rageshake {rageshake_path}"
+                        ) from e
                 else:
                     print(
                         f"W File in rageshake tree {rageshake_path} is not a directory"
@@ -120,9 +127,13 @@ class Cleanup:
         mxid = None
 
         try:
+            # TODO: use `details.json` instead of `details.log.gz`, which will avoid
+            #   this custom parsing
             with gzip.open(rageshake_folder_path + "/details.log.gz") as details:
                 for line in details.readlines():
-                    parts = line.decode("utf-8").split(":", maxsplit=1)
+                    parts = line.decode("utf-8", errors="replace").split(
+                        ":", maxsplit=1
+                    )
                     if parts[0] == "Application":
                         app_name = parts[1].strip()
                     if parts[0] == "user_id":

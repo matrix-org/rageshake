@@ -1,0 +1,1 @@
+`cleanup.py`: Make resilient to malformed UTF-8 in the details file.
