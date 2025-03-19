@@ -1,3 +1,12 @@
+1.16.2 (2025-03-19)
+===================
+
+Bugfixes
+--------
+
+- `cleanup.py`: Make resilient to malformed UTF-8 in the details file. ([\#95](https://github.com/matrix-org/rageshake/issues/95))
+
+
 1.16.1 (2025-03-17)
 ===================
 
