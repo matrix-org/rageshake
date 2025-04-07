@@ -1020,6 +1020,7 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 	var dataKeys, eventDataKeys []string
 	var eventSource string
 	var replyPathPattern string
+	var cvCollectionViewHierarchy string
 	var roomDescription string
 	var attachmentDescription string
 	var latestReadReceipt string
@@ -1033,6 +1034,8 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 			eventSource = p.Data[k]
 		case "reply_path_pattern":
 			replyPathPattern = p.Data[k]
+		case "cv_collection_view_hierarchy":
+			cvCollectionViewHierarchy = p.Data[k]
 		case "room_description":
 			roomDescription = p.Data[k]
 		case "attachment_description":
@@ -1056,6 +1059,9 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 	}
 	if replyPathPattern != "" {
 		_, _ = fmt.Fprintf(&bodyBuf, "### Reply Path Pattern:\n\n```json\n%s\n```\n", replyPathPattern)
+	}
+	if cvCollectionViewHierarchy != "" {
+		_, _ = fmt.Fprintf(&bodyBuf, "### Conversation View Hierarchy:\n\n```json\n%s\n```\n", cvCollectionViewHierarchy)
 	}
 	if roomDescription != "" {
 		_, _ = fmt.Fprintf(&bodyBuf, "### Room description:\n\n```json\n%s\n```\n", roomDescription)
