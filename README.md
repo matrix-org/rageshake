@@ -1,4 +1,4 @@
-# rageshake ![Build status](https://github.com/matrix-org/rageshake/actions/workflows/linting.yaml/badge.svg)
+# rageshake ![Build status](https://github.com/matrix-org/rageshake/actions/workflows/build.yaml/badge.svg)
 
 Web service which collects and serves bug reports.
 
