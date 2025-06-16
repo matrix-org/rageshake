@@ -143,11 +143,12 @@ func main() {
 	zerolog.DefaultContextLogger = log
 
 	if cfg.LinearToken == "" {
-		log.Fatal().Msg("No linear_token configured. Reporting bugs to Linear is disabled.")
-	}
-	err = fillEmailCache(context.TODO(), cfg.LinearToken)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to fetch internal user IDs from Linear")
+		log.Error().Msg("No linear_token configured. Reporting bugs to Linear is disabled.")
+	} else {
+		err = fillEmailCache(context.TODO(), cfg.LinearToken)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to fetch internal user IDs from Linear")
+		}
 	}
 
 	apiPrefix := cfg.APIPrefix
