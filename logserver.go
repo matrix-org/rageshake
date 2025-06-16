@@ -18,7 +18,7 @@ package main
 
 import (
 	"compress/gzip"
-	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -27,12 +27,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/minio/minio-go/v7"
 	"github.com/rs/zerolog"
 )
 
 // logServer is an http.handler which will serve up bugreports
 type logServer struct {
-	root string
+	s3Client *minio.Client
+	s3Bucket string
 }
 
 func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -62,50 +64,24 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid URL path", http.StatusBadRequest)
 		return
 	}
-
-	// convert to abs path
-	upath, err := filepath.Abs(filepath.Join(f.root, filepath.FromSlash(upath)))
-
+	objectName := strings.TrimPrefix(upath, "/")
+	obj, err := f.s3Client.GetObject(ctx, f.s3Bucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
-		msg, code := toHTTPError(err)
-		http.Error(w, msg, code)
+		http.Error(w, "file not found", http.StatusNotFound)
 		return
 	}
-
-	serveFile(ctx, w, r, upath)
-}
-
-func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, path string) {
-	log := zerolog.Ctx(ctx).With().Str("action", "serve_file").Logger()
-	d, err := os.Stat(path)
+	defer obj.Close()
+	stat, err := obj.Stat()
 	if err != nil {
-		msg, code := toHTTPError(err)
-		http.Error(w, msg, code)
+		http.Error(w, "file not found", http.StatusNotFound)
 		return
 	}
-
-	// for anti-XSS belt-and-braces, set a very restrictive CSP
+	// Set headers as before
 	w.Header().Set("Content-Security-Policy", "default-src: none")
-
-	// if it's a directory, serve a listing
-	if d.IsDir() {
-		log.Info().Msg("Serving listing")
-		http.ServeFile(w, r, path)
-		return
-	}
-
-	// if it's a gzipped log file, serve it as text
-	if strings.HasSuffix(path, ".gz") {
-		serveGzippedFile(w, r, path, d.Size())
-		return
-	}
-
-	// otherwise, limit ourselves to a number of known-safe content-types, to
-	// guard against XSS vulnerabilities.
-	// http.serveFile preserves the content-type header if one is already set.
-	w.Header().Set("Content-Type", extensionToMimeType(path))
-
-	http.ServeFile(w, r, path)
+	w.Header().Set("Content-Type", extensionToMimeType(objectName))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size))
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, obj)
 }
 
 // extensionToMimeType returns a suitable mime type for the given filename

@@ -27,6 +27,8 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/rs/zerolog"
 	globallog "github.com/rs/zerolog/log"
 	"go.mau.fi/zeroconfig"
@@ -53,6 +55,13 @@ type config struct {
 	WebhookURL string `yaml:"webhook_url"`
 
 	Logging zeroconfig.Config `yaml:"logging"`
+
+	// S3 configuration
+	S3Endpoint        string `yaml:"s3_endpoint"`
+	S3AccessKeyID     string `yaml:"s3_access_key_id"`
+	S3SecretAccessKey string `yaml:"s3_secret_access_key"`
+	S3Bucket          string `yaml:"s3_bucket"`
+	S3UseSSL          bool   `yaml:"s3_use_ssl"`
 }
 
 const (
@@ -117,6 +126,9 @@ func basicAuthOrJWTAuthenticated(handler http.Handler, username, password, realm
 	})
 }
 
+// Add a global S3 client
+var s3Client *minio.Client
+
 func main() {
 	flag.Parse()
 
@@ -150,13 +162,38 @@ func main() {
 		apiPrefix = strings.TrimRight(apiPrefix, "/")
 	}
 
-	http.Handle("/api/submit", &submitServer{apiPrefix: apiPrefix, cfg: cfg})
+	// Initialize S3 client
+	s3Client, err = minio.New(cfg.S3Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(cfg.S3AccessKeyID, cfg.S3SecretAccessKey, ""),
+		Secure: cfg.S3UseSSL,
+	})
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize S3 client")
+	}
+	// Ensure bucket exists
+	ctx := context.Background()
+	exists, err := s3Client.BucketExists(ctx, cfg.S3Bucket)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to check S3 bucket")
+	}
+	if !exists {
+		err = s3Client.MakeBucket(ctx, cfg.S3Bucket, minio.MakeBucketOptions{})
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to create S3 bucket")
+		}
+	}
 
-	// Make sure bugs directory exists
-	_ = os.Mkdir("bugs", os.ModePerm)
+	http.Handle("/api/submit", &submitServer{
+		apiPrefix: apiPrefix,
+		cfg:       cfg,
+		s3Client:  s3Client,
+		s3Bucket:  cfg.S3Bucket,
+	})
 
-	// serve files under "bugs"
-	ls := &logServer{"bugs"}
+	ls := &logServer{
+		s3Client: s3Client,
+		s3Bucket: cfg.S3Bucket,
+	}
 	fs := basicAuthOrJWTAuthenticated(ls, cfg.BugsUser, cfg.BugsPass, "Riot bug reports", []byte(cfg.BugsJWTSecret))
 	http.Handle("/api/listing/", http.StripPrefix("/api/listing/", fs))
 
