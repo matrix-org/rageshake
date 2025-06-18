@@ -78,7 +78,7 @@ logs.)
 The response (if successful) will be a JSON object with the following fields:
 
 * `report_url`: A URL where the user can track their bug report. Omitted if
-  issue submission was disabled.
+  issue submission (to GitHub/GitLab) was disabled.
 
 ## Error responses
 
