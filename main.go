@@ -62,6 +62,7 @@ type config struct {
 	S3SecretAccessKey string `yaml:"s3_secret_access_key"`
 	S3Bucket          string `yaml:"s3_bucket"`
 	S3UseSSL          bool   `yaml:"s3_use_ssl"`
+	S3Region		  string `yaml:"s3_region"`
 }
 
 const (
@@ -165,6 +166,7 @@ func main() {
 
 	// Initialize S3 client
 	s3Client, err = minio.New(cfg.S3Endpoint, &minio.Options{
+		Region: cfg.S3Region,
 		Creds:  credentials.NewStaticV4(cfg.S3AccessKeyID, cfg.S3SecretAccessKey, ""),
 		Secure: cfg.S3UseSSL,
 	})
