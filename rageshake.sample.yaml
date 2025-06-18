@@ -7,7 +7,7 @@ listings_jwt_secret: secret
 
 # the external URL at which /api is accessible; it is used to add a link to the
 # report to the GitHub issue. If unspecified, based on the listen address.
-api_prefix: https://rageshake.example.com/api
+api_prefix:
 
 # Linear bot access token to create Linear issues
 linear_token:
@@ -25,3 +25,10 @@ logging:
   writers:
     - type: stdout
       format: json
+
+# S3-compatible storage configuration for bug report uploads
+s3_endpoint: "localhost:9000"
+s3_access_key_id: "minioadmin"
+s3_secret_access_key: "minioadmin"
+s3_bucket: "rageshake"
+s3_use_ssl: false

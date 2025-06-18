@@ -30,7 +30,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -39,6 +38,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/minio/minio-go/v7"
 	"github.com/rs/zerolog"
 )
 
@@ -48,7 +48,9 @@ type submitServer struct {
 	// External URI to /api
 	apiPrefix string
 
-	cfg *config
+	cfg      *config
+	s3Client *minio.Client
+	s3Bucket string
 }
 
 // the type of payload which can be uploaded as JSON to the submit endpoint
@@ -147,36 +149,24 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// create the report dir before parsing the request, so that we can dump
-	// files straight in
+	// Generate S3 object prefix for this report
 	t := time.Now().UTC()
 	prefix := t.Format("2006-01-02/150405")
 	randBytes := make([]byte, 5)
 	rand.Read(randBytes)
 	prefix += "-" + base32.StdEncoding.EncodeToString(randBytes)
-	reportDir := filepath.Join("bugs", prefix)
-	listingURL := s.apiPrefix + "/listing/" + prefix
+	reportDir := prefix // S3 object prefix, not a local path
+	listingURL := s.apiPrefix + "/listingS3/" + prefix
 	log = log.With().
 		Str("report_dir", reportDir).
 		Str("listing_url", listingURL).
 		Logger()
 	ctx := log.WithContext(req.Context())
 
-	if err := os.MkdirAll(reportDir, os.ModePerm); err != nil {
-		log.Err(err).Msg("Unable to create report directory")
-		http.Error(w, "Internal error", 500)
-		return
-	}
-
 	log.Info().Msg("Handling report submission")
 
 	p := s.parseRequest(ctx, w, req, reportDir)
 	if p == nil {
-		// parseRequest already wrote an error, but now let's delete the
-		// useless report dir
-		if err := os.RemoveAll(reportDir); err != nil {
-			log.Err(err).Msg("Unable to remove report dir after invalid upload")
-		}
 		return
 	}
 
@@ -364,14 +354,14 @@ func (s *submitServer) parseRequest(ctx context.Context, w http.ResponseWriter, 
 
 	var p *parsedPayload
 	if isMultipart(req.Header.Get("Content-Type")) {
-		p, err = parseMultipartRequest(ctx, req, reportDir)
+		p, err = s.parseMultipartRequest(ctx, req, reportDir)
 		if err != nil {
 			log.Err(err).Msg("Error parsing multipart data")
 			http.Error(w, "Bad multipart data", http.StatusBadRequest)
 			return nil
 		}
 	} else {
-		p, err = parseJSONRequest(ctx, req.Body, reportDir)
+		p, err = s.parseJSONRequest(ctx, req.Body, reportDir)
 		if err != nil {
 			log.Err(err).Msg("Error parsing JSON body")
 			http.Error(w, fmt.Sprintf("Could not decode payload: %s", err.Error()), http.StatusBadRequest)
@@ -463,7 +453,7 @@ func (s *submitServer) parseRequest(ctx context.Context, w http.ResponseWriter, 
 	return p
 }
 
-func parseJSONRequest(ctx context.Context, body io.ReadCloser, reportDir string) (*parsedPayload, error) {
+func (s *submitServer) parseJSONRequest(ctx context.Context, body io.ReadCloser, reportDir string) (*parsedPayload, error) {
 	log := zerolog.Ctx(ctx)
 
 	var p jsonPayload
@@ -483,7 +473,7 @@ func parseJSONRequest(ctx context.Context, body io.ReadCloser, reportDir string)
 
 	for i, logfile := range p.Logs {
 		buf := bytes.NewBufferString(logfile.Lines)
-		leafName, err := saveLogPart(i, logfile.ID, buf, reportDir)
+		leafName, err := saveLogPartS3(ctx, s.s3Client, s.s3Bucket, i, logfile.ID, buf, reportDir)
 		if err != nil {
 			log.Err(err).Str("leaf_name", leafName).Msg("Error saving log")
 			parsed.LogErrors = append(parsed.LogErrors, fmt.Sprintf("Error saving log %s: %v", leafName, err))
@@ -526,7 +516,7 @@ func parseJSONRequest(ctx context.Context, body io.ReadCloser, reportDir string)
 	return &parsed, nil
 }
 
-func parseMultipartRequest(ctx context.Context, req *http.Request, reportDir string) (*parsedPayload, error) {
+func (s *submitServer) parseMultipartRequest(ctx context.Context, req *http.Request, reportDir string) (*parsedPayload, error) {
 	rdr, err := req.MultipartReader()
 	if err != nil {
 		return nil, err
@@ -544,14 +534,14 @@ func parseMultipartRequest(ctx context.Context, req *http.Request, reportDir str
 			return nil, err
 		}
 
-		if err = parseFormPart(ctx, part, &p, reportDir); err != nil {
+		if err = s.parseFormPart(ctx, part, &p, reportDir); err != nil {
 			return nil, err
 		}
 	}
 	return &p, nil
 }
 
-func parseFormPart(ctx context.Context, part *multipart.Part, p *parsedPayload, reportDir string) error {
+func (s *submitServer) parseFormPart(ctx context.Context, part *multipart.Part, p *parsedPayload, reportDir string) error {
 	defer part.Close()
 	field := part.FormName()
 	partName := part.FileName()
@@ -584,7 +574,7 @@ func parseFormPart(ctx context.Context, part *multipart.Part, p *parsedPayload, 
 	}
 
 	if field == "file" {
-		leafName, err := saveFormPart(ctx, partName, partReader, reportDir)
+		leafName, err := saveFormPartS3(ctx, s.s3Client, s.s3Bucket, partName, partReader, reportDir)
 		if err != nil {
 			log.Err(err).Msg("Error saving file part")
 			p.FileErrors = append(p.FileErrors, fmt.Sprintf("Error saving %s: %v", partName, err))
@@ -595,7 +585,7 @@ func parseFormPart(ctx context.Context, part *multipart.Part, p *parsedPayload, 
 	}
 
 	if field == "log" || field == "compressed-log" {
-		leafName, err := saveLogPart(len(p.Logs), partName, partReader, reportDir)
+		leafName, err := saveLogPartS3(ctx, s.s3Client, s.s3Bucket, len(p.Logs), partName, partReader, reportDir)
 		if err != nil {
 			log.Err(err).Msg("Error saving (compressed-)log")
 			p.LogErrors = append(p.LogErrors, fmt.Sprintf("Error saving %s: %v", partName, err))
@@ -650,71 +640,9 @@ func formPartToPayload(field, data string, p *parsedPayload) {
 // * nothing starting with '.'
 var filenameRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|heic|gif|mp4|txt|mov|heif|har|json)$`)
 
-// saveFormPart saves a file upload to the report directory.
-//
-// Returns the leafname of the saved file.
-func saveFormPart(ctx context.Context, leafName string, reader io.Reader, reportDir string) (string, error) {
-	if !filenameRegexp.MatchString(leafName) {
-		return "", fmt.Errorf("invalid upload filename")
-	}
-
-	fullName := filepath.Join(reportDir, leafName)
-
-	zerolog.Ctx(ctx).Info().Str("file_destination", fullName).Msg("Saving uploaded file")
-
-	f, err := os.Create(fullName)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	_, err = io.Copy(f, reader)
-	if err != nil {
-		return "", err
-	}
-
-	return leafName, nil
-}
-
 // we require a sensible extension, and don't allow the filename to start with
 // '.'
 var logRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*\.(log|txt)$`)
-
-// saveLogPart saves a log upload to the report directory.
-//
-// Returns the leafname of the saved file.
-func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string) (string, error) {
-	// pick a name to save the log file with.
-	//
-	// some clients use sensible names (foo.N.log), which we preserve. For
-	// others, we just make up a filename.
-	//
-	// Either way, we need to append .gz, because we're compressing it.
-	var leafName string
-	if logRegexp.MatchString(filename) {
-		leafName = filename + ".gz"
-	} else {
-		leafName = fmt.Sprintf("logs-%04d.log.gz", logNum)
-	}
-
-	fullname := filepath.Join(reportDir, leafName)
-
-	f, err := os.Create(fullname)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	gz := gzip.NewWriter(f)
-	defer gz.Close()
-
-	_, err = io.Copy(gz, reader)
-	if err != nil {
-		return "", err
-	}
-
-	return leafName, nil
-}
 
 func (s *submitServer) saveReportBackground(ctx context.Context, p parsedPayload, listingURL string) error {
 	var resp submitResponse
@@ -733,7 +661,7 @@ func (s *submitServer) saveReportBackground(ctx context.Context, p parsedPayload
 func (s *submitServer) saveReport(log zerolog.Logger, p parsedPayload, reportDir, listingURL string) error {
 	var summaryBuf bytes.Buffer
 	p.WriteToBuffer(&summaryBuf)
-	if err := gzipAndSave(summaryBuf.Bytes(), reportDir, "details.log.gz"); err != nil {
+	if err := gzipAndSaveS3(context.Background(), s.s3Client, s.s3Bucket, reportDir, "details.log.gz", summaryBuf.Bytes()); err != nil {
 		return err
 	}
 
@@ -1000,7 +928,7 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 		fileURL := listingURL + "/" + file
 		ext := strings.ToLower(filepath.Ext(file))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" {
-			jwtTok, err := s.createToken(strings.TrimPrefix(fileURL, s.apiPrefix+"/listing/"))
+			jwtTok, err := s.createToken(strings.TrimPrefix(fileURL, s.apiPrefix+"/listingS3/"))
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).Msg("Error creating token for image URL")
 			} else {
@@ -1129,25 +1057,52 @@ func respond(code int, w http.ResponseWriter) {
 	w.Write([]byte("{}"))
 }
 
-func gzipAndSave(data []byte, dirname, fpath string) error {
-	fpath = filepath.Join(dirname, fpath)
+// S3 helpers
+func saveFormPartS3(ctx context.Context, s3Client *minio.Client, bucket, leafName string, reader io.Reader, reportDir string) (string, error) {
+	if !filenameRegexp.MatchString(leafName) {
+		return "", fmt.Errorf("invalid upload filename")
+	}
+	objectName := reportDir + "/" + leafName
+	_, err := s3Client.PutObject(ctx, bucket, objectName, reader, -1, minio.PutObjectOptions{})
+	if err != nil {
+		return "", err
+	}
+	return leafName, nil
+}
 
-	if _, err := os.Stat(fpath); err == nil {
-		return fmt.Errorf("file already exists") // the user can just retry
+func saveLogPartS3(ctx context.Context, s3Client *minio.Client, bucket string, logNum int, filename string, reader io.Reader, reportDir string) (string, error) {
+	var leafName string
+	if logRegexp.MatchString(filename) {
+		leafName = filename + ".gz"
+	} else {
+		leafName = fmt.Sprintf("logs-%04d.log.gz", logNum)
 	}
-	var b bytes.Buffer
-	gz := gzip.NewWriter(&b)
-	if _, err := gz.Write(data); err != nil {
-		return err
+	objectName := reportDir + "/" + leafName
+
+	pr, pw := io.Pipe()
+	go func() {
+		gz := gzip.NewWriter(pw)
+		_, err := io.Copy(gz, reader)
+		gz.Close()
+		pw.CloseWithError(err)
+	}()
+
+	_, err := s3Client.PutObject(ctx, bucket, objectName, pr, -1, minio.PutObjectOptions{})
+	if err != nil {
+		return "", err
 	}
-	if err := gz.Flush(); err != nil {
-		return err
-	}
-	if err := gz.Close(); err != nil {
-		return err
-	}
-	if err := os.WriteFile(fpath, b.Bytes(), 0644); err != nil {
-		return err
-	}
-	return nil
+	return leafName, nil
+}
+
+func gzipAndSaveS3(ctx context.Context, s3Client *minio.Client, bucket, reportDir, fpath string, data []byte) error {
+	objectName := reportDir + "/" + fpath
+	pr, pw := io.Pipe()
+	go func() {
+		gz := gzip.NewWriter(pw)
+		_, err := gz.Write(data)
+		gz.Close()
+		pw.CloseWithError(err)
+	}()
+	_, err := s3Client.PutObject(ctx, bucket, objectName, pr, -1, minio.PutObjectOptions{})
+	return err
 }

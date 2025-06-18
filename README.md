@@ -24,9 +24,15 @@ The following HTTP endpoints are exposed:
 
 ### GET `/api/listing/`
 
+DEPRECATED: New bug reports are stored only in S3. Use `/api/listingS3` instead.
+
 Serves submitted bug reports. Protected by basic HTTP auth using the
 username/password provided in the environment. A browsable list, collated by
 report submission date and time.
+
+### GET `/api/listingS3/`
+
+Serves submitted bug reports stored in S3.
 
 ### POST `/api/submit`
 
