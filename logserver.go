@@ -136,20 +136,29 @@ func (f *logServer) enumerateS3Directory(ctx context.Context, prefix string) ([]
 	log := zerolog.Ctx(ctx).With().Str("action", "serve_file").Logger()
 
 	log.Debug().Str("s3_bucket", f.s3Bucket).Str("prefix", prefix).Msg("Enumerating S3 directory")
+	if prefix != "" && !strings.HasSuffix(prefix, "/") { 
+		prefix += "/"
+	}
+	var entries []string
 	opts := minio.ListObjectsOptions{
 		Prefix:    prefix,
 		Recursive: false,
 	}
-	var entries []string
 	for obj := range f.s3Client.ListObjects(ctx, f.s3Bucket, opts) {
 		if obj.Err != nil {
-			return nil, obj.Err // Error listing S3 objects
+			log.Err(obj.Err).Msg("Error listing S3 objects")
+			return nil, obj.Err
 		}
-		// remove prefix from the object key
-		log.Debug().Str("object_key", obj.Key).Msg("Found S3 object")
 		name := strings.TrimPrefix(obj.Key, prefix)
+		// Only show direct children
+		if name == "" {
+			continue
+		}
+		// If it's a subdirectory, only show the first segment
+		if idx := strings.IndexRune(name, '/'); idx != -1 {
+			name = name[:idx+1]
+		}
 		entries = append(entries, name)
-
 	}
 	return entries, nil
 }
