@@ -24,15 +24,19 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/minio/minio-go/v7"
 	"github.com/rs/zerolog"
 )
 
 // logServer is an http.handler which will serve up bugreports
 type logServer struct {
 	root string
+	s3Client *minio.Client
+	s3Bucket string
 }
 
 func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -63,16 +67,156 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// convert to abs path
-	upath, err := filepath.Abs(filepath.Join(f.root, filepath.FromSlash(upath)))
-
+	// check if the file is in S3
+	exists, err := f.checkS3FileExists(ctx, upath)
 	if err != nil {
-		msg, code := toHTTPError(err)
-		http.Error(w, msg, code)
+		log.Error().Err(err).Msg("Failed to check S3 file existence")
+	} else if exists {
+		log.Info().Msg("Serving file from S3")
+		// Serve the file from S3
+		http.Error(w, "S3 file serving not implemented", http.StatusNotImplemented)
 		return
 	}
 
-	serveFile(ctx, w, r, upath)
+	exists, err = f.checkLocalFileExists(ctx, upath)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to check local file existence")
+	} else if exists {
+		log.Info().Msg("Serving file from local filesystem")
+		// Serve the file from the local filesystem
+		http.Error(w, "Local file serving not implemented", http.StatusNotImplemented)
+		return
+	}
+
+	// If we reach here, the file does not exist in S3 or locally, try to enumerate the directory
+	entries, err := f.enumerateCombinedDirectory(ctx, upath)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to enumerate directory")
+		http.Error(w, "error enumerating directory", http.StatusInternalServerError)
+		return
+	}
+	if len(entries) == 0 {
+		log.Info().Msg("Directory is empty/file not found")
+		http.Error(w, "file not found", http.StatusNotFound)
+		return
+	}
+
+	log.Info().Int("entry_count", len(entries)).Msg("Serving directory listing")
+	// Serve the directory listing
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("<!doctype html>\n<meta name=\"viewport\" content=\"width=device-width\">\n<pre>\n"))
+	for _, entry := range entries {
+		if strings.HasSuffix(entry, "/") {
+			w.Write([]byte("<a href=\"" + entry + "\">" + entry + "</a>\n"))
+		} else {
+			w.Write([]byte("<a href=\"" + entry + "\">" + entry + "</a>\n"))
+		}
+	}
+	w.Write([]byte("</pre>\n"))
+	log.Info().Msg("Directory listing served")
+}
+
+func (f *logServer) checkS3FileExists(ctx context.Context, objectName string) (bool, error) {
+	// Check if the object exists in S3
+	// Remove leading slash if present
+	objectName = strings.TrimPrefix(objectName, "/")
+	_, err := f.s3Client.StatObject(ctx, f.s3Bucket, objectName, minio.StatObjectOptions{})
+	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			return false, nil // Object does not exist
+		}
+		return false, err // Other error
+	}
+	return true, nil // Object exists
+}
+
+func (f *logServer) enumerateS3Directory(ctx context.Context, prefix string) ([]string, error) {
+	log := zerolog.Ctx(ctx).With().Str("action", "serve_file").Logger()
+
+	opts := minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: false,
+	}
+	var entries []string
+	for obj := range f.s3Client.ListObjects(ctx, f.s3Bucket, opts) {
+		if obj.Err != nil {
+			return nil, obj.Err // Error listing S3 objects
+		}
+		// remove prefix from the object key
+		log.Debug().Str("object_key", obj.Key).Msg("Found S3 object")
+		name := strings.TrimPrefix(obj.Key, prefix)
+		entries = append(entries, name)
+
+	}
+	return entries, nil
+}
+
+func (f *logServer) enumerateCombinedDirectory(ctx context.Context, prefix string) ([]string, error) {
+	log := zerolog.Ctx(ctx).With().Str("action", "enumerate_combined_directory").Logger()
+	// Check S3 first
+	entries, err := f.enumerateS3Directory(ctx, prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now check the local filesystem
+	localPath := filepath.Join(f.root, filepath.FromSlash(prefix))
+	localEntries, err := os.ReadDir(localPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return entries, nil // No local directory, return S3 entries
+		}
+		return nil, err // Other error
+	}
+
+	for _, entry := range localEntries {
+		log.Debug().Str("entry_name", entry.Name()).Bool("is_dir", entry.IsDir()).Msg("Found local entry")
+		if entry.IsDir() {
+			// If it's a directory, append it with a trailing slash
+			entries = append(entries, entry.Name()+"/")
+		} else {
+			entries = append(entries, entry.Name())
+		}
+	}
+
+	// Sort and deduplicate entries
+	uniqueEntries := make(map[string]struct{})
+	for _, entry := range entries {
+		if _, exists := uniqueEntries[entry]; !exists {
+			uniqueEntries[entry] = struct{}{}
+		}
+	}
+	uniqueEntriesSlice := make([]string, 0, len(uniqueEntries))
+	for entry := range uniqueEntries {
+		uniqueEntriesSlice = append(uniqueEntriesSlice, entry)
+	}
+	sort.Strings(uniqueEntriesSlice)
+	return uniqueEntriesSlice, nil
+}
+
+func (f *logServer) checkLocalFileExists(ctx context.Context, path string) (bool, error) {
+	log := zerolog.Ctx(ctx).With().Str("action", "check_local_file_exists").Logger()
+	// Convert to absolute path
+	absPath, err := filepath.Abs(filepath.Join(f.root, filepath.FromSlash(path)))
+	if err != nil {
+		return false, err
+	}
+
+	// Check if the file exists
+	entry, err := os.Stat(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil // File does not exist
+		}
+		return false, err // Other error
+	}
+	if entry.IsDir() {
+		log.Warn().Str("file_path", absPath).Msg("Expected file but found a directory")
+		return false, nil // It's a directory, not a file
+	}
+	log.Debug().Str("file_path", absPath).Msg("Local file exists")
+	return true, nil // File exists
 }
 
 func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, path string) {

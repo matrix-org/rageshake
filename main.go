@@ -195,16 +195,11 @@ func main() {
 
 	ls := &logServer{
 		root: "bugs",
+		s3Bucket: cfg.S3Bucket,
+		s3Client: s3Client,
 	}
 	fs := basicAuthOrJWTAuthenticated(ls, cfg.BugsUser, cfg.BugsPass, "Riot bug reports", []byte(cfg.BugsJWTSecret))
 	http.Handle("/api/listing/", http.StripPrefix("/api/listing/", fs))
-
-	s3ls := &s3LogServer{
-		s3Client: s3Client,
-		s3Bucket: cfg.S3Bucket,
-	}
-	s3fs := basicAuthOrJWTAuthenticated(s3ls, cfg.BugsUser, cfg.BugsPass, "Riot bug reports", []byte(cfg.BugsJWTSecret))
-	http.Handle("/api/v2/listing/", http.StripPrefix("/api/v2/listing/", s3fs))
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, "ok")
