@@ -46,16 +46,19 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Str("url_path", upath).
 		Logger()
 	ctx := log.WithContext(r.Context())
-
+	
+	log.Info().Msg("Serving report logs")
+	
 	if !strings.HasPrefix(upath, "/") {
 		upath = "/" + upath
 		r.URL.Path = upath
 	}
 
-	log.Info().Msg("Serving report logs")
-
 	// eliminate ., .., //, etc
 	upath = path.Clean(upath)
+
+	// remove the leading slash, will turn root into ""
+	upath = strings.TrimPrefix(upath, "/")
 
 	// reject some dodgy paths. This is based on the code for http.Dir.Open (see https://golang.org/src/net/http/fs.go#L37).
 	//
@@ -119,8 +122,6 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (f *logServer) checkS3FileExists(ctx context.Context, objectName string) (bool, error) {
 	// Check if the object exists in S3
-	// Remove leading slash if present
-	objectName = strings.TrimPrefix(objectName, "/")
 	_, err := f.s3Client.StatObject(ctx, f.s3Bucket, objectName, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
@@ -162,7 +163,11 @@ func (f *logServer) enumerateCombinedDirectory(ctx context.Context, prefix strin
 	}
 
 	// Now check the local filesystem
-	localPath := filepath.Join(f.root, filepath.FromSlash(prefix))
+	localPath, err := filepath.Abs(filepath.Join(f.root, filepath.FromSlash(prefix)))
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get absolute path for local directory")
+		return nil, err
+	}
 	localEntries, err := os.ReadDir(localPath)
 	if err != nil {
 		if os.IsNotExist(err) {
