@@ -274,6 +274,7 @@ func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, file
 
 	// for anti-XSS belt-and-braces, set a very restrictive CSP
 	w.Header().Set("Content-Security-Policy", "default-src: none")
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 
 	// if it is gzipped, check if the client accepts gzip encoding
 	if strings.HasSuffix(filename, ".gz") {
@@ -289,6 +290,8 @@ func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, file
 				http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 				return
 			}
+			// remove the content-length header, as the size is now unknown
+			w.Header().Del("Content-Length")
 		}
 		filename = strings.TrimSuffix(filename, ".gz")
 	}
@@ -297,7 +300,6 @@ func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, file
 	// otherwise, limit ourselves to a number of known-safe content-types, to
 	// guard against XSS vulnerabilities.
 	w.Header().Set("Content-Type", extensionToMimeType(filename))
-	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	// read everything from the reader and write it to the response
 	log.Debug().Str("filename", filename).Msg("Serving file")
 	w.Header().Set("Content-Disposition", "inline")

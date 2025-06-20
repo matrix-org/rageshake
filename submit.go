@@ -661,7 +661,7 @@ func (s *submitServer) saveReportBackground(ctx context.Context, p parsedPayload
 func (s *submitServer) saveReport(log zerolog.Logger, p parsedPayload, reportDir, listingURL string) error {
 	var summaryBuf bytes.Buffer
 	p.WriteToBuffer(&summaryBuf)
-	if err := uploadToS3(context.Background(), s.s3Client, s.s3Bucket, reportDir, "details.log", &summaryBuf); err != nil {
+	if err := uploadToS3(context.Background(), s.s3Client, s.s3Bucket, reportDir, "details.log", &summaryBuf, true); err != nil {
 		log.Err(err).Msg("Error uploading report details")
 		return err
 	}
@@ -1064,7 +1064,7 @@ func saveFormPartS3(ctx context.Context, s3Client *minio.Client, bucket, leafNam
 		return "", fmt.Errorf("invalid upload filename")
 	}
 
-	err := uploadToS3(ctx, s3Client, bucket, reportDir, leafName, reader)
+	err := uploadToS3(ctx, s3Client, bucket, reportDir, leafName, reader, false)
 	if err != nil {
 		return "", err
 	}
@@ -1074,28 +1074,32 @@ func saveFormPartS3(ctx context.Context, s3Client *minio.Client, bucket, leafNam
 func saveLogPartS3(ctx context.Context, s3Client *minio.Client, bucket string, logNum int, filename string, reader io.Reader, reportDir string) (string, error) {
 	var leafName string
 	if logRegexp.MatchString(filename) {
-		leafName = filename + ".gz"
+		leafName = filename
 	} else {
-		leafName = fmt.Sprintf("logs-%04d.log.gz", logNum)
+		leafName = fmt.Sprintf("logs-%04d.log", logNum)
 	}
 	
-	err := uploadToS3(ctx, s3Client, bucket, reportDir, leafName, reader)
+	err := uploadToS3(ctx, s3Client, bucket, reportDir, leafName, reader, true)
 	if err != nil {
 		return "", err
 	}
 	return leafName, nil
 }
 
-func uploadToS3(ctx context.Context, s3Client *minio.Client, bucket, prefix, name string, reader io.Reader) error {
-	objectName := prefix + "/" + name
-	pr, pw := io.Pipe()
-	go func() {
-		gz := gzip.NewWriter(pw)
-		_, err := io.Copy(gz, reader)
-		gz.Close()
-		pw.CloseWithError(err)
-	}()
-	_, err := s3Client.PutObject(ctx, bucket, objectName, pr, -1, minio.PutObjectOptions{
+func uploadToS3(ctx context.Context, s3Client *minio.Client, bucket, prefix, name string, reader io.Reader, compress bool) error {
+	objectName := prefix + "/" + name 
+	if compress {
+		pr, pw := io.Pipe()
+		go func() {
+			gz := gzip.NewWriter(pw)
+			_, err := io.Copy(gz, reader)
+			gz.Close()
+			pw.CloseWithError(err)
+		}()
+		reader = pr
+		objectName += ".gz"
+	}
+	_, err := s3Client.PutObject(ctx, bucket, objectName, reader, -1, minio.PutObjectOptions{
 		PartSize: 5 * 1024 * 1024, // 5MB part size so that our memory usage doesn't balloon
 	})
 	if err != nil {
