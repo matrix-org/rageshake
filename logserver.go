@@ -282,7 +282,7 @@ func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, file
 
 	// read everything from the reader and write it to the response
 	log.Debug().Str("filename", filename).Msg("Serving file")
-	w.Header().Set("Content-Disposition", "inline; filename="+path.Base(filename))
+	w.Header().Set("Content-Disposition", "inline")
 	w.Header().Set("Content-Length", strconv.FormatInt(-1, 10)) // -1 means unknown length
 	if _, err := io.Copy(w, reader); err != nil {
 		log.Error().Err(err).Msg("Failed to copy file content to response")
