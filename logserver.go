@@ -76,22 +76,43 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Error().Err(err).Msg("Failed to check S3 file existence")
 	} else if exists {
 		log.Info().Msg("Serving file from S3")
-		// Serve the file from S3
-		http.Error(w, "S3 file serving not implemented", http.StatusNotImplemented)
+		// get a reader for the S3 object
+		obj, err := f.s3Client.GetObject(ctx, f.s3Bucket, upath, minio.GetObjectOptions{})
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get S3 object")
+			http.Error(w, "error retrieving S3 object", http.StatusInternalServerError)
+			return
+		}
+		defer obj.Close()
+		// serve the file
+		serveFile(ctx, w, r, upath, obj)
 		return
 	}
 
+	// check if file is on local disk (for migration)
 	exists, err = f.checkLocalFileExists(ctx, upath)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to check local file existence")
 	} else if exists {
 		log.Info().Msg("Serving file from local filesystem")
-		// Serve the file from the local filesystem
-		http.Error(w, "Local file serving not implemented", http.StatusNotImplemented)
+		// open the file on the local filesystem
+		localPath, err := filepath.Abs(filepath.Join(f.root, filepath.FromSlash(upath)))
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get absolute path for local file")
+			http.Error(w, "error retrieving local file", http.StatusInternalServerError)
+		}
+		f, err := os.Open(localPath)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to open local file")
+			http.Error(w, "error opening local file", http.StatusInternalServerError)
+		}
+		defer f.Close()
+		// serve the file
+		serveFile(ctx, w, r, upath, f)
 		return
 	}
 
-	// If we reach here, the file does not exist in S3 or locally, try to enumerate the directory
+	// try to enumerate as a directory
 	entries, err := f.enumerateCombinedDirectory(ctx, upath)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to enumerate directory")
@@ -100,42 +121,39 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(entries) == 0 {
 		log.Info().Msg("Directory is empty/file not found")
-		http.Error(w, "file not found", http.StatusNotFound)
+		http.Error(w, "404 page not found", http.StatusNotFound)
 		return
 	}
 
 	log.Info().Int("entry_count", len(entries)).Msg("Serving directory listing")
-	// Serve the directory listing
+	// serve the directory listing
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("<!doctype html>\n<meta name=\"viewport\" content=\"width=device-width\">\n<pre>\n"))
 	for _, entry := range entries {
-		if strings.HasSuffix(entry, "/") {
-			w.Write([]byte("<a href=\"" + entry + "\">" + entry + "</a>\n"))
-		} else {
-			w.Write([]byte("<a href=\"" + entry + "\">" + entry + "</a>\n"))
-		}
+		w.Write([]byte("<a href=\"" + entry + "\">" + entry + "</a>\n"))
 	}
 	w.Write([]byte("</pre>\n"))
-	log.Info().Msg("Directory listing served")
 }
 
 func (f *logServer) checkS3FileExists(ctx context.Context, objectName string) (bool, error) {
-	// Check if the object exists in S3
 	_, err := f.s3Client.StatObject(ctx, f.s3Bucket, objectName, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
-			return false, nil // Object does not exist
+			return false, nil
 		}
-		return false, err // Other error
+		return false, err
 	}
-	return true, nil // Object exists
+	return true, nil
 }
 
+// returns contents of a "directory" in the form FolderName/
 func (f *logServer) enumerateS3Directory(ctx context.Context, prefix string) ([]string, error) {
 	log := zerolog.Ctx(ctx).With().Str("action", "serve_file").Logger()
 
 	log.Debug().Str("s3_bucket", f.s3Bucket).Str("prefix", prefix).Msg("Enumerating S3 directory")
+
+	// add a trailing slash to prevent partial matches (e.g. "2025-" matching "2025-01-01/" and "2025-01-02/")
 	if prefix != "" && !strings.HasSuffix(prefix, "/") { 
 		prefix += "/"
 	}
@@ -149,8 +167,9 @@ func (f *logServer) enumerateS3Directory(ctx context.Context, prefix string) ([]
 			log.Err(obj.Err).Msg("Error listing S3 objects")
 			return nil, obj.Err
 		}
+		// trim prefix and leading /, leaving just FolderName/FileName or FileName
 		name := strings.TrimPrefix(obj.Key, prefix)
-		// Only show direct children
+		// ignore directory entry
 		if name == "" {
 			continue
 		}
@@ -165,13 +184,13 @@ func (f *logServer) enumerateS3Directory(ctx context.Context, prefix string) ([]
 
 func (f *logServer) enumerateCombinedDirectory(ctx context.Context, prefix string) ([]string, error) {
 	log := zerolog.Ctx(ctx).With().Str("action", "enumerate_combined_directory").Logger()
-	// Check S3 first
+	// check S3 first
 	entries, err := f.enumerateS3Directory(ctx, prefix)
 	if err != nil {
 		return nil, err
 	}
 
-	// Now check the local filesystem
+	// now check the local filesystem
 	localPath, err := filepath.Abs(filepath.Join(f.root, filepath.FromSlash(prefix)))
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get absolute path for local directory")
@@ -180,22 +199,22 @@ func (f *logServer) enumerateCombinedDirectory(ctx context.Context, prefix strin
 	localEntries, err := os.ReadDir(localPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return entries, nil // No local directory, return S3 entries
+			return entries, nil // no local directory, return any S3 entries
 		}
-		return nil, err // Other error
+		return nil, err
 	}
 
 	for _, entry := range localEntries {
 		log.Debug().Str("entry_name", entry.Name()).Bool("is_dir", entry.IsDir()).Msg("Found local entry")
 		if entry.IsDir() {
-			// If it's a directory, append it with a trailing slash
+			// if it's a directory, append it with a trailing slash
 			entries = append(entries, entry.Name()+"/")
 		} else {
 			entries = append(entries, entry.Name())
 		}
 	}
 
-	// Sort and deduplicate entries
+	// sort and deduplicate entries
 	uniqueEntries := make(map[string]struct{})
 	for _, entry := range entries {
 		if _, exists := uniqueEntries[entry]; !exists {
@@ -210,61 +229,68 @@ func (f *logServer) enumerateCombinedDirectory(ctx context.Context, prefix strin
 	return uniqueEntriesSlice, nil
 }
 
+// check if a file exists in f.root, ignoring directories
 func (f *logServer) checkLocalFileExists(ctx context.Context, path string) (bool, error) {
-	log := zerolog.Ctx(ctx).With().Str("action", "check_local_file_exists").Logger()
-	// Convert to absolute path
+	// convert to absolute path (probably just adding /)
 	absPath, err := filepath.Abs(filepath.Join(f.root, filepath.FromSlash(path)))
 	if err != nil {
 		return false, err
 	}
 
-	// Check if the file exists
+	// check if the file exists
 	entry, err := os.Stat(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return false, nil // File does not exist
+			return false, nil
 		}
-		return false, err // Other error
+		return false, err
 	}
 	if entry.IsDir() {
-		log.Warn().Str("file_path", absPath).Msg("Expected file but found a directory")
-		return false, nil // It's a directory, not a file
+		return false, nil
 	}
-	log.Debug().Str("file_path", absPath).Msg("Local file exists")
-	return true, nil // File exists
+	return true, nil
 }
 
-func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, path string) {
+func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, filename string, reader io.Reader) {
 	log := zerolog.Ctx(ctx).With().Str("action", "serve_file").Logger()
-	d, err := os.Stat(path)
-	if err != nil {
-		msg, code := toHTTPError(err)
-		http.Error(w, msg, code)
-		return
-	}
 
 	// for anti-XSS belt-and-braces, set a very restrictive CSP
 	w.Header().Set("Content-Security-Policy", "default-src: none")
 
-	// if it's a directory, serve a listing
-	if d.IsDir() {
-		log.Info().Msg("Serving listing")
-		http.ServeFile(w, r, path)
-		return
+	// if it is gzipped, check if the client accepts gzip encoding
+	if strings.HasSuffix(filename, ".gz") {
+		log.Debug().Msg("Serving gzipped file")
+		if acceptsGzip(r) {
+			// set the content-encoding to gzip
+			w.Header().Set("Content-Encoding", "gzip")
+		} else {
+			var err error
+			reader, err = gzip.NewReader(reader)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to create gzip reader")
+				http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
+		filename = strings.TrimSuffix(filename, ".gz")
 	}
 
-	// if it's a gzipped log file, serve it as text
-	if strings.HasSuffix(path, ".gz") {
-		serveGzippedFile(w, r, path, d.Size())
-		return
-	}
-
+	// set the content-type based on the file extension
 	// otherwise, limit ourselves to a number of known-safe content-types, to
 	// guard against XSS vulnerabilities.
-	// http.serveFile preserves the content-type header if one is already set.
-	w.Header().Set("Content-Type", extensionToMimeType(path))
+	w.Header().Set("Content-Type", extensionToMimeType(filename))
 
-	http.ServeFile(w, r, path)
+	// read everything from the reader and write it to the response
+	log.Debug().Str("filename", filename).Msg("Serving file")
+	w.Header().Set("Content-Disposition", "inline; filename="+path.Base(filename))
+	w.Header().Set("Content-Length", strconv.FormatInt(-1, 10)) // -1 means unknown length
+	if _, err := io.Copy(w, reader); err != nil {
+		log.Error().Err(err).Msg("Failed to copy file content to response")
+		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	log.Debug().Msg("File served successfully")
+	w.WriteHeader(http.StatusOK)
 }
 
 // extensionToMimeType returns a suitable mime type for the given filename
@@ -292,9 +318,7 @@ func extensionToMimeType(path string) string {
 	return "application/octet-stream"
 }
 
-func serveGzippedFile(w http.ResponseWriter, r *http.Request, path string, size int64) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-
+func acceptsGzip(r *http.Request) bool {
 	acceptsGzip := false
 	splitRune := func(s rune) bool { return s == ' ' || s == '\t' || s == '\n' || s == ',' }
 	for _, hdr := range r.Header["Accept-Encoding"] {
@@ -305,62 +329,7 @@ func serveGzippedFile(w http.ResponseWriter, r *http.Request, path string, size 
 			}
 		}
 	}
-
-	if acceptsGzip {
-		serveGzip(w, path, size)
-	} else {
-		serveUngzipped(w, path)
-	}
-}
-
-// serveGzip serves a gzipped file with gzip content-encoding
-func serveGzip(w http.ResponseWriter, path string, size int64) {
-	f, err := os.Open(path)
-	if err != nil {
-		msg, code := toHTTPError(err)
-		http.Error(w, msg, code)
-		return
-	}
-	defer f.Close()
-
-	w.Header().Set("Content-Encoding", "gzip")
-	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-
-	w.WriteHeader(http.StatusOK)
-	io.Copy(w, f)
-}
-
-// serveUngzipped ungzips a gzipped file and serves it
-func serveUngzipped(w http.ResponseWriter, path string) {
-	f, err := os.Open(path)
-	if err != nil {
-		msg, code := toHTTPError(err)
-		http.Error(w, msg, code)
-		return
-	}
-	defer f.Close()
-
-	gz, err := gzip.NewReader(f)
-	if err != nil {
-		msg, code := toHTTPError(err)
-		http.Error(w, msg, code)
-		return
-	}
-	defer gz.Close()
-
-	w.WriteHeader(http.StatusOK)
-	io.Copy(w, gz)
-}
-
-func toHTTPError(err error) (msg string, httpStatus int) {
-	if os.IsNotExist(err) {
-		return "404 page not found", http.StatusNotFound
-	}
-	if os.IsPermission(err) {
-		return "403 Forbidden", http.StatusForbidden
-	}
-	// Default:
-	return "500 Internal Server Error", http.StatusInternalServerError
+	return acceptsGzip
 }
 
 func containsDotDot(v string) bool {
