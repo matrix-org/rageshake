@@ -156,7 +156,7 @@ func (s *submitServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	rand.Read(randBytes)
 	prefix += "-" + base32.StdEncoding.EncodeToString(randBytes)
 	reportDir := prefix // S3 object prefix, not a local path
-	listingURL := s.apiPrefix + "/listingS3/" + prefix
+	listingURL := s.apiPrefix + "/v2/listing/" + prefix
 	log = log.With().
 		Str("report_dir", reportDir).
 		Str("listing_url", listingURL).
@@ -661,7 +661,8 @@ func (s *submitServer) saveReportBackground(ctx context.Context, p parsedPayload
 func (s *submitServer) saveReport(log zerolog.Logger, p parsedPayload, reportDir, listingURL string) error {
 	var summaryBuf bytes.Buffer
 	p.WriteToBuffer(&summaryBuf)
-	if err := gzipAndSaveS3(context.Background(), s.s3Client, s.s3Bucket, reportDir, "details.log.gz", summaryBuf.Bytes()); err != nil {
+	if err := uploadToS3(context.Background(), s.s3Client, s.s3Bucket, reportDir, "details.log", &summaryBuf); err != nil {
+		log.Err(err).Msg("Error uploading report details")
 		return err
 	}
 
@@ -928,7 +929,7 @@ func (s *submitServer) buildReportBody(ctx context.Context, p parsedPayload, lis
 		fileURL := listingURL + "/" + file
 		ext := strings.ToLower(filepath.Ext(file))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" {
-			jwtTok, err := s.createToken(strings.TrimPrefix(fileURL, s.apiPrefix+"/listingS3/"))
+			jwtTok, err := s.createToken(strings.TrimPrefix(fileURL, s.apiPrefix+"/v2/listing/"))
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).Msg("Error creating token for image URL")
 			} else {
@@ -1062,8 +1063,8 @@ func saveFormPartS3(ctx context.Context, s3Client *minio.Client, bucket, leafNam
 	if !filenameRegexp.MatchString(leafName) {
 		return "", fmt.Errorf("invalid upload filename")
 	}
-	objectName := reportDir + "/" + leafName
-	_, err := s3Client.PutObject(ctx, bucket, objectName, reader, -1, minio.PutObjectOptions{})
+
+	err := uploadToS3(ctx, s3Client, bucket, reportDir, leafName, reader)
 	if err != nil {
 		return "", err
 	}
@@ -1077,8 +1078,16 @@ func saveLogPartS3(ctx context.Context, s3Client *minio.Client, bucket string, l
 	} else {
 		leafName = fmt.Sprintf("logs-%04d.log.gz", logNum)
 	}
-	objectName := reportDir + "/" + leafName
+	
+	err := uploadToS3(ctx, s3Client, bucket, reportDir, leafName, reader)
+	if err != nil {
+		return "", err
+	}
+	return leafName, nil
+}
 
+func uploadToS3(ctx context.Context, s3Client *minio.Client, bucket, prefix, name string, reader io.Reader) error {
+	objectName := prefix + "/" + name
 	pr, pw := io.Pipe()
 	go func() {
 		gz := gzip.NewWriter(pw)
@@ -1086,23 +1095,11 @@ func saveLogPartS3(ctx context.Context, s3Client *minio.Client, bucket string, l
 		gz.Close()
 		pw.CloseWithError(err)
 	}()
-
-	_, err := s3Client.PutObject(ctx, bucket, objectName, pr, -1, minio.PutObjectOptions{})
+	_, err := s3Client.PutObject(ctx, bucket, objectName, pr, -1, minio.PutObjectOptions{
+		PartSize: 5 * 1024 * 1024, // 5MB part size so that our memory usage doesn't balloon
+	})
 	if err != nil {
-		return "", err
+		return fmt.Errorf("failed to upload to S3: %w", err)
 	}
-	return leafName, nil
-}
-
-func gzipAndSaveS3(ctx context.Context, s3Client *minio.Client, bucket, reportDir, fpath string, data []byte) error {
-	objectName := reportDir + "/" + fpath
-	pr, pw := io.Pipe()
-	go func() {
-		gz := gzip.NewWriter(pw)
-		_, err := gz.Write(data)
-		gz.Close()
-		pw.CloseWithError(err)
-	}()
-	_, err := s3Client.PutObject(ctx, bucket, objectName, pr, -1, minio.PutObjectOptions{})
-	return err
+	return nil
 }

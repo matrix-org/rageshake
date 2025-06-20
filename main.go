@@ -204,7 +204,7 @@ func main() {
 		s3Bucket: cfg.S3Bucket,
 	}
 	s3fs := basicAuthOrJWTAuthenticated(s3ls, cfg.BugsUser, cfg.BugsPass, "Riot bug reports", []byte(cfg.BugsJWTSecret))
-	http.Handle("/api/listingS3/", http.StripPrefix("/api/listingS3/", s3fs))
+	http.Handle("/api/v2/listing/", http.StripPrefix("/api/v2/listing/", s3fs))
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, "ok")
