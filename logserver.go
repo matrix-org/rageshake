@@ -298,7 +298,7 @@ func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, file
 // Unlike mime.TypeByExtension, the results are limited to a set of types which
 // should be safe to serve to a browser without introducing XSS vulnerabilities.
 func extensionToMimeType(path string) string {
-	if strings.HasSuffix(path, ".txt") {
+	if strings.HasSuffix(path, ".txt") || strings.HasSuffix(path, ".log"){
 		// anyone uploading text in anything other than utf-8 needs to be
 		// re-educated.
 		return "text/plain; charset=utf-8"
