@@ -1087,8 +1087,17 @@ func saveLogPartS3(ctx context.Context, s3Client *minio.Client, bucket string, l
 }
 
 func uploadToS3(ctx context.Context, s3Client *minio.Client, bucket, prefix, name string, reader io.Reader, compress bool) error {
+	log := zerolog.Ctx(ctx).With().
+		Str("action", "upload_to_s3").
+		Str("bucket", bucket).
+		Str("prefix", prefix).
+		Str("name", name).
+		Bool("compress", compress).
+		Logger()
+	log.Info().Msg("Uploading to S3")
 	objectName := prefix + "/" + name 
 	if compress {
+		log.Debug().Msg("Compressing data before upload")
 		pr, pw := io.Pipe()
 		go func() {
 			gz := gzip.NewWriter(pw)
@@ -1099,11 +1108,13 @@ func uploadToS3(ctx context.Context, s3Client *minio.Client, bucket, prefix, nam
 		reader = pr
 		objectName += ".gz"
 	}
+	log.Debug().Str("object_name", objectName).Msg("Uploading object to S3")
 	_, err := s3Client.PutObject(ctx, bucket, objectName, reader, -1, minio.PutObjectOptions{
 		PartSize: 5 * 1024 * 1024, // 5MB part size so that our memory usage doesn't balloon
 	})
 	if err != nil {
 		return fmt.Errorf("failed to upload to S3: %w", err)
 	}
+	log.Info().Msg("Successfully uploaded to S3")
 	return nil
 }
