@@ -84,8 +84,17 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer obj.Close()
+
+		// get the size for content-length header
+		stat, err := obj.Stat()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to stat S3 object")
+			http.Error(w, "error retrieving S3 object metadata", http.StatusInternalServerError)
+			return
+		}
+
 		// serve the file
-		serveFile(ctx, w, r, upath, obj)
+		serveFile(ctx, w, r, upath, obj, stat.Size)
 		return
 	}
 
@@ -107,8 +116,17 @@ func (f *logServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "error opening local file", http.StatusInternalServerError)
 		}
 		defer f.Close()
+
+		// get the file size for content-length header
+		stat, err := f.Stat()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to stat local file")
+			http.Error(w, "error retrieving local file metadata", http.StatusInternalServerError)
+			return
+		}
+
 		// serve the file
-		serveFile(ctx, w, r, upath, f)
+		serveFile(ctx, w, r, upath, f, stat.Size())
 		return
 	}
 
@@ -251,7 +269,7 @@ func (f *logServer) checkLocalFileExists(ctx context.Context, path string) (bool
 	return true, nil
 }
 
-func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, filename string, reader io.Reader) {
+func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, filename string, reader io.Reader, size int64) {
 	log := zerolog.Ctx(ctx).With().Str("action", "serve_file").Logger()
 
 	// for anti-XSS belt-and-braces, set a very restrictive CSP
@@ -279,7 +297,7 @@ func serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, file
 	// otherwise, limit ourselves to a number of known-safe content-types, to
 	// guard against XSS vulnerabilities.
 	w.Header().Set("Content-Type", extensionToMimeType(filename))
-
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	// read everything from the reader and write it to the response
 	log.Debug().Str("filename", filename).Msg("Serving file")
 	w.Header().Set("Content-Disposition", "inline")
