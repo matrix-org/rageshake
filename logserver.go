@@ -134,6 +134,7 @@ func (f *logServer) checkS3FileExists(ctx context.Context, objectName string) (b
 func (f *logServer) enumerateS3Directory(ctx context.Context, prefix string) ([]string, error) {
 	log := zerolog.Ctx(ctx).With().Str("action", "serve_file").Logger()
 
+	log.Debug().Str("s3_bucket", f.s3Bucket).Str("prefix", prefix).Msg("Enumerating S3 directory")
 	opts := minio.ListObjectsOptions{
 		Prefix:    prefix,
 		Recursive: false,
