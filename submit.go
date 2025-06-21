@@ -1095,7 +1095,8 @@ func uploadToS3(ctx context.Context, s3Client *minio.Client, bucket, prefix, nam
 		Bool("compress", compress).
 		Logger()
 	log.Info().Msg("Uploading to S3")
-	objectName := prefix + "/" + name 
+	objectName := prefix + "/" + name
+	r := reader // make a copy of reader so that the goroutine can copy from the original
 	if compress {
 		log.Debug().Msg("Compressing data before upload")
 		pr, pw := io.Pipe()
@@ -1105,11 +1106,11 @@ func uploadToS3(ctx context.Context, s3Client *minio.Client, bucket, prefix, nam
 			gz.Close()
 			pw.CloseWithError(err)
 		}()
-		reader = pr
+		r = pr
 		objectName += ".gz"
 	}
 	log.Debug().Str("object_name", objectName).Msg("Uploading object to S3")
-	_, err := s3Client.PutObject(ctx, bucket, objectName, reader, -1, minio.PutObjectOptions{
+	_, err := s3Client.PutObject(ctx, bucket, objectName, r, -1, minio.PutObjectOptions{
 		PartSize: 5 * 1024 * 1024, // 5MB part size so that our memory usage doesn't balloon
 	})
 	if err != nil {
