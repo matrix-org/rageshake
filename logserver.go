@@ -331,7 +331,7 @@ func extensionToMimeType(path string) string {
 		return "image/png"
 	}
 
-	if strings.HasSuffix(path, ".jpg") {
+	if strings.HasSuffix(path, ".jpg") || strings.HasSuffix(path, ".jpeg") {
 		return "image/jpeg"
 	}
 
