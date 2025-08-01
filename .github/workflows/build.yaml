@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.16
+          go-version: 1.17
       - name: Install lint deps
         run: |
           go get golang.org/x/lint/golint
@@ -45,7 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        golang: ["1.17", "1.16"]
+        # build against our minimum supported version, and the most recent major relesase.
+        golang: ["1.17", "^1.18"]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
