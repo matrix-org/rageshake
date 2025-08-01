@@ -14,10 +14,10 @@ func TestConfigRejectionCondition(t *testing.T) {
 				Label: "0.1.1",
 			},
 			{
-				App:     "my-app",
-				Version: "0.1.2",
-				Label:   "nightly",
-				Reason:  "no nightlies",
+				App:       "my-app",
+				Version:   "0.1.2",
+				Label:     "nightly",
+				Reason:    "no nightlies",
 				ErrorCode: "BAD_VERSION",
 			},
 			{
@@ -26,7 +26,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			{
 				UserTextMatch: "(\\w{4}\\s){11}\\w{4}",
 				Reason:        "it matches a recovery key and recovery keys are private",
-				ErrorCode: "EXPOSED_RECOVERY_KEY",
+				ErrorCode:     "EXPOSED_RECOVERY_KEY",
 			},
 		},
 	}
@@ -38,14 +38,14 @@ func TestConfigRejectionCondition(t *testing.T) {
 				// Hack add how we expect the rageshake to be rejected to the test
 				// The actual data in a rageshake has no ExpectedRejectReason field
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": ErrCodeRejected,
+				"ExpectedErrorCode":    ErrCodeRejected,
 			},
 		},
 		{
 			AppName: "my-app",
 			Data: map[string]string{
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": ErrCodeRejected,
+				"ExpectedErrorCode":    ErrCodeRejected,
 			},
 			Labels: []string{"0.1.1"},
 		},
@@ -55,14 +55,14 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Data: map[string]string{
 				"Version":              "0.1.2",
 				"ExpectedRejectReason": "no nightlies",
-				"ExpectedErrorCode": "BAD_VERSION",
+				"ExpectedErrorCode":    "BAD_VERSION",
 			},
 		},
 		{
 			AppName: "block-my-app",
 			Data: map[string]string{
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": ErrCodeRejected,
+				"ExpectedErrorCode":    ErrCodeRejected,
 			},
 		},
 		{
@@ -70,7 +70,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Labels:  []string{"foo"},
 			Data: map[string]string{
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": ErrCodeRejected,
+				"ExpectedErrorCode":    ErrCodeRejected,
 			},
 		},
 		{
@@ -78,7 +78,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Data: map[string]string{
 				"Version":              "42",
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": ErrCodeRejected,
+				"ExpectedErrorCode":    ErrCodeRejected,
 			},
 		},
 		{
@@ -87,7 +87,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			Data: map[string]string{
 				"Version":              "42",
 				"ExpectedRejectReason": "app or user text rejected",
-				"ExpectedErrorCode": ErrCodeRejected,
+				"ExpectedErrorCode":    ErrCodeRejected,
 			},
 		},
 		{
@@ -95,7 +95,7 @@ func TestConfigRejectionCondition(t *testing.T) {
 			UserText: "Looks like a recover key abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd abcd",
 			Data: map[string]string{
 				"ExpectedRejectReason": "it matches a recovery key and recovery keys are private",
-				"ExpectedErrorCode": "EXPOSED_RECOVERY_KEY",
+				"ExpectedErrorCode":    "EXPOSED_RECOVERY_KEY",
 			},
 		},
 	}

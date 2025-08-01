@@ -24,7 +24,6 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
-	"github.com/ua-parser/uap-go/uaparser"
 	"io"
 	"io/ioutil"
 	"log"
@@ -42,6 +41,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/ua-parser/uap-go/uaparser"
 
 	"github.com/google/go-github/github"
 	"github.com/jordan-wright/email"
