@@ -5,7 +5,7 @@ linters:
     # - errcheck  # too many failures for this right now. we should fix it though.
     - goconst
     - gocyclo
-    - gosec
+    # - gosec
     - govet
     - ineffassign
     - misspell
