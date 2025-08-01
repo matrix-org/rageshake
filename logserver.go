@@ -267,7 +267,7 @@ func serveGzippedFile(w http.ResponseWriter, r *http.Request, path string, size 
 }
 
 // serveGzip serves a gzipped file with gzip content-encoding
-func serveGzip(w http.ResponseWriter, r *http.Request, path string, size int64) {
+func serveGzip(w http.ResponseWriter, _ *http.Request, path string, size int64) {
 	f, err := os.Open(path)
 	if err != nil {
 		msg, code := toHTTPError(err)
@@ -284,7 +284,7 @@ func serveGzip(w http.ResponseWriter, r *http.Request, path string, size int64) 
 }
 
 // serveUngzipped ungzips a gzipped file and serves it
-func serveUngzipped(w http.ResponseWriter, r *http.Request, path string) {
+func serveUngzipped(w http.ResponseWriter, _ *http.Request, path string) {
 	f, err := os.Open(path)
 	if err != nil {
 		msg, code := toHTTPError(err)

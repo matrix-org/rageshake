@@ -290,7 +290,7 @@ func main() {
 	}
 	http.Handle("/api/listing/", fs)
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, "ok")
 	})
 
@@ -355,7 +355,7 @@ func loadConfig(configPath string) (*config, error) {
 
 	for idx, condition := range cfg.RejectionConditions {
 		if condition.ErrorCode != "" && !strings.HasPrefix(condition.ErrorCode, "REJECTED_") {
-			return nil, fmt.Errorf("Rejected condition %d was invalid. `errorcode` must be use the namespace REJECTED_", idx);
+			return nil, fmt.Errorf("Rejected condition %d was invalid. `errorcode` must be use the namespace REJECTED_", idx)
 		}
 	}
 	return &cfg, nil
