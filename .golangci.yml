@@ -1,0 +1,25 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    # - errcheck  # too many failures for this right now. we should fix it though.
+    - goconst
+    - gocyclo
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - unconvert
+    - unparam
+    - unused
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+formatters:
+  enable:
+    - goimports
