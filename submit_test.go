@@ -36,7 +36,7 @@ import (
 //
 // if tempDir is empty, a new temp dir is created, and deleted when the test
 // completes.
-func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*payload, *http.Response) {
+func testParsePayload(t *testing.T, body, contentType, tempDir string) *payload {
 	req, err := http.NewRequest("POST", "/api/submit", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func testParsePayload(t *testing.T, body, contentType string, tempDir string) (*
 
 	rr := httptest.NewRecorder()
 	p := parseRequest(rr, req, tempDir)
-	return p, rr.Result()
+	return p
 }
 
 func submitSimpleRequestToServer(t *testing.T, allowedAppNameMap map[string]bool, body string) int {
@@ -109,7 +109,7 @@ func TestEmptyJson(t *testing.T) {
 	body := "{}"
 
 	// we just test it is parsed without errors for now
-	p, _ := testParsePayload(t, body, "application/json", "")
+	p := testParsePayload(t, body, "application/json", "")
 	if p == nil {
 		t.Fatal("parseRequest returned nil")
 	}
@@ -135,7 +135,7 @@ func TestJsonUpload(t *testing.T) {
     "version": "0.9.9"
 }`
 
-	p, _ := testParsePayload(t, body, "application/json", reportDir)
+	p := testParsePayload(t, body, "application/json", reportDir)
 
 	if p == nil {
 		t.Fatal("parseRequest returned nil")
@@ -161,7 +161,7 @@ func TestMultipartUpload(t *testing.T) {
 	reportDir := mkTempDir(t)
 	defer os.RemoveAll(reportDir)
 
-	p, _ := testParsePayload(t, multipartBody(),
+	p := testParsePayload(t, multipartBody(),
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		reportDir,
 	)
@@ -251,8 +251,10 @@ Content-Type: application/octet-stream
 	return
 }
 
+const TestWords = "test words."
+
 func checkParsedMultipartUpload(t *testing.T, p *payload) {
-	wanted := "test words."
+	wanted := TestWords
 	if p.UserText != wanted {
 		t.Errorf("User text: got %s, want %s", p.UserText, wanted)
 	}
@@ -299,7 +301,7 @@ Content-Disposition: form-data; name="label"
 label2
 ------WebKitFormBoundarySsdgl8Nq9voFyhdO--
 `
-	p, _ := testParsePayload(t, body,
+	p := testParsePayload(t, body,
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		"",
 	)
@@ -440,7 +442,7 @@ Content-Disposition: form-data; name="file"; filename="passwd.txt"
 file
 ------WebKitFormBoundarySsdgl8Nq9voFyhdO--
 `
-	p, _ := testParsePayload(t, body,
+	p := testParsePayload(t, body,
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		"",
 	)
@@ -455,8 +457,8 @@ file
 		t.Fatalf("Error building issue request: %s", err)
 	}
 
-	if *issueReq.Title != "test words." {
-		t.Errorf("Title: got %s, want %s", *issueReq.Title, "test words.")
+	if *issueReq.Title != TestWords {
+		t.Errorf("Title: got %s, want %s", *issueReq.Title, TestWords)
 	}
 	expectedBody := "User message:\n\ntest words.\n\nUser-Agent: `xxx`\nVersion: `1`\ndevice_id: `id`\nuser_id: `id`\n\n[Logs](http://test/listing/foo) ([archive](http://test/listing/foo?format=tar.gz)) / [passwd.txt](http://test/listing/foo/passwd.txt)\n"
 	if *issueReq.Body != expectedBody {
@@ -476,7 +478,7 @@ Content-Disposition: form-data; name="app"
 riot-web
 ------WebKitFormBoundarySsdgl8Nq9voFyhdO--
 `
-	p, _ := testParsePayload(t, body,
+	p := testParsePayload(t, body,
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		"",
 	)
@@ -506,7 +508,7 @@ Content-Disposition: form-data; name="text"
 
 ------WebKitFormBoundarySsdgl8Nq9voFyhdO--
 `
-	p, _ := testParsePayload(t, body,
+	p := testParsePayload(t, body,
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		"",
 	)
@@ -602,7 +604,7 @@ func TestParseUserAgent(t *testing.T) {
     "version": "0.9.9"
 }`
 
-	p, _ := testParsePayload(t, body, "application/json", reportDir)
+	p := testParsePayload(t, body, "application/json", reportDir)
 
 	if p == nil {
 		t.Fatal("parseRequest returned nil")

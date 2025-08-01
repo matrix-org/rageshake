@@ -290,7 +290,7 @@ func main() {
 	}
 	http.Handle("/api/listing/", fs)
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, "ok")
 	})
 

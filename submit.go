@@ -323,7 +323,7 @@ func parseUserAgent(userAgent string) string {
 	return fmt.Sprintf(`%s on %s running on %s device`, client.UserAgent.ToString(), client.Os.ToString(), client.Device.ToString())
 }
 
-func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
+func parseJSONRequest(_ http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
 	var p jsonPayload
 	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
 		return nil, err
@@ -363,7 +363,7 @@ func parseJSONRequest(w http.ResponseWriter, req *http.Request, reportDir string
 	return &parsed, nil
 }
 
-func parseMultipartRequest(w http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
+func parseMultipartRequest(_ http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
 	rdr, err := req.MultipartReader()
 	if err != nil {
 		return nil, err
@@ -825,7 +825,7 @@ func (s *submitServer) sendEmail(p payload, reportDir string, listingURL string)
 		e.AttachFile(fullPath)
 	}
 
-	var auth smtp.Auth = nil
+	var auth smtp.Auth
 	if s.cfg.SMTPPassword != "" || s.cfg.SMTPUsername != "" {
 		host, _, _ := net.SplitHostPort(s.cfg.SMTPServer)
 		auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, host)
