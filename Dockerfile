@@ -4,6 +4,8 @@ ARG DEBIAN_VERSION_NAME=bullseye
 
 ## Build stage ##
 FROM --platform=${BUILDPLATFORM} docker.io/library/golang:${GO_VERSION}-${DEBIAN_VERSION_NAME} AS builder
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /build
 COPY go.mod go.sum ./
@@ -18,14 +20,14 @@ COPY scripts/cleanup.py /cleanup.py
 WORKDIR /
 
 ## Runtime stage, debug variant ##
-FROM --platform=${TARGETPLATFORM} gcr.io/distroless/static-debian${DEBIAN_VERSION}:debug-nonroot AS debug
+FROM gcr.io/distroless/static-debian${DEBIAN_VERSION}:debug-nonroot AS debug
 COPY --from=builder /build/rageshake /rageshake
 WORKDIR /
 EXPOSE 9110
 ENTRYPOINT ["/rageshake"]
 
 ## Runtime stage ##
-FROM --platform=${TARGETPLATFORM} gcr.io/distroless/static-debian${DEBIAN_VERSION}:nonroot
+FROM gcr.io/distroless/static-debian${DEBIAN_VERSION}:nonroot
 COPY --from=builder /build/rageshake /rageshake
 WORKDIR /
 EXPOSE 9110
