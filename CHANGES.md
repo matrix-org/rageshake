@@ -1,3 +1,22 @@
+# 1.16.3 (2025-08-28)
+
+### Features
+
+- The minimum supported version of Go is now 1.23. ([\#101](https://github.com/matrix-org/rageshake/issues/101), [\#105](https://github.com/matrix-org/rageshake/issues/105))
+
+### Bugfixes
+
+- Fix email support to support authenticated mail with a custom port. ([\#38](https://github.com/matrix-org/rageshake/issues/38))
+- Docker: build for the right target arch. ([\#106](https://github.com/matrix-org/rageshake/issues/106))
+
+### Internal Changes
+
+- Bump oauth2 dependency to 0.27.0. ([\#100](https://github.com/matrix-org/rageshake/issues/100))
+- Bump golang.org/x/net to 0.38.0. ([\#102](https://github.com/matrix-org/rageshake/issues/102))
+- Bump github.com/hashicorp/go-retryablehttp to 0.7.7. ([\#103](https://github.com/matrix-org/rageshake/issues/103))
+- Switch to golangci-lint. ([\#104](https://github.com/matrix-org/rageshake/issues/104))
+
+
 1.16.2 (2025-03-19)
 ===================
 
