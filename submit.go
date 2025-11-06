@@ -27,6 +27,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"math/rand"
 	"mime"
 	"mime/multipart"
@@ -219,7 +220,11 @@ func (s *submitServer) handleSubmission(w http.ResponseWriter, req *http.Request
 	listingURL := s.apiPrefix + "/listing/" + prefix
 	log.Println("Handling report submission; listing URI will be", listingURL)
 
-	p := parseRequest(w, req, reportDir)
+	maxLogLines := math.MaxInt
+	if s.cfg.MaxLogLines != nil {
+		maxLogLines = *s.cfg.MaxLogLines
+	}
+	p := parseRequest(w, req, reportDir, maxLogLines)
 	if p == nil {
 		// parseRequest already wrote an error, but now let's delete the
 		// useless report dir
@@ -279,7 +284,7 @@ func writeError(w http.ResponseWriter, status int, response submitErrorResponse)
 
 // parseRequest attempts to parse a received request as a bug report. If
 // the request cannot be parsed, it responds with an error and returns nil.
-func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *payload {
+func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string, maxloglines int) *payload {
 	length, err := strconv.Atoi(req.Header.Get("Content-Length"))
 	if err != nil {
 		log.Println("Couldn't parse content-length", err)
@@ -296,7 +301,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 	if contentType != "" {
 		d, _, _ := mime.ParseMediaType(contentType)
 		if d == "multipart/form-data" {
-			p, err1 := parseMultipartRequest(w, req, reportDir)
+			p, err1 := parseMultipartRequest(w, req, reportDir, maxloglines)
 			if err1 != nil {
 				log.Println("Error parsing multipart data:", err1)
 				writeError(w, 400, submitErrorResponse{Error: "Bad multipart data", ErrorCode: ErrCodeBadContent})
@@ -306,7 +311,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string) *p
 		}
 	}
 
-	p, err := parseJSONRequest(w, req, reportDir)
+	p, err := parseJSONRequest(w, req, reportDir, maxloglines)
 	if err != nil {
 		log.Println("Error parsing JSON body", err)
 		writeError(w, 400, submitErrorResponse{Error: fmt.Sprintf("Could not decode payload: %s", err.Error()), ErrorCode: ErrCodeBadContent})
@@ -323,7 +328,7 @@ func parseUserAgent(userAgent string) string {
 	return fmt.Sprintf(`%s on %s running on %s device`, client.UserAgent.ToString(), client.Os.ToString(), client.Device.ToString())
 }
 
-func parseJSONRequest(_ http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
+func parseJSONRequest(_ http.ResponseWriter, req *http.Request, reportDir string, maxloglines int) (*payload, error) {
 	var p jsonPayload
 	if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
 		return nil, err
@@ -339,14 +344,20 @@ func parseJSONRequest(_ http.ResponseWriter, req *http.Request, reportDir string
 		parsed.Data = p.Data
 	}
 
+	loglinesWritten := 0
 	for i, logfile := range p.Logs {
 		buf := bytes.NewBufferString(logfile.Lines)
-		leafName, err := saveLogPart(i, logfile.ID, buf, reportDir)
+		leafName, loglines, err := saveLogPart(i, logfile.ID, buf, reportDir, maxloglines-loglinesWritten)
 		if err != nil {
 			log.Printf("Error saving log %s: %v", leafName, err)
 			parsed.LogErrors = append(parsed.LogErrors, fmt.Sprintf("Error saving log %s: %v", leafName, err))
 		} else {
 			parsed.Logs = append(parsed.Logs, leafName)
+			loglinesWritten += loglines
+		}
+
+		if loglinesWritten >= maxloglines {
+			return nil, fmt.Errorf("too many log lines in rageshake")
 		}
 	}
 
@@ -363,7 +374,7 @@ func parseJSONRequest(_ http.ResponseWriter, req *http.Request, reportDir string
 	return &parsed, nil
 }
 
-func parseMultipartRequest(_ http.ResponseWriter, req *http.Request, reportDir string) (*payload, error) {
+func parseMultipartRequest(_ http.ResponseWriter, req *http.Request, reportDir string, maxloglines int) (*payload, error) {
 	rdr, err := req.MultipartReader()
 	if err != nil {
 		return nil, err
@@ -373,6 +384,7 @@ func parseMultipartRequest(_ http.ResponseWriter, req *http.Request, reportDir s
 		Data: make(map[string]string),
 	}
 
+	loglinesWritten := 0
 	for true {
 		part, err := rdr.NextPart()
 		if err == io.EOF {
@@ -381,14 +393,25 @@ func parseMultipartRequest(_ http.ResponseWriter, req *http.Request, reportDir s
 			return nil, err
 		}
 
-		if err = parseFormPart(part, &p, reportDir); err != nil {
+		loglines, err := parseFormPart(part, &p, reportDir, maxloglines-loglinesWritten)
+		if err != nil {
 			return nil, err
+		}
+		log.Printf("Part %s: %d lines\n", part.FormName(), loglines)
+
+		loglinesWritten += loglines
+		if loglinesWritten >= maxloglines {
+			return nil, fmt.Errorf("too many log lines in rageshake")
 		}
 	}
 	return &p, nil
 }
 
-func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
+// parseFormPart handles a single part of a multipart form. If the part is a log, the number of lines copied is limited
+// to `maxloglines`.
+//
+// It returns the number of log lines saved, or 0 if the part is not a log.
+func parseFormPart(part *multipart.Part, p *payload, reportDir string, maxloglines int) (int, error) {
 	defer part.Close()
 	field := part.FormName()
 	partName := part.FileName()
@@ -407,7 +430,7 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 			log.Printf("Error unzipping %s: %v", partName, err)
 
 			p.LogErrors = append(p.LogErrors, fmt.Sprintf("Error unzipping %s: %v", partName, err))
-			return nil
+			return 0, nil
 		}
 		defer zrdr.Close()
 		partReader = zrdr
@@ -424,27 +447,27 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string) error {
 		} else {
 			p.Files = append(p.Files, leafName)
 		}
-		return nil
+		return 0, nil
 	}
 
 	if field == "log" || field == "compressed-log" {
-		leafName, err := saveLogPart(len(p.Logs), partName, partReader, reportDir)
+		leafName, lines, err := saveLogPart(len(p.Logs), partName, partReader, reportDir, maxloglines)
 		if err != nil {
 			log.Printf("Error saving %s %s: %v", field, partName, err)
 			p.LogErrors = append(p.LogErrors, fmt.Sprintf("Error saving %s: %v", partName, err))
 		} else {
 			p.Logs = append(p.Logs, leafName)
 		}
-		return nil
+		return lines, nil
 	}
 
 	b, err := ioutil.ReadAll(partReader)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	data := string(b)
 	formPartToPayload(field, data, p)
-	return nil
+	return 0, nil
 }
 
 // formPartToPayload updates the relevant part of *p from a name/value pair
@@ -509,10 +532,10 @@ func saveFormPart(leafName string, reader io.Reader, reportDir string) (string, 
 // '.'
 var logRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*\.(log|txt)(\.gz)?$`)
 
-// saveLogPart saves a log upload to the report directory.
+// saveLogPart saves a log upload to the report directory, up to the given maximum number of lines.
 //
-// Returns the leafname of the saved file.
-func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string) (string, error) {
+// Returns the leafname of the saved file and the number of lines saved.
+func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string, maxlines int) (string, int, error) {
 	// pick a name to save the log file with.
 	//
 	// some clients use sensible names (foo.N.log), which we preserve. For
@@ -536,19 +559,62 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 
 	f, err := os.Create(fullname)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer f.Close()
 
 	gz := gzip.NewWriter(f)
 	defer gz.Close()
 
-	_, err = io.Copy(gz, reader)
+	lines, err := copyLines(gz, reader, maxlines)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
-	return leafName, nil
+	return leafName, lines, nil
+}
+
+// copyLines copies lines of text from src to dst, up to maxlines.
+//
+// It returns the number of lines copied.
+func copyLines(dst io.Writer, src io.Reader, maxlines int) (int, error) {
+	count := 0
+	scanLines := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		if i := bytes.IndexByte(data, '\n'); i >= 0 {
+			// We have a full newline-terminated line.
+			return i + 1, data[0 : i+1], nil
+		}
+		// If we're at EOF, we have a final, non-terminated line. Return it.
+		if atEOF {
+			return len(data), data, nil
+		}
+		// Request more data.
+		return 0, nil, nil
+	}
+
+	scanner := bufio.NewScanner(src)
+	scanner.Split(scanLines)
+	for scanner.Scan() {
+		if count >= maxlines {
+			break
+		}
+		line := scanner.Bytes()
+		m, err := dst.Write(line)
+		if err != nil {
+			return 0, err
+		}
+		if m < len(line) {
+			return 0, io.ErrShortWrite
+		}
+		count++
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("error reading log submission: %w", err)
+	}
+	return count, nil
 }
 
 func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, listingURL string) (*submitResponse, error) {

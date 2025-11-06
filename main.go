@@ -71,6 +71,10 @@ type config struct {
 	// List of rejection conditions
 	RejectionConditions []RejectionCondition `yaml:"rejection_conditions"`
 
+	// The maximum number of log lines that may be included in a submission. Submissions above this size will be rejected.
+	// `nil` (i.e. unset in the YAML) means no limit.
+	MaxLogLines *int `yaml:"max_log_lines"`
+
 	// A GitHub personal access token, to create a GitHub issue for each report.
 	GithubToken string `yaml:"github_token"`
 

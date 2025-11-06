@@ -21,6 +21,7 @@ import (
 	"compress/gzip"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -36,7 +37,7 @@ import (
 //
 // if tempDir is empty, a new temp dir is created, and deleted when the test
 // completes.
-func testParsePayload(t *testing.T, body, contentType, tempDir string) *payload {
+func testParsePayload(t *testing.T, body, contentType, tempDir string, maxLogLines int) *payload {
 	req, err := http.NewRequest("POST", "/api/submit", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +54,7 @@ func testParsePayload(t *testing.T, body, contentType, tempDir string) *payload 
 	}
 
 	rr := httptest.NewRecorder()
-	p := parseRequest(rr, req, tempDir)
+	p := parseRequest(rr, req, tempDir, maxLogLines)
 	return p
 }
 
@@ -109,7 +110,7 @@ func TestEmptyJson(t *testing.T) {
 	body := "{}"
 
 	// we just test it is parsed without errors for now
-	p := testParsePayload(t, body, "application/json", "")
+	p := testParsePayload(t, body, "application/json", "", math.MaxInt)
 	if p == nil {
 		t.Fatal("parseRequest returned nil")
 	}
@@ -135,7 +136,7 @@ func TestJsonUpload(t *testing.T) {
     "version": "0.9.9"
 }`
 
-	p := testParsePayload(t, body, "application/json", reportDir)
+	p := testParsePayload(t, body, "application/json", reportDir, math.MaxInt)
 
 	if p == nil {
 		t.Fatal("parseRequest returned nil")
@@ -164,6 +165,7 @@ func TestMultipartUpload(t *testing.T) {
 	p := testParsePayload(t, multipartBody(),
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		reportDir,
+		math.MaxInt,
 	)
 
 	if p == nil {
@@ -290,6 +292,32 @@ func checkParsedMultipartUpload(t *testing.T, p *payload) {
 	}
 }
 
+// TestTooManyLinesUpload tests what happens when the rageshake contains more than the configred maximum log lines
+func TestTooManyLinesUpload(t *testing.T) {
+	reportDir := mkTempDir(t)
+	defer os.RemoveAll(reportDir)
+
+	p := testParsePayload(t, multipartBody(),
+		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
+		reportDir,
+		6,
+	)
+
+	if p != nil {
+		t.Fatal("parseRequest accepted upload with too many lines")
+	}
+
+	p = testParsePayload(t, multipartBody(),
+		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
+		reportDir,
+		7,
+	)
+
+	if p == nil {
+		t.Fatal("parseRequest rejected upload with acceptable number of lines")
+	}
+}
+
 func TestLabels(t *testing.T) {
 	body := `------WebKitFormBoundarySsdgl8Nq9voFyhdO
 Content-Disposition: form-data; name="label"
@@ -304,6 +332,7 @@ label2
 	p := testParsePayload(t, body,
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		"",
+		math.MaxInt,
 	)
 
 	if p == nil {
@@ -445,6 +474,7 @@ file
 	p := testParsePayload(t, body,
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		"",
+		math.MaxInt,
 	)
 
 	if p == nil {
@@ -481,6 +511,7 @@ riot-web
 	p := testParsePayload(t, body,
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		"",
+		math.MaxInt,
 	)
 
 	if p == nil {
@@ -511,6 +542,7 @@ Content-Disposition: form-data; name="text"
 	p := testParsePayload(t, body,
 		"multipart/form-data; boundary=----WebKitFormBoundarySsdgl8Nq9voFyhdO",
 		"",
+		math.MaxInt,
 	)
 
 	if p == nil {
@@ -604,7 +636,7 @@ func TestParseUserAgent(t *testing.T) {
     "version": "0.9.9"
 }`
 
-	p := testParsePayload(t, body, "application/json", reportDir)
+	p := testParsePayload(t, body, "application/json", reportDir, math.MaxInt)
 
 	if p == nil {
 		t.Fatal("parseRequest returned nil")
