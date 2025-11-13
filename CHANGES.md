@@ -1,3 +1,10 @@
+# 1.17.0 (2025-11-13)
+
+### Features
+
+- Add new config setting `max_log_lines` which allows the admin to impose a limit on the number of log lines in a rageshake. ([\#107](https://github.com/matrix-org/rageshake/issues/107))
+
+
 # 1.16.3 (2025-08-28)
 
 ### Features
