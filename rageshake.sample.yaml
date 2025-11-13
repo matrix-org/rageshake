@@ -1,10 +1,12 @@
 # username/password pair which will be required to access the bug report
 # listings at `/api/listing`, via HTTP basic auth.  If omitted, there will be
 # *no* authentication on this access!
+listings_auth_user: alice
+listings_auth_pass: secret
 
 # the external URL at which /api is accessible; it is used to add a link to the
 # report to the GitHub issue. If unspecified, based on the listen address.
-# api_prefix: https://riot.im/bugreports
+api_prefix: https://riot.im/bugreports
 
 # List of approved AppNames we accept. Names not in the list or missing an application name will be rejected.
 # An empty or missing list will retain legacy behaviour and permit reports from any application name.
@@ -28,6 +30,10 @@ rejection_conditions:
   - usertext: "(\\w{4}\\s){11}\\w{4}" # reject text containing possible recovery keys
     reason: "it matches a recovery key and recovery keys are private"
     errorcode: "REJECTED_UNEXPECTED_RECOVERY_KEY"
+
+# The maximum number of log lines that may be included in a submission. Submissions above this size will be rejected.
+# If omitted, there is no limit on the number of log lines.
+max_log_lines: 1000000
 
 # a GitHub personal access token (https://github.com/settings/tokens), which
 # will be used to create a GitHub issue for each report. It requires
