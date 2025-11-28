@@ -304,7 +304,7 @@ func parseRequest(w http.ResponseWriter, req *http.Request, reportDir string, ma
 			p, err1 := parseMultipartRequest(w, req, reportDir, maxloglines)
 			if err1 != nil {
 				log.Println("Error parsing multipart data:", err1)
-				writeError(w, 400, submitErrorResponse{Error: "Bad multipart data", ErrorCode: ErrCodeBadContent})
+				writeError(w, 400, submitErrorResponse{Error: fmt.Sprintf("Bad multipart data: %v", err1), ErrorCode: ErrCodeBadContent})
 				return nil
 			}
 			return p
