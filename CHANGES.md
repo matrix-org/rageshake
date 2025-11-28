@@ -1,3 +1,10 @@
+# 1.17.1 (2025-11-28)
+
+### Features
+
+- Improve HTTP error on malformed multipart submissions. ([\#108](https://github.com/matrix-org/rageshake/issues/108))
+
+
 # 1.17.0 (2025-11-13)
 
 ### Features
