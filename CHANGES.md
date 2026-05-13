@@ -1,3 +1,14 @@
+# 1.18.0 (2026-05-13)
+
+### Bugfixes
+
+- Prevent truncation of log files on lines that are over 4KB in length. ([\#109](https://github.com/matrix-org/rageshake/issues/109))
+
+### Internal Changes
+
+- Update miniumum supported Go version to 1.25, and bump all dependencies. ([\#110](https://github.com/matrix-org/rageshake/issues/110))
+
+
 # 1.17.1 (2025-11-28)
 
 ### Features
