@@ -461,7 +461,7 @@ func parseFormPart(part *multipart.Part, p *payload, reportDir string, maxloglin
 		return lines, nil
 	}
 
-	b, err := ioutil.ReadAll(partReader)
+	b, err := io.ReadAll(partReader)
 	if err != nil {
 		return 0, err
 	}
@@ -874,7 +874,7 @@ func buildGitlabIssueRequest(p payload, listingURL string, bodyTemplate *templat
 		Title:        &title,
 		Description:  &bodyStr,
 		Confidential: &confidential,
-		Labels:       labels,
+		Labels:       (*gitlab.LabelOptions)(&labels),
 	}, nil
 }
 
@@ -940,7 +940,7 @@ func gzipAndSave(data []byte, dirname, fpath string) error {
 	if err := gz.Close(); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(fpath, b.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(fpath, b.Bytes(), 0644); err != nil {
 		return err
 	}
 	return nil
