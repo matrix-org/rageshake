@@ -874,7 +874,7 @@ func buildGitlabIssueRequest(p payload, listingURL string, bodyTemplate *templat
 		Title:        &title,
 		Description:  &bodyStr,
 		Confidential: &confidential,
-		Labels:       labels,
+		Labels:       (*gitlab.LabelOptions)(&labels),
 	}, nil
 }
 
