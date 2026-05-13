@@ -1,0 +1,1 @@
+Prevent truncation of log files on lines that are over 4KB in length.

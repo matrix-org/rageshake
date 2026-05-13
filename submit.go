@@ -578,43 +578,57 @@ func saveLogPart(logNum int, filename string, reader io.Reader, reportDir string
 //
 // It returns the number of lines copied.
 func copyLines(dst io.Writer, src io.Reader, maxlines int) (int, error) {
-	count := 0
-	scanLines := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-		if i := bytes.IndexByte(data, '\n'); i >= 0 {
-			// We have a full newline-terminated line.
-			return i + 1, data[0 : i+1], nil
-		}
-		// If we're at EOF, we have a final, non-terminated line. Return it.
-		if atEOF {
-			return len(data), data, nil
-		}
-		// Request more data.
-		return 0, nil, nil
-	}
+	lineCount := 0
+	buf := make([]byte, 4096)
 
-	scanner := bufio.NewScanner(src)
-	scanner.Split(scanLines)
-	for scanner.Scan() {
-		if count >= maxlines {
-			break
+	// Did the previous buffer end with a partial line?
+	partialLine := false
+
+	for {
+		// Read data into the buffer
+		bufEnd, err := src.Read(buf)
+		if bufEnd <= 0 && err == io.EOF {
+			return lineCount, nil
+		} else if bufEnd <= 0 && err != nil {
+			return lineCount, fmt.Errorf("error reading log submission: %w", err)
 		}
-		line := scanner.Bytes()
-		m, err := dst.Write(line)
+
+		// If the previous buffer ended with a partial line, discount it from the line count so far before we
+		// start adding more data.
+		if partialLine {
+			lineCount--
+			partialLine = false
+		}
+
+		// See if there are more lines in the buffer than `maxlines`, and if so flush up to the last one
+		offset := 0
+		for offset < bufEnd {
+			if lineCount >= maxlines {
+				// Too many lines. Flush the buffer up to this point, then exit
+				log.Printf("Too many lines in log submission, truncating log file at %d lines\n", maxlines)
+
+				_, err := dst.Write(buf[0:offset])
+				if err != nil {
+					return lineCount, fmt.Errorf("error writing submitted log file: %w", err)
+				}
+				return lineCount, nil
+			}
+
+			lineCount++
+			index := bytes.IndexByte(buf[offset:bufEnd], '\n')
+			if index < 0 {
+				partialLine = true
+				break
+			}
+			offset += index + 1
+		}
+
+		// Flush the whole buffer
+		_, err = dst.Write(buf[:bufEnd])
 		if err != nil {
-			return 0, err
+			return lineCount, fmt.Errorf("error writing submitted log file: %w", err)
 		}
-		if m < len(line) {
-			return 0, io.ErrShortWrite
-		}
-		count++
 	}
-	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error reading log submission: %w", err)
-	}
-	return count, nil
 }
 
 func (s *submitServer) saveReport(ctx context.Context, p payload, reportDir, listingURL string) (*submitResponse, error) {
