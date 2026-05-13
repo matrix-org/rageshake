@@ -2,7 +2,7 @@
 
 Web service which collects and serves bug reports.
 
-rageshake requires Go version 1.23 or later.
+rageshake requires Go version 1.25 or later.
 
 To run it, do:
 
@@ -70,4 +70,3 @@ to repeat running after approximately 24 hours.
 Note that this script will scan all logs older than the smallest configured retention period,
 up to the limit specified by `--max-days` or each of the days in `--days-to-check`.
 This can be an IO and CPU intensive process if a large number of files are scanned.
-
