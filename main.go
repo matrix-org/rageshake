@@ -21,7 +21,6 @@ import (
 	"crypto/subtle"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -348,7 +347,7 @@ func configureGenericWebhookClient(cfg *config) *http.Client {
 }
 
 func loadConfig(configPath string) (*config, error) {
-	contents, err := ioutil.ReadFile(configPath)
+	contents, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}

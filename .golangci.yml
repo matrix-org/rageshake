@@ -20,6 +20,11 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
+
+  settings:
+    goconst:
+      ignore-tests: true
+
 formatters:
   enable:
     - goimports

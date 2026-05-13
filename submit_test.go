@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -413,7 +412,7 @@ func checkUploadedFile(t *testing.T, reportDir, leafName string, gzipped bool, w
 		defer gz.Close()
 		rdr = gz
 	}
-	dat, err := ioutil.ReadAll(rdr)
+	dat, err := io.ReadAll(rdr)
 	if err != nil {
 		t.Errorf("unable to read uploaded file %s: %v", leafName, err)
 		return
@@ -426,7 +425,7 @@ func checkUploadedFile(t *testing.T, reportDir, leafName string, gzipped bool, w
 }
 
 func mkTempDir(t *testing.T) string {
-	td, err := ioutil.TempDir("", "rageshake_test")
+	td, err := os.MkdirTemp("", "rageshake_test")
 	if err != nil {
 		t.Fatal(err)
 	}
